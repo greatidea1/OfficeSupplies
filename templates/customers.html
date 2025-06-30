@@ -1,0 +1,1268 @@
+{% extends "base.html" %}
+
+{% block title %}Customer Management - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Customer management specific styles */
+    .customers-container {
+        padding: 32px 0;
+    }
+    
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 32px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        text-align: center;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-blue);
+        margin-bottom: 4px;
+    }
+    
+    .stat-label {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .filters-section {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        margin-bottom: 32px;
+    }
+    
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .filter-label {
+        font-weight: 500;
+        color: var(--gray-700);
+        font-size: 0.875rem;
+    }
+    
+    .search-section {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .search-input {
+        flex: 1;
+        min-width: 250px;
+        padding: 12px 16px;
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        font-size: 0.875rem;
+    }
+    
+    .customers-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+    }
+    
+    .customers-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .customers-info {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+    }
+    
+    .view-toggle {
+        display: flex;
+        background: var(--gray-100);
+        border-radius: 8px;
+        padding: 4px;
+        gap: 4px;
+    }
+    
+    .view-btn {
+        padding: 8px 12px;
+        background: none;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        color: var(--gray-600);
+        transition: all 0.3s ease;
+    }
+    
+    .view-btn.active {
+        background: white;
+        color: var(--primary-blue);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .customers-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 24px;
+        padding: 24px;
+    }
+    
+    .customer-card {
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .customer-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--primary-blue);
+    }
+    
+    .customer-header {
+        padding: 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .customer-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 100px;
+        height: 100px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+    
+    .customer-id {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .customer-name {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    
+    .customer-email {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+    
+    .customer-body {
+        padding: 24px;
+    }
+    
+    .customer-details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    
+    .customer-detail {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .detail-label {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .detail-value {
+        font-weight: 500;
+        color: var(--gray-900);
+        font-size: 0.875rem;
+    }
+    
+    .customer-address {
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .address-text {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        line-height: 1.4;
+    }
+    
+    .customer-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .customer-stat {
+        text-align: center;
+        padding: 8px;
+        background: var(--gray-50);
+        border-radius: 6px;
+    }
+    
+    .stat-number {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--primary-blue);
+        margin-bottom: 2px;
+    }
+    
+    .stat-text {
+        font-size: 0.75rem;
+        color: var(--gray-600);
+    }
+    
+    .customer-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--gray-200);
+        background: var(--gray-50);
+        display: flex;
+        gap: 8px;
+    }
+    
+    .action-btn {
+        flex: 1;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-view {
+        background: var(--primary-blue);
+        color: white;
+    }
+    
+    .btn-view:hover {
+        background: var(--primary-blue-dark);
+    }
+    
+    .btn-edit {
+        background: var(--secondary-orange);
+        color: white;
+    }
+    
+    .btn-edit:hover {
+        opacity: 0.9;
+    }
+    
+    .btn-orders {
+        background: var(--secondary-green);
+        color: white;
+    }
+    
+    .btn-orders:hover {
+        opacity: 0.9;
+    }
+    
+    .status-indicator {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--secondary-green);
+        border: 2px solid white;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .status-indicator.inactive {
+        background: var(--secondary-red);
+    }
+    
+    .agreement-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 6px;
+        margin-top: 8px;
+    }
+    
+    .agreement-status.has-agreement {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--secondary-green);
+    }
+    
+    .agreement-status.no-agreement {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--secondary-orange);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--gray-500);
+    }
+    
+    .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    .empty-state-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--gray-700);
+    }
+    
+    .empty-state-text {
+        font-size: 1rem;
+        margin-bottom: 20px;
+    }
+    
+    .file-upload-area {
+        border: 2px dashed var(--gray-300);
+        border-radius: 12px;
+        padding: 32px;
+        text-align: center;
+        margin-bottom: 16px;
+        transition: all 0.3s ease;
+    }
+    
+    .file-upload-area:hover {
+        border-color: var(--primary-blue);
+        background: var(--gray-50);
+    }
+    
+    .file-upload-area.dragover {
+        border-color: var(--primary-blue);
+        background: rgba(37, 99, 235, 0.05);
+    }
+    
+    .upload-icon {
+        font-size: 48px;
+        color: var(--gray-400);
+        margin-bottom: 16px;
+    }
+    
+    .upload-text {
+        color: var(--gray-600);
+        margin-bottom: 8px;
+    }
+    
+    .upload-hint {
+        font-size: 0.875rem;
+        color: var(--gray-500);
+    }
+    
+    .file-input {
+        display: none;
+    }
+    
+    @media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .stats-overview {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .filters-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .search-section {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .search-input {
+            min-width: auto;
+        }
+        
+        .customers-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .customers-header {
+            flex-direction: column;
+            gap: 16px;
+            align-items: flex-start;
+        }
+        
+        .customer-details {
+            grid-template-columns: 1fr;
+        }
+        
+        .customer-stats {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="customers-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Customer Management</h1>
+            </div>
+            <div class="header-actions">
+                {% if current_user.role == 'vendor_superadmin' %}
+                <button class="btn btn-secondary" onclick="exportCustomers()">
+                    <i class="fas fa-download"></i>
+                    Export
+                </button>
+                <button class="btn btn-primary" onclick="showAddCustomerModal()">
+                    <i class="fas fa-building-user"></i>
+                    Register Customer
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Statistics Overview -->
+        <div class="stats-overview" id="statsOverview">
+            <!-- Stats will be loaded here -->
+        </div>
+        
+        <!-- Filters Section -->
+        <div class="filters-section">
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label class="filter-label">Status</label>
+                    <select class="form-control" id="statusFilter">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label">Registration Date</label>
+                    <select class="form-control" id="dateFilter">
+                        <option value="">All Time</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="quarter">This Quarter</option>
+                        <option value="year">This Year</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label">Agreement Status</label>
+                    <select class="form-control" id="agreementFilter">
+                        <option value="">All</option>
+                        <option value="has_agreement">Has Agreement</option>
+                        <option value="no_agreement">No Agreement</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label">Sort By</label>
+                    <select class="form-control" id="sortFilter">
+                        <option value="name_asc">Name (A-Z)</option>
+                        <option value="name_desc">Name (Z-A)</option>
+                        <option value="created_desc">Newest First</option>
+                        <option value="created_asc">Oldest First</option>
+                        <option value="orders_desc">Most Orders</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="search-section">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="searchInput" 
+                    placeholder="Search customers by name, email, or customer ID..."
+                >
+                <button class="btn btn-primary" onclick="searchCustomers()">
+                    <i class="fas fa-search"></i>
+                    Search
+                </button>
+                <button class="btn btn-secondary" onclick="clearFilters()">
+                    <i class="fas fa-times"></i>
+                    Clear
+                </button>
+            </div>
+        </div>
+        
+        <!-- Customers Section -->
+        <div class="customers-section">
+            <div class="customers-header">
+                <div class="customers-info" id="customersInfo">
+                    Loading customers...
+                </div>
+                <div class="view-toggle">
+                    <button class="view-btn active" id="gridViewBtn" onclick="setView('grid')">
+                        <i class="fas fa-th"></i>
+                    </button>
+                    <button class="view-btn" id="tableViewBtn" onclick="setView('table')">
+                        <i class="fas fa-list"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Grid View -->
+            <div class="customers-grid" id="customersGrid">
+                <!-- Customers will be loaded here -->
+            </div>
+            
+            <!-- Table View -->
+            <div class="table-container" id="customersTable" style="display: none;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Contact</th>
+                            <th>Registration</th>
+                            <th>Status</th>
+                            <th>Orders</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customersTableBody">
+                        <!-- Table rows will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Customer Modal -->
+{% if current_user.role == 'vendor_superadmin' %}
+<div class="modal" id="addCustomerModal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Register New Customer</h3>
+            <button class="modal-close" onclick="closeAddCustomerModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="addCustomerForm" data-validate enctype="multipart/form-data">
+                <div class="form-group">
+                    <label class="form-label">Company Name</label>
+                    <input type="text" class="form-control" name="company_name" required data-label="Company Name">
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" class="form-control" name="email" required data-label="Email">
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Postal Address</label>
+                    <textarea class="form-control" name="postal_address" rows="3" required data-label="Postal Address"></textarea>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Primary Phone</label>
+                    <input type="tel" class="form-control" name="primary_phone" required data-label="Primary Phone">
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Alternate Phone (Optional)</label>
+                    <input type="tel" class="form-control" name="alternate_phone">
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Agreement Document</label>
+                    <div class="file-upload-area" onclick="document.getElementById('agreementFile').click()">
+                        <div class="upload-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <div class="upload-text">Click to upload agreement document</div>
+                        <div class="upload-hint">Supported formats: PDF, JPG, JPEG, PNG (Max 16MB)</div>
+                    </div>
+                    <input type="file" id="agreementFile" name="agreement_file" class="file-input" accept=".pdf,.jpg,.jpeg,.png">
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="send_email" value="true">
+                        Send welcome email to customer
+                    </label>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeAddCustomerModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddCustomer()">Register Customer</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Customer Details Modal -->
+<div class="modal" id="customerModal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 class="modal-title" id="customerModalTitle">Customer Details</h3>
+            <button class="modal-close" onclick="closeCustomerModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="customerModalBody">
+            <!-- Customer details will be loaded here -->
+        </div>
+        <div class="modal-footer" id="customerModalFooter">
+            <!-- Action buttons will be loaded here -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Customer management functionality
+    let currentCustomers = [];
+    let filteredCustomers = [];
+    let currentView = 'grid';
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCustomers();
+        loadStatistics();
+        setupEventListeners();
+        setupFileUpload();
+    });
+    
+    function setupEventListeners() {
+        // Search on Enter key
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchCustomers();
+            }
+        });
+        
+        // Auto-search on filter changes
+        ['statusFilter', 'dateFilter', 'agreementFilter', 'sortFilter'].forEach(id => {
+            document.getElementById(id).addEventListener('change', searchCustomers);
+        });
+    }
+    
+    function setupFileUpload() {
+        const uploadArea = document.querySelector('.file-upload-area');
+        const fileInput = document.getElementById('agreementFile');
+        
+        if (!uploadArea || !fileInput) return;
+        
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                updateFileDisplay(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                updateFileDisplay(e.target.files[0]);
+            }
+        });
+    }
+    
+    function updateFileDisplay(file) {
+        const uploadArea = document.querySelector('.file-upload-area');
+        const uploadText = uploadArea.querySelector('.upload-text');
+        const uploadHint = uploadArea.querySelector('.upload-hint');
+        
+        uploadText.textContent = `Selected: ${file.name}`;
+        uploadHint.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+    }
+    
+    async function loadStatistics() {
+        try {
+            // Load customer statistics
+            const customerStats = {
+                total: currentCustomers.length,
+                active: currentCustomers.filter(c => c.is_active).length,
+                thisMonth: 0, // Would be calculated from creation dates
+                withAgreements: currentCustomers.filter(c => c.agreement_file_url).length
+            };
+            
+            const statsOverview = document.getElementById('statsOverview');
+            statsOverview.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${customerStats.total}</div>
+                    <div class="stat-label">Total Customers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${customerStats.active}</div>
+                    <div class="stat-label">Active Customers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${customerStats.thisMonth}</div>
+                    <div class="stat-label">New This Month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${customerStats.withAgreements}</div>
+                    <div class="stat-label">With Agreements</div>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+        }
+    }
+    
+    async function loadCustomers() {
+        try {
+            const response = await apiCall('/customers');
+            
+            if (response.success) {
+                currentCustomers = response.customers;
+                filteredCustomers = [...currentCustomers];
+                
+                // Load additional statistics for each customer
+                await loadCustomerStatistics();
+                
+                applyFilters();
+                loadStatistics();
+            }
+        } catch (error) {
+            console.error('Error loading customers:', error);
+            showEmptyState('Error loading customers');
+        }
+    }
+    
+    async function loadCustomerStatistics() {
+        // Load order counts and other stats for each customer
+        for (let customer of currentCustomers) {
+            try {
+                const statsResponse = await apiCall(`/customers/${customer.customer_id}/statistics`);
+                if (statsResponse.success) {
+                    customer.statistics = statsResponse.statistics;
+                }
+            } catch (error) {
+                console.error(`Error loading stats for customer ${customer.customer_id}:`, error);
+                customer.statistics = {
+                    total_orders: 0,
+                    total_spent: 0,
+                    active_users: 0,
+                    departments: 0
+                };
+            }
+        }
+    }
+    
+    function searchCustomers() {
+        applyFilters();
+    }
+    
+    function applyFilters() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const status = document.getElementById('statusFilter').value;
+        const dateRange = document.getElementById('dateFilter').value;
+        const agreementStatus = document.getElementById('agreementFilter').value;
+        const sortBy = document.getElementById('sortFilter').value;
+        
+        filteredCustomers = currentCustomers.filter(customer => {
+            // Search filter
+            const matchesSearch = !searchTerm || 
+                customer.company_name.toLowerCase().includes(searchTerm) ||
+                customer.email.toLowerCase().includes(searchTerm) ||
+                customer.customer_id.toLowerCase().includes(searchTerm);
+            
+            // Status filter
+            const matchesStatus = !status || 
+                (status === 'active' && customer.is_active) ||
+                (status === 'inactive' && !customer.is_active);
+            
+            // Date filter
+            let matchesDate = true;
+            if (dateRange) {
+                const customerDate = new Date(customer.created_at);
+                const now = new Date();
+                
+                switch (dateRange) {
+                    case 'week':
+                        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        matchesDate = customerDate >= weekAgo;
+                        break;
+                    case 'month':
+                        matchesDate = customerDate.getMonth() === now.getMonth() && 
+                                    customerDate.getFullYear() === now.getFullYear();
+                        break;
+                    case 'quarter':
+                        const quarter = Math.floor(now.getMonth() / 3);
+                        const customerQuarter = Math.floor(customerDate.getMonth() / 3);
+                        matchesDate = customerQuarter === quarter && 
+                                    customerDate.getFullYear() === now.getFullYear();
+                        break;
+                    case 'year':
+                        matchesDate = customerDate.getFullYear() === now.getFullYear();
+                        break;
+                }
+            }
+            
+            // Agreement filter
+            const matchesAgreement = !agreementStatus ||
+                (agreementStatus === 'has_agreement' && customer.agreement_file_url) ||
+                (agreementStatus === 'no_agreement' && !customer.agreement_file_url);
+            
+            return matchesSearch && matchesStatus && matchesDate && matchesAgreement;
+        });
+        
+        // Apply sorting
+        filteredCustomers.sort((a, b) => {
+            switch (sortBy) {
+                case 'name_asc': return a.company_name.localeCompare(b.company_name);
+                case 'name_desc': return b.company_name.localeCompare(a.company_name);
+                case 'created_desc': return new Date(b.created_at) - new Date(a.created_at);
+                case 'created_asc': return new Date(a.created_at) - new Date(b.created_at);
+                case 'orders_desc': 
+                    const aOrders = a.statistics?.total_orders || 0;
+                    const bOrders = b.statistics?.total_orders || 0;
+                    return bOrders - aOrders;
+                default: return 0;
+            }
+        });
+        
+        displayCustomers();
+        updateCustomersInfo();
+    }
+    
+    function displayCustomers() {
+        if (currentView === 'grid') {
+            displayGridView();
+        } else {
+            displayTableView();
+        }
+    }
+    
+    function displayGridView() {
+        const grid = document.getElementById('customersGrid');
+        const table = document.getElementById('customersTable');
+        
+        grid.style.display = 'grid';
+        table.style.display = 'none';
+        
+        if (filteredCustomers.length === 0) {
+            showEmptyState();
+            return;
+        }
+        
+        grid.innerHTML = filteredCustomers.map(customer => `
+            <div class="customer-card" onclick="viewCustomer('${customer.customer_id}')">
+                <div class="customer-header">
+                    <div class="status-indicator ${customer.is_active ? 'active' : 'inactive'}"></div>
+                    <div class="customer-id">ID: ${customer.customer_id}</div>
+                    <div class="customer-name">${customer.company_name}</div>
+                    <div class="customer-email">${customer.email}</div>
+                </div>
+                <div class="customer-body">
+                    <div class="customer-address">
+                        <div class="address-text">${customer.postal_address}</div>
+                    </div>
+                    
+                    <div class="customer-details">
+                        <div class="customer-detail">
+                            <span class="detail-label">Primary Phone</span>
+                            <span class="detail-value">${customer.primary_phone}</span>
+                        </div>
+                        <div class="customer-detail">
+                            <span class="detail-label">Registered</span>
+                            <span class="detail-value">${formatDate(customer.created_at)}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="customer-stats">
+                        <div class="customer-stat">
+                            <div class="stat-number">${customer.statistics?.total_orders || 0}</div>
+                            <div class="stat-text">Orders</div>
+                        </div>
+                        <div class="customer-stat">
+                            <div class="stat-number">${customer.statistics?.active_users || 0}</div>
+                            <div class="stat-text">Users</div>
+                        </div>
+                        <div class="customer-stat">
+                            <div class="stat-number">${customer.statistics?.departments || 0}</div>
+                            <div class="stat-text">Depts</div>
+                        </div>
+                    </div>
+                    
+                    <div class="agreement-status ${customer.agreement_file_url ? 'has-agreement' : 'no-agreement'}">
+                        <i class="fas fa-${customer.agreement_file_url ? 'file-check' : 'file-exclamation'}"></i>
+                        ${customer.agreement_file_url ? 'Agreement on file' : 'No agreement'}
+                    </div>
+                </div>
+                <div class="customer-footer">
+                    ${getCustomerActions(customer)}
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function displayTableView() {
+        const grid = document.getElementById('customersGrid');
+        const table = document.getElementById('customersTable');
+        const tbody = document.getElementById('customersTableBody');
+        
+        grid.style.display = 'none';
+        table.style.display = 'block';
+        
+        if (filteredCustomers.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 40px; color: var(--gray-500);">
+                        No customers found
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = filteredCustomers.map(customer => `
+            <tr onclick="viewCustomer('${customer.customer_id}')" style="cursor: pointer;">
+                <td>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 8px; height: 8px; border-radius: 50%; background: ${customer.is_active ? 'var(--secondary-green)' : 'var(--secondary-red)'}"></div>
+                        <div>
+                            <div style="font-weight: 600;">${customer.company_name}</div>
+                            <div style="font-size: 0.875rem; color: var(--gray-600);">ID: ${customer.customer_id}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div>${customer.email}</div>
+                    <div style="font-size: 0.875rem; color: var(--gray-600);">${customer.primary_phone}</div>
+                </td>
+                <td>${formatDate(customer.created_at)}</td>
+                <td>
+                    <span class="badge ${customer.is_active ? 'badge-success' : 'badge-danger'}">
+                        ${customer.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                </td>
+                <td><strong>${customer.statistics?.total_orders || 0}</strong></td>
+                <td onclick="event.stopPropagation();">
+                    ${getCustomerTableActions(customer)}
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    function getCustomerActions(customer) {
+        const actions = [];
+        
+        actions.push(`<button class="action-btn btn-view" onclick="event.stopPropagation(); viewCustomer('${customer.customer_id}')">View Details</button>`);
+        
+        {% if current_user.role == 'vendor_superadmin' %}
+        actions.push(`<button class="action-btn btn-edit" onclick="event.stopPropagation(); editCustomer('${customer.customer_id}')">Edit</button>`);
+        {% endif %}
+        
+        actions.push(`<button class="action-btn btn-orders" onclick="event.stopPropagation(); viewCustomerOrders('${customer.customer_id}')">Orders</button>`);
+        
+        return actions.join('');
+    }
+    
+    function getCustomerTableActions(customer) {
+        {% if current_user.role == 'vendor_superadmin' %}
+        return `
+            <button class="btn btn-sm btn-secondary" onclick="editCustomer('${customer.customer_id}')">Edit</button>
+            <button class="btn btn-sm btn-primary" onclick="viewCustomerOrders('${customer.customer_id}')">Orders</button>
+        `;
+        {% else %}
+        return `<button class="btn btn-sm btn-primary" onclick="viewCustomerOrders('${customer.customer_id}')">View Orders</button>`;
+        {% endif %}
+    }
+    
+    function setView(view) {
+        currentView = view;
+        
+        document.getElementById('gridViewBtn').classList.toggle('active', view === 'grid');
+        document.getElementById('tableViewBtn').classList.toggle('active', view === 'table');
+        
+        displayCustomers();
+    }
+    
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('dateFilter').value = '';
+        document.getElementById('agreementFilter').value = '';
+        document.getElementById('sortFilter').value = 'name_asc';
+        
+        searchCustomers();
+    }
+    
+    function updateCustomersInfo() {
+        const info = document.getElementById('customersInfo');
+        const total = filteredCustomers.length;
+        
+        if (total === 0) {
+            info.textContent = 'No customers found';
+        } else {
+            info.textContent = `Showing ${total} customer${total !== 1 ? 's' : ''}`;
+        }
+    }
+    
+    function showEmptyState() {
+        const grid = document.getElementById('customersGrid');
+        grid.innerHTML = `
+            <div class="empty-state" style="grid-column: 1 / -1;">
+                <div class="empty-state-icon">
+                    <i class="fas fa-building"></i>
+                </div>
+                <div class="empty-state-title">No customers found</div>
+                <div class="empty-state-text">Try adjusting your search criteria or register new customers</div>
+                {% if current_user.role == 'vendor_superadmin' %}
+                <button class="btn btn-primary" onclick="showAddCustomerModal()">
+                    <i class="fas fa-building-user"></i>
+                    Register Customer
+                </button>
+                {% endif %}
+            </div>
+        `;
+    }
+    
+    async function viewCustomer(customerId) {
+        try {
+            const response = await apiCall(`/customers/${customerId}`);
+            
+            if (response.success) {
+                const customer = response.customer;
+                const modal = document.getElementById('customerModal');
+                const title = document.getElementById('customerModalTitle');
+                const body = document.getElementById('customerModalBody');
+                const footer = document.getElementById('customerModalFooter');
+                
+                title.textContent = customer.company_name;
+                
+                body.innerHTML = `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                        <div>
+                            <h4 style="margin-bottom: 16px;">Company Information</h4>
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <div><strong>Customer ID:</strong> ${customer.customer_id}</div>
+                                <div><strong>Company Name:</strong> ${customer.company_name}</div>
+                                <div><strong>Email:</strong> ${customer.email}</div>
+                                <div><strong>Primary Phone:</strong> ${customer.primary_phone}</div>
+                                ${customer.alternate_phone ? `<div><strong>Alternate Phone:</strong> ${customer.alternate_phone}</div>` : ''}
+                                <div><strong>Status:</strong> 
+                                    <span class="badge ${customer.is_active ? 'badge-success' : 'badge-danger'}">
+                                        ${customer.is_active ? 'Active' : 'Inactive'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 style="margin-bottom: 16px;">Statistics</h4>
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <div><strong>Total Orders:</strong> ${customer.statistics?.total_orders || 0}</div>
+                                <div><strong>Total Spent:</strong> ${formatCurrency(customer.statistics?.total_spent || 0)}</div>
+                                <div><strong>Active Users:</strong> ${customer.statistics?.active_users || 0}</div>
+                                <div><strong>Departments:</strong> ${customer.statistics?.departments || 0}</div>
+                                <div><strong>Registered:</strong> ${formatDate(customer.created_at)}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="margin-bottom: 16px;">Address</h4>
+                        <div style="background: var(--gray-50); padding: 16px; border-radius: 8px;">
+                            ${customer.postal_address}
+                        </div>
+                    </div>
+                    
+                    ${customer.agreement_file_url ? `
+                        <div>
+                            <h4 style="margin-bottom: 16px;">Agreement</h4>
+                            <div style="display: flex; align-items: center; gap: 12px; background: var(--gray-50); padding: 16px; border-radius: 8px;">
+                                <i class="fas fa-file-check" style="color: var(--secondary-green);"></i>
+                                <span>Agreement document on file</span>
+                                <a href="${customer.agreement_file_url}" target="_blank" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-download"></i> Download
+                                </a>
+                            </div>
+                        </div>
+                    ` : `
+                        <div>
+                            <h4 style="margin-bottom: 16px;">Agreement</h4>
+                            <div style="display: flex; align-items: center; gap: 12px; background: rgba(245, 158, 11, 0.1); padding: 16px; border-radius: 8px; color: var(--secondary-orange);">
+                                <i class="fas fa-file-exclamation"></i>
+                                <span>No agreement document on file</span>
+                            </div>
+                        </div>
+                    `}
+                `;
+                
+                footer.innerHTML = `
+                    <button class="btn btn-secondary" onclick="closeCustomerModal()">Close</button>
+                    <button class="btn btn-primary" onclick="viewCustomerOrders('${customer.customer_id}')">
+                        <i class="fas fa-shopping-cart"></i> View Orders
+                    </button>
+                    {% if current_user.role == 'vendor_superadmin' %}
+                    <button class="btn btn-warning" onclick="editCustomer('${customer.customer_id}')">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    {% endif %}
+                `;
+                
+                modal.classList.add('show');
+            }
+        } catch (error) {
+            console.error('Error loading customer details:', error);
+        }
+    }
+    
+    function closeCustomerModal() {
+        document.getElementById('customerModal').classList.remove('show');
+    }
+    
+    function viewCustomerOrders(customerId) {
+        window.location.href = `/orders?customer_id=${customerId}`;
+    }
+    
+    {% if current_user.role == 'vendor_superadmin' %}
+    function showAddCustomerModal() {
+        document.getElementById('addCustomerModal').classList.add('show');
+        document.querySelector('[name="company_name"]').focus();
+    }
+    
+    function closeAddCustomerModal() {
+        document.getElementById('addCustomerModal').classList.remove('show');
+        document.getElementById('addCustomerForm').reset();
+        
+        // Reset file upload display
+        const uploadArea = document.querySelector('.file-upload-area');
+        const uploadText = uploadArea.querySelector('.upload-text');
+        const uploadHint = uploadArea.querySelector('.upload-hint');
+        
+        uploadText.textContent = 'Click to upload agreement document';
+        uploadHint.textContent = 'Supported formats: PDF, JPG, JPEG, PNG (Max 16MB)';
+    }
+    
+    async function submitAddCustomer() {
+        const form = document.getElementById('addCustomerForm');
+        
+        if (!validateForm(form)) {
+            return;
+        }
+        
+        const formData = new FormData(form);
+        
+        try {
+            const response = await fetch('/api/customers', {
+                method: 'POST',
+                body: formData // Don't set Content-Type for FormData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showNotification('Customer registered successfully!', 'success');
+                closeAddCustomerModal();
+                loadCustomers();
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            console.error('Error registering customer:', error);
+            showNotification(error.message || 'Failed to register customer', 'error');
+        }
+    }
+    
+    function editCustomer(customerId) {
+        // Implementation for editing customer
+        window.location.href = `/customers/${customerId}/edit`;
+    }
+    
+    function exportCustomers() {
+        window.location.href = '/api/vendor/export/customers';
+    }
+    {% endif %}
+</script>
+{% endblock %}

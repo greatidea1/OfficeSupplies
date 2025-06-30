@@ -1,0 +1,547 @@
+# User Controller - Handle user management operations
+from flask import request, session
+from models import User, Customer, Department
+from controllers.auth_controller import auth_controller
+from config import config
+import uuid
+
+class UserController:
+    """Handle user management operations"""
+    
+    def __init__(self):
+        self.auth = auth_controller
+    
+    def get_users(self):
+        """Get users list based on current user's permissions"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            # Get query parameters
+            search = request.args.get('search', '')
+            role = request.args.get('role', '')
+            status = request.args.get('status', '')
+            customer_id = request.args.get('customer_id', '')
+            
+            # Get users based on current user's role and permissions
+            if current_user.role == 'vendor_superadmin':
+                users = self.get_all_users()
+            elif current_user.role == 'vendor_admin':
+                users = self.get_vendor_and_customer_users()
+            elif current_user.role == 'customer_hr_admin':
+                users = self.get_customer_users(current_user.customer_id)
+            else:
+                return {'success': False, 'message': 'Insufficient permissions'}
+            
+            # Apply filters
+            if search:
+                search = search.lower()
+                users = [u for u in users if 
+                        search in u.username.lower() or 
+                        search in (u.full_name or '').lower() or 
+                        search in u.email.lower()]
+            
+            if role:
+                users = [u for u in users if u.role == role]
+            
+            if status:
+                if status == 'active':
+                    users = [u for u in users if u.is_active]
+                elif status == 'inactive':
+                    users = [u for u in users if not u.is_active]
+            
+            if customer_id:
+                users = [u for u in users if u.customer_id == customer_id]
+            
+            # Sort users
+            users.sort(key=lambda u: u.full_name or u.username)
+            
+            # Convert to dict and add additional info
+            user_list = []
+            for user in users:
+                user_dict = user.to_dict()
+                
+                # Remove sensitive information
+                del user_dict['password_hash']
+                
+                # Add additional info
+                if user.customer_id:
+                    customer = Customer.get_by_id(user.customer_id)
+                    user_dict['customer_name'] = customer.company_name if customer else 'Unknown'
+                
+                if user.department_id:
+                    department = Department.get_by_id(user.department_id)
+                    user_dict['department_name'] = department.name if department else 'Unknown'
+                
+                user_dict['can_edit'] = self.can_edit_user(current_user, user)
+                user_dict['can_delete'] = self.can_delete_user(current_user, user)
+                
+                user_list.append(user_dict)
+            
+            # Get available roles for current user
+            available_roles = self.get_available_roles(current_user)
+            
+            return {
+                'success': True,
+                'users': user_list,
+                'available_roles': available_roles,
+                'total': len(user_list)
+            }
+            
+        except Exception as e:
+            print(f"Get users error: {e}")
+            return {'success': False, 'message': 'Failed to retrieve users'}
+    
+    def get_user(self, user_id):
+        """Get single user details"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            user = User.get_by_id(user_id)
+            if not user:
+                return {'success': False, 'message': 'User not found'}
+            
+            # Check permissions
+            if not self.can_view_user(current_user, user):
+                return {'success': False, 'message': 'Access denied'}
+            
+            user_dict = user.to_dict()
+            del user_dict['password_hash']  # Remove sensitive info
+            
+            # Add additional info
+            if user.customer_id:
+                customer = Customer.get_by_id(user.customer_id)
+                user_dict['customer_name'] = customer.company_name if customer else 'Unknown'
+            
+            if user.department_id:
+                department = Department.get_by_id(user.department_id)
+                user_dict['department_name'] = department.name if department else 'Unknown'
+            
+            user_dict['can_edit'] = self.can_edit_user(current_user, user)
+            user_dict['can_delete'] = self.can_delete_user(current_user, user)
+            
+            return {
+                'success': True,
+                'user': user_dict
+            }
+            
+        except Exception as e:
+            print(f"Get user error: {e}")
+            return {'success': False, 'message': 'Failed to retrieve user'}
+    
+    def create_user(self):
+        """Create new user"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            data = request.get_json()
+            
+            # Validate required fields
+            required_fields = ['username', 'email', 'role']
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    return {'success': False, 'message': f'{field} is required'}
+            
+            # Check permissions
+            if not self.can_create_user_with_role(current_user, data['role']):
+                return {'success': False, 'message': 'Insufficient permissions to create user with this role'}
+            
+            # Check if username already exists
+            existing_user = User.get_by_username(data['username'])
+            if existing_user:
+                return {'success': False, 'message': 'Username already exists'}
+            
+            # Check if email already exists
+            existing_email = User.get_by_email(data['email'])
+            if existing_email:
+                return {'success': False, 'message': 'Email already exists'}
+            
+            # Generate temporary password
+            temp_password = f"temp_{uuid.uuid4().hex[:8]}"
+            
+            # Create user
+            user = User(
+                username=data['username'],
+                email=data['email'],
+                password_hash=User.hash_password(temp_password),
+                role=data['role']
+            )
+            
+            user.full_name = data.get('full_name', '')
+            user.is_first_login = True
+            user.password_reset_required = True
+            
+            # Set customer_id based on role and current user
+            if data['role'].startswith('customer_'):
+                if current_user.role == 'customer_hr_admin':
+                    user.customer_id = current_user.customer_id
+                elif current_user.role.startswith('vendor_') and 'customer_id' in data:
+                    user.customer_id = data['customer_id']
+                else:
+                    return {'success': False, 'message': 'Customer ID required for customer users'}
+            
+            # Set department_id for customer employees
+            if data['role'] == 'customer_employee' and 'department_id' in data:
+                user.department_id = data['department_id']
+            
+            if user.save():
+                # Send welcome email
+                send_email = data.get('send_email', False)
+                if send_email:
+                    self.auth.send_welcome_email(user, temp_password)
+                
+                return {
+                    'success': True,
+                    'message': 'User created successfully',
+                    'user_id': user.user_id,
+                    'temp_password': temp_password
+                }
+            else:
+                return {'success': False, 'message': 'Failed to create user'}
+                
+        except Exception as e:
+            print(f"Create user error: {e}")
+            return {'success': False, 'message': 'Failed to create user'}
+    
+    def update_user(self, user_id):
+        """Update user information"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            user = User.get_by_id(user_id)
+            if not user:
+                return {'success': False, 'message': 'User not found'}
+            
+            # Check permissions
+            if not self.can_edit_user(current_user, user):
+                return {'success': False, 'message': 'Insufficient permissions'}
+            
+            data = request.get_json()
+            
+            # Update allowed fields
+            updateable_fields = ['full_name', 'email', 'is_active']
+            
+            # Role can only be updated by vendor users
+            if current_user.role.startswith('vendor_') and 'role' in data:
+                if self.can_create_user_with_role(current_user, data['role']):
+                    updateable_fields.append('role')
+                else:
+                    return {'success': False, 'message': 'Cannot assign this role'}
+            
+            # Department can be updated for customer employees
+            if (data.get('role') == 'customer_employee' or user.role == 'customer_employee') and 'department_id' in data:
+                updateable_fields.append('department_id')
+            
+            for field in updateable_fields:
+                if field in data:
+                    if field == 'is_active':
+                        setattr(user, field, bool(data[field]))
+                    else:
+                        setattr(user, field, data[field])
+            
+            if user.save():
+                return {
+                    'success': True,
+                    'message': 'User updated successfully'
+                }
+            else:
+                return {'success': False, 'message': 'Failed to update user'}
+                
+        except Exception as e:
+            print(f"Update user error: {e}")
+            return {'success': False, 'message': 'Failed to update user'}
+    
+    def update_profile(self):
+        """Update current user's profile"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            data = request.get_json()
+            
+            # Allow users to update their own profile fields
+            updateable_fields = ['full_name']
+            
+            for field in updateable_fields:
+                if field in data:
+                    setattr(current_user, field, data[field])
+            
+            if current_user.save():
+                return {
+                    'success': True,
+                    'message': 'Profile updated successfully'
+                }
+            else:
+                return {'success': False, 'message': 'Failed to update profile'}
+                
+        except Exception as e:
+            print(f"Update profile error: {e}")
+            return {'success': False, 'message': 'Failed to update profile'}
+    
+    def delete_user(self, user_id):
+        """Deactivate user (soft delete)"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            user = User.get_by_id(user_id)
+            if not user:
+                return {'success': False, 'message': 'User not found'}
+            
+            # Check permissions
+            if not self.can_delete_user(current_user, user):
+                return {'success': False, 'message': 'Insufficient permissions'}
+            
+            # Prevent self-deletion
+            if user.user_id == current_user.user_id:
+                return {'success': False, 'message': 'Cannot delete your own account'}
+            
+            # Soft delete by deactivating
+            user.is_active = False
+            
+            if user.save():
+                return {
+                    'success': True,
+                    'message': 'User deactivated successfully'
+                }
+            else:
+                return {'success': False, 'message': 'Failed to deactivate user'}
+                
+        except Exception as e:
+            print(f"Delete user error: {e}")
+            return {'success': False, 'message': 'Failed to deactivate user'}
+    
+    def reset_user_password(self, user_id):
+        """Reset user password (Admin only)"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            user = User.get_by_id(user_id)
+            if not user:
+                return {'success': False, 'message': 'User not found'}
+            
+            # Check permissions
+            if not self.can_edit_user(current_user, user):
+                return {'success': False, 'message': 'Insufficient permissions'}
+            
+            # Generate new temporary password
+            temp_password = f"temp_{uuid.uuid4().hex[:8]}"
+            
+            # Reset password
+            user.password_hash = User.hash_password(temp_password)
+            user.password_reset_required = True
+            user.is_first_login = True
+            
+            if user.save():
+                # Send password reset email
+                data = request.get_json() or {}
+                if data.get('send_email', False):
+                    self.auth.send_welcome_email(user, temp_password)
+                
+                return {
+                    'success': True,
+                    'message': 'Password reset successfully',
+                    'temp_password': temp_password
+                }
+            else:
+                return {'success': False, 'message': 'Failed to reset password'}
+                
+        except Exception as e:
+            print(f"Reset password error: {e}")
+            return {'success': False, 'message': 'Failed to reset password'}
+    
+    def get_departments(self):
+        """Get departments for current user's customer"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user or not current_user.role.startswith('customer_'):
+                return {'success': False, 'message': 'Only customer users can view departments'}
+            
+            departments = Department.get_by_customer_id(current_user.customer_id)
+            
+            dept_list = []
+            for dept in departments:
+                dept_dict = dept.to_dict()
+                
+                # Add user count
+                users = User.get_by_customer_id(current_user.customer_id)
+                dept_users = [u for u in users if u.department_id == dept.department_id]
+                dept_dict['user_count'] = len(dept_users)
+                
+                dept_list.append(dept_dict)
+            
+            return {
+                'success': True,
+                'departments': dept_list
+            }
+            
+        except Exception as e:
+            print(f"Get departments error: {e}")
+            return {'success': False, 'message': 'Failed to retrieve departments'}
+    
+    def create_department(self):
+        """Create new department (Customer HR Admin only)"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user or current_user.role != 'customer_hr_admin':
+                return {'success': False, 'message': 'Only HR admins can create departments'}
+            
+            data = request.get_json()
+            
+            if not data.get('name'):
+                return {'success': False, 'message': 'Department name is required'}
+            
+            department = Department()
+            department.customer_id = current_user.customer_id
+            department.name = data['name']
+            department.description = data.get('description', '')
+            
+            if department.save():
+                return {
+                    'success': True,
+                    'message': 'Department created successfully',
+                    'department_id': department.department_id
+                }
+            else:
+                return {'success': False, 'message': 'Failed to create department'}
+                
+        except Exception as e:
+            print(f"Create department error: {e}")
+            return {'success': False, 'message': 'Failed to create department'}
+    
+    # Helper methods
+    
+    def get_all_users(self):
+        """Get all users (SuperAdmin only)"""
+        try:
+            db = config.get_db()
+            docs = db.collection('users').get()
+            return [User.from_dict(doc.to_dict()) for doc in docs]
+        except:
+            return []
+    
+    def get_vendor_and_customer_users(self):
+        """Get vendor normal users and all customer users (Vendor Admin)"""
+        try:
+            db = config.get_db()
+            
+            # Get vendor normal users
+            vendor_docs = db.collection('users').where('role', '==', 'vendor_normal').get()
+            vendor_users = [User.from_dict(doc.to_dict()) for doc in vendor_docs]
+            
+            # Get all customer users
+            customer_roles = ['customer_hr_admin', 'customer_dept_head', 'customer_employee']
+            customer_users = []
+            
+            for role in customer_roles:
+                docs = db.collection('users').where('role', '==', role).get()
+                customer_users.extend([User.from_dict(doc.to_dict()) for doc in docs])
+            
+            return vendor_users + customer_users
+        except:
+            return []
+    
+    def get_customer_users(self, customer_id):
+        """Get users for specific customer (Customer HR Admin)"""
+        return User.get_by_customer_id(customer_id)
+    
+    def can_view_user(self, current_user, target_user):
+        """Check if current user can view target user"""
+        # Vendor SuperAdmin can view all users
+        if current_user.role == 'vendor_superadmin':
+            return True
+        
+        # Vendor Admin can view vendor normal and customer users
+        if current_user.role == 'vendor_admin':
+            return (target_user.role == 'vendor_normal' or 
+                   target_user.role.startswith('customer_'))
+        
+        # Customer HR Admin can view users in their organization
+        if current_user.role == 'customer_hr_admin':
+            return (target_user.customer_id == current_user.customer_id and
+                   target_user.role in ['customer_dept_head', 'customer_employee'])
+        
+        # Users can view their own profile
+        return current_user.user_id == target_user.user_id
+    
+    def can_edit_user(self, current_user, target_user):
+        """Check if current user can edit target user"""
+        # Cannot edit own account role/status through user management
+        if current_user.user_id == target_user.user_id:
+            return False
+        
+        # Vendor SuperAdmin can edit all users except other superadmins
+        if current_user.role == 'vendor_superadmin':
+            return target_user.role != 'vendor_superadmin'
+        
+        # Vendor Admin can edit vendor normal and customer users
+        if current_user.role == 'vendor_admin':
+            return (target_user.role == 'vendor_normal' or 
+                   target_user.role.startswith('customer_'))
+        
+        # Customer HR Admin can edit users in their organization
+        if current_user.role == 'customer_hr_admin':
+            return (target_user.customer_id == current_user.customer_id and
+                   target_user.role in ['customer_dept_head', 'customer_employee'])
+        
+        return False
+    
+    def can_delete_user(self, current_user, target_user):
+        """Check if current user can delete target user"""
+        # Same rules as edit, but more restrictive
+        return self.can_edit_user(current_user, target_user)
+    
+    def can_create_user_with_role(self, current_user, role):
+        """Check if current user can create user with specific role"""
+        # Vendor SuperAdmin can create any role except other superadmins
+        if current_user.role == 'vendor_superadmin':
+            return role != 'vendor_superadmin'
+        
+        # Vendor Admin can create vendor normal and customer users
+        if current_user.role == 'vendor_admin':
+            return role in ['vendor_normal', 'customer_hr_admin', 'customer_dept_head', 'customer_employee']
+        
+        # Customer HR Admin can create department heads and employees
+        if current_user.role == 'customer_hr_admin':
+            return role in ['customer_dept_head', 'customer_employee']
+        
+        return False
+    
+    def get_available_roles(self, current_user):
+        """Get roles that current user can assign"""
+        if current_user.role == 'vendor_superadmin':
+            return [
+                {'value': 'vendor_admin', 'label': 'Vendor Admin'},
+                {'value': 'vendor_normal', 'label': 'Vendor User'},
+                {'value': 'customer_hr_admin', 'label': 'Customer HR Admin'},
+                {'value': 'customer_dept_head', 'label': 'Customer Department Head'},
+                {'value': 'customer_employee', 'label': 'Customer Employee'}
+            ]
+        elif current_user.role == 'vendor_admin':
+            return [
+                {'value': 'vendor_normal', 'label': 'Vendor User'},
+                {'value': 'customer_hr_admin', 'label': 'Customer HR Admin'},
+                {'value': 'customer_dept_head', 'label': 'Customer Department Head'},
+                {'value': 'customer_employee', 'label': 'Customer Employee'}
+            ]
+        elif current_user.role == 'customer_hr_admin':
+            return [
+                {'value': 'customer_dept_head', 'label': 'Department Head'},
+                {'value': 'customer_employee', 'label': 'Employee'}
+            ]
+        else:
+            return []
+
+# Global user controller instance
+user_controller = UserController()

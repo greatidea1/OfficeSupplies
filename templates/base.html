@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Office Supplies System{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.png') }}">
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CSS Variables and Base Styles -->
+    <style>
+        :root {
+            /* Colors */
+            --primary-blue: #2563eb;
+            --primary-blue-dark: #1d4ed8;
+            --primary-blue-light: #3b82f6;
+            --secondary-green: #10b981;
+            --secondary-orange: #f59e0b;
+            --secondary-red: #ef4444;
+            --secondary-purple: #8b5cf6;
+            
+            /* Gray Scale */
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            
+            /* Gradients */
+            --gradient-primary: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+            --gradient-success: linear-gradient(135deg, var(--secondary-green), #059669);
+            --gradient-warning: linear-gradient(135deg, var(--secondary-orange), #d97706);
+            --gradient-danger: linear-gradient(135deg, var(--secondary-red), #dc2626);
+            
+            /* Shadows */
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            
+            /* Spacing */
+            --container-max-width: 1280px;
+            --header-height: 70px;
+            --sidebar-width: 280px;
+            
+            /* Transitions */
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--gray-50);
+            color: var(--gray-900);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        /* Container */
+        .container {
+            max-width: var(--container-max-width);
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Typography */
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 600;
+            line-height: 1.3;
+            margin-bottom: 0.5rem;
+        }
+        
+        a {
+            color: var(--primary-blue);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+        
+        a:hover {
+            color: var(--primary-blue-dark);
+        }
+        
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .btn-sm {
+            padding: 8px 12px;
+            font-size: 0.75rem;
+        }
+        
+        .btn-lg {
+            padding: 16px 24px;
+            font-size: 1rem;
+        }
+        
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: var(--shadow);
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: var(--gray-600);
+            color: white;
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--gray-700);
+            color: white;
+        }
+        
+        .btn-success {
+            background: var(--gradient-success);
+            color: white;
+        }
+        
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: var(--gradient-warning);
+            color: white;
+        }
+        
+        .btn-warning:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: var(--gradient-danger);
+            color: white;
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+            color: white;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--gray-300);
+            color: var(--gray-700);
+        }
+        
+        .btn-outline:hover:not(:disabled) {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+        
+        /* Forms */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: 6px;
+            font-size: 0.875rem;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--gray-300);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            transition: var(--transition);
+            background: white;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        .form-control:disabled {
+            background: var(--gray-50);
+            color: var(--gray-500);
+        }
+        
+        .form-error {
+            color: var(--secondary-red);
+            font-size: 0.75rem;
+            margin-top: 4px;
+            display: block;
+        }
+        
+        .form-help {
+            color: var(--gray-500);
+            font-size: 0.75rem;
+            margin-top: 4px;
+        }
+        
+        /* Tables */
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-200);
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .table th {
+            background: var(--gray-50);
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--gray-700);
+            border-bottom: 1px solid var(--gray-200);
+            font-size: 0.875rem;
+        }
+        
+        .table td {
+            padding: 16px;
+            border-bottom: 1px solid var(--gray-200);
+            font-size: 0.875rem;
+        }
+        
+        .table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .table tr:hover {
+            background: var(--gray-50);
+        }
+        
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+        
+        .badge-primary {
+            background: rgba(37, 99, 235, 0.1);
+            color: var(--primary-blue);
+        }
+        
+        .badge-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--secondary-green);
+        }
+        
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--secondary-orange);
+        }
+        
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--secondary-red);
+        }
+        
+        .badge-gray {
+            background: var(--gray-100);
+            color: var(--gray-600);
+        }
+        
+        /* Modals */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--shadow-xl);
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-header {
+            padding: 24px 24px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin: 0;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--gray-400);
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: var(--transition);
+        }
+        
+        .modal-close:hover {
+            background: var(--gray-100);
+            color: var(--gray-600);
+        }
+        
+        .modal-body {
+            padding: 24px;
+        }
+        
+        .modal-footer {
+            padding: 0 24px 24px;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        /* Navigation */
+        .navbar {
+            background: white;
+            box-shadow: var(--shadow);
+            border-bottom: 1px solid var(--gray-200);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            height: var(--header-height);
+        }
+        
+        .navbar-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 100%;
+        }
+        
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--primary-blue);
+            text-decoration: none;
+        }
+        
+        .navbar-brand:hover {
+            color: var(--primary-blue-dark);
+        }
+        
+        .navbar-nav {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .nav-link {
+            color: var(--gray-600);
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: var(--transition);
+        }
+        
+        .nav-link:hover {
+            color: var(--gray-900);
+            background: var(--gray-50);
+        }
+        
+        .nav-link.active {
+            color: var(--primary-blue);
+            background: rgba(37, 99, 235, 0.1);
+        }
+        
+        /* Dropdown */
+        .dropdown {
+            position: relative;
+        }
+        
+        .dropdown-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: none;
+            border: none;
+            color: var(--gray-600);
+            font-weight: 500;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: var(--transition);
+        }
+        
+        .dropdown-toggle:hover {
+            color: var(--gray-900);
+            background: var(--gray-50);
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            min-width: 200px;
+            display: none;
+            z-index: 1000;
+            margin-top: 4px;
+        }
+        
+        .dropdown.show .dropdown-menu {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            color: var(--gray-700);
+            text-decoration: none;
+            transition: var(--transition);
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        
+        .dropdown-item:hover {
+            background: var(--gray-50);
+            color: var(--gray-900);
+        }
+        
+        .dropdown-divider {
+            height: 1px;
+            background: var(--gray-200);
+            margin: 8px 0;
+        }
+        
+        /* Alerts and Notifications */
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--secondary-green);
+        }
+        
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            color: var(--secondary-orange);
+        }
+        
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: var(--secondary-red);
+        }
+        
+        .alert-info {
+            background: rgba(37, 99, 235, 0.1);
+            border: 1px solid rgba(37, 99, 235, 0.2);
+            color: var(--primary-blue);
+        }
+        
+        /* Loading States */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--gray-500);
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--gray-300);
+            border-top: 2px solid var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Utilities */
+        .text-center { text-align: center; }
+        .text-left { text-align: left; }
+        .text-right { text-align: right; }
+        
+        .d-none { display: none !important; }
+        .d-block { display: block !important; }
+        .d-flex { display: flex !important; }
+        
+        .mt-0 { margin-top: 0 !important; }
+        .mt-1 { margin-top: 8px !important; }
+        .mt-2 { margin-top: 16px !important; }
+        .mt-3 { margin-top: 24px !important; }
+        .mt-4 { margin-top: 32px !important; }
+        
+        .mb-0 { margin-bottom: 0 !important; }
+        .mb-1 { margin-bottom: 8px !important; }
+        .mb-2 { margin-bottom: 16px !important; }
+        .mb-3 { margin-bottom: 24px !important; }
+        .mb-4 { margin-bottom: 32px !important; }
+        
+        .p-0 { padding: 0 !important; }
+        .p-1 { padding: 8px !important; }
+        .p-2 { padding: 16px !important; }
+        .p-3 { padding: 24px !important; }
+        .p-4 { padding: 32px !important; }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 16px;
+            }
+            
+            .navbar-nav {
+                gap: 12px;
+            }
+            
+            .modal-content {
+                margin: 16px;
+                width: calc(100% - 32px);
+            }
+            
+            .btn {
+                padding: 10px 16px;
+                font-size: 0.8rem;
+            }
+            
+            .table th,
+            .table td {
+                padding: 12px 8px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if current_user %}
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-content">
+                <a href="{{ url_for('dashboard') }}" class="navbar-brand">
+                    <i class="fas fa-box"></i>
+                    Office Supplies
+                </a>
+                
+                <div class="navbar-nav">
+                    <!-- Customer Selector for Vendor Users -->
+                    {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                    <div class="dropdown">
+                        <select id="customerSelector" class="form-control" style="min-width: 200px;">
+                            <option value="">Select Customer</option>
+                        </select>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Navigation Links -->
+                    <a href="{{ url_for('dashboard') }}" class="nav-link">
+                        <i class="fas fa-home"></i>
+                        Dashboard
+                    </a>
+                    
+                    {% if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+                    <a href="{{ url_for('orders') }}" class="nav-link">
+                        <i class="fas fa-shopping-cart"></i>
+                        Orders
+                    </a>
+                    <a href="{{ url_for('products') }}" class="nav-link">
+                        <i class="fas fa-box"></i>
+                        Products
+                    </a>
+                    {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                    <a href="{{ url_for('customers') }}" class="nav-link">
+                        <i class="fas fa-building"></i>
+                        Customers
+                    </a>
+                    {% endif %}
+                    {% elif current_user.role.startswith('customer_') %}
+                    <a href="{{ url_for('products') }}" class="nav-link">
+                        <i class="fas fa-shopping-bag"></i>
+                        Products
+                    </a>
+                    <a href="{{ url_for('orders') }}" class="nav-link">
+                        <i class="fas fa-list"></i>
+                        Orders
+                    </a>
+                    {% endif %}
+                    
+                    <!-- User Menu -->
+                    <div class="dropdown">
+                        <button class="dropdown-toggle">
+                            <i class="fas fa-user-circle"></i>
+                            {{ current_user.full_name or current_user.username }}
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="{{ url_for('profile') }}" class="dropdown-item">
+                                <i class="fas fa-user"></i>
+                                My Profile
+                            </a>
+                            <a href="{{ url_for('settings') }}" class="dropdown-item">
+                                <i class="fas fa-cog"></i>
+                                Settings
+                            </a>
+                            {% if current_user.role in ['vendor_superadmin', 'vendor_admin', 'customer_hr_admin'] %}
+                            <a href="{{ url_for('users') }}" class="dropdown-item">
+                                <i class="fas fa-users"></i>
+                                Manage Users
+                            </a>
+                            {% endif %}
+                            <div class="dropdown-divider"></div>
+                            <button onclick="logout()" class="dropdown-item">
+                                <i class="fas fa-sign-out-alt"></i>
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+    
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Notification Container -->
+    <div id="notificationContainer" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+    
+    <!-- Base JavaScript -->
+    <script>
+        // Global functions and utilities
+        
+        // API call helper
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const defaultOptions = {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+                
+                const response = await fetch(`/api${endpoint}`, {
+                    ...defaultOptions,
+                    ...options
+                });
+                
+                if (response.headers.get('content-type')?.includes('application/json')) {
+                    return await response.json();
+                } else {
+                    return { success: false, message: 'Invalid response format' };
+                }
+            } catch (error) {
+                console.error('API call error:', error);
+                return { success: false, message: 'Network error' };
+            }
+        }
+        
+        // Notification system
+        function showNotification(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('notificationContainer');
+            const id = 'notif_' + Date.now();
+            
+            const notification = document.createElement('div');
+            notification.id = id;
+            notification.className = `alert alert-${type}`;
+            notification.style.cssText = `
+                margin-bottom: 10px;
+                min-width: 300px;
+                animation: slideInRight 0.3s ease;
+                cursor: pointer;
+            `;
+            
+            const iconMap = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            
+            notification.innerHTML = `
+                <i class="fas ${iconMap[type] || iconMap.info}"></i>
+                <span>${message}</span>
+            `;
+            
+            notification.addEventListener('click', () => {
+                dismissNotification(id);
+            });
+            
+            container.appendChild(notification);
+            
+            if (duration > 0) {
+                setTimeout(() => dismissNotification(id), duration);
+            }
+        }
+        
+        function dismissNotification(id) {
+            const notification = document.getElementById(id);
+            if (notification) {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }
+        
+        // Format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR'
+            }).format(amount);
+        }
+        
+        // Format date
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-IN', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+        
+        // Format date with time
+        function formatDateTime(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleString('en-IN', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        // Get status badge HTML
+        function getStatusBadge(status) {
+            const statusConfig = {
+                'draft': { class: 'badge-gray', label: 'Draft' },
+                'pending_dept_approval': { class: 'badge-warning', label: 'Pending Approval' },
+                'pending_hr_approval': { class: 'badge-warning', label: 'HR Review' },
+                'approved': { class: 'badge-success', label: 'Approved' },
+                'packed': { class: 'badge-primary', label: 'Packed' },
+                'ready_for_dispatch': { class: 'badge-primary', label: 'Ready' },
+                'dispatched': { class: 'badge-success', label: 'Dispatched' },
+                'rejected': { class: 'badge-danger', label: 'Rejected' },
+                'cancelled': { class: 'badge-danger', label: 'Cancelled' }
+            };
+            
+            const config = statusConfig[status] || { class: 'badge-gray', label: status };
+            return `<span class="badge ${config.class}">${config.label}</span>`;
+        }
+        
+        // Form validation
+        function validateForm(form) {
+            const requiredFields = form.querySelectorAll('[required]');
+            let isValid = true;
+            
+            requiredFields.forEach(field => {
+                const errorSpan = field.parentNode.querySelector('.form-error');
+                
+                if (!field.value.trim()) {
+                    if (errorSpan) {
+                        errorSpan.textContent = `${field.dataset.label || field.name} is required`;
+                    }
+                    field.style.borderColor = 'var(--secondary-red)';
+                    isValid = false;
+                } else {
+                    if (errorSpan) {
+                        errorSpan.textContent = '';
+                    }
+                    field.style.borderColor = 'var(--gray-300)';
+                }
+            });
+            
+            return isValid;
+        }
+        
+        // Logout function
+        async function logout() {
+            try {
+                const response = await apiCall('/auth/logout', { method: 'POST' });
+                if (response.success) {
+                    window.location.href = '/';
+                } else {
+                    showNotification('Logout failed', 'error');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = '/';
+            }
+        }
+        
+        // Dropdown functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle dropdowns
+            document.querySelectorAll('.dropdown-toggle').forEach(toggle => {
+                toggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const dropdown = this.closest('.dropdown');
+                    const isOpen = dropdown.classList.contains('show');
+                    
+                    // Close all dropdowns
+                    document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('show'));
+                    
+                    // Toggle current dropdown
+                    if (!isOpen) {
+                        dropdown.classList.add('show');
+                    }
+                });
+            });
+            
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('show'));
+            });
+            
+            // Load customer selector for vendor users
+            {% if current_user and current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+            loadCustomerSelector();
+            {% endif %}
+        });
+        
+        {% if current_user and current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+        // Customer selector functionality
+        async function loadCustomerSelector() {
+            try {
+                const response = await apiCall('/vendor/customers-dropdown');
+                if (response.success) {
+                    const selector = document.getElementById('customerSelector');
+                    selector.innerHTML = '<option value="">All Customers</option>';
+                    
+                    response.customers.forEach(customer => {
+                        const option = document.createElement('option');
+                        option.value = customer.customer_id;
+                        option.textContent = customer.company_name;
+                        selector.appendChild(option);
+                    });
+                    
+                    // Restore saved selection
+                    const savedCustomer = localStorage.getItem('selectedCustomer');
+                    if (savedCustomer) {
+                        selector.value = savedCustomer;
+                    }
+                    
+                    // Handle selection changes
+                    selector.addEventListener('change', function() {
+                        localStorage.setItem('selectedCustomer', this.value);
+                        // Trigger custom event for pages to listen to
+                        window.dispatchEvent(new CustomEvent('customerChanged', {
+                            detail: { customerId: this.value }
+                        }));
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading customers:', error);
+            }
+        }
+        {% endif %}
+        
+        // CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            
+            @keyframes slideOutRight {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,746 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Profile page specific styles */
+    .profile-container {
+        padding: 32px 0;
+    }
+    
+    .profile-layout {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 32px;
+    }
+    
+    .profile-sidebar {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        height: fit-content;
+        overflow: hidden;
+    }
+    
+    .profile-header {
+        padding: 32px 24px;
+        text-align: center;
+        background: var(--gradient-primary);
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .profile-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 100px;
+        height: 100px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+    
+    .profile-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        color: white;
+        font-weight: 600;
+        margin: 0 auto 16px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .profile-name {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    
+    .profile-role {
+        font-size: 0.875rem;
+        opacity: 0.9;
+        text-transform: capitalize;
+    }
+    
+    .profile-info {
+        padding: 24px;
+    }
+    
+    .profile-stat {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .profile-stat:last-child {
+        border-bottom: none;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+    
+    .stat-value {
+        font-weight: 600;
+        color: var(--gray-900);
+    }
+    
+    .profile-content {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+    }
+    
+    .content-header {
+        padding: 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .content-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .content-body {
+        padding: 24px;
+    }
+    
+    .profile-section {
+        margin-bottom: 32px;
+    }
+    
+    .section-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+    
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .info-label {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .info-value {
+        font-weight: 500;
+        color: var(--gray-900);
+        font-size: 1rem;
+    }
+    
+    .activity-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .activity-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 16px;
+        background: var(--gray-50);
+        border-radius: 12px;
+        border: 1px solid var(--gray-200);
+    }
+    
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        color: white;
+        flex-shrink: 0;
+        background: var(--primary-blue);
+    }
+    
+    .activity-icon.success {
+        background: var(--secondary-green);
+    }
+    
+    .activity-icon.warning {
+        background: var(--secondary-orange);
+    }
+    
+    .activity-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .activity-title {
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 4px;
+    }
+    
+    .activity-description {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+        margin-bottom: 4px;
+    }
+    
+    .activity-time {
+        color: var(--gray-500);
+        font-size: 0.75rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .stat-card {
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-blue);
+        margin-bottom: 4px;
+    }
+    
+    .stat-text {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .edit-profile-btn {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        z-index: 2;
+    }
+    
+    .edit-profile-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.1);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--gray-500);
+    }
+    
+    .empty-state-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+    
+    .empty-state-text {
+        font-size: 1rem;
+        margin-bottom: 8px;
+    }
+    
+    .empty-state-subtext {
+        font-size: 0.875rem;
+        opacity: 0.8;
+    }
+    
+    @media (max-width: 768px) {
+        .profile-layout {
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+        
+        .profile-sidebar {
+            order: 2;
+        }
+        
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .activity-item {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .activity-icon {
+            margin: 0 auto;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="profile-container">
+        <!-- Profile Layout -->
+        <div class="profile-layout">
+            <!-- Profile Sidebar -->
+            <div class="profile-sidebar">
+                <div class="profile-header">
+                    <button class="edit-profile-btn" onclick="window.location.href='/settings#profile'" title="Edit Profile">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <div class="profile-avatar">
+                        {{ current_user.full_name[0] if current_user.full_name else 'U' }}
+                    </div>
+                    <div class="profile-name">{{ current_user.full_name or current_user.username }}</div>
+                    <div class="profile-role">{{ current_user.role.replace('_', ' ') }}</div>
+                </div>
+                <div class="profile-info">
+                    <div class="profile-stat">
+                        <span class="stat-label">Username</span>
+                        <span class="stat-value">{{ current_user.username }}</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="stat-label">Email</span>
+                        <span class="stat-value">{{ current_user.email }}</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="stat-label">Status</span>
+                        <span class="stat-value" style="color: var(--secondary-green);">Active</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="stat-label">Last Login</span>
+                        <span class="stat-value" id="lastLoginTime">{{ current_user.last_login.strftime('%b %d, %Y') if current_user.last_login else 'Never' }}</span>
+                    </div>
+                    {% if current_user.customer_id %}
+                    <div class="profile-stat">
+                        <span class="stat-label">Customer ID</span>
+                        <span class="stat-value">{{ current_user.customer_id }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Profile Content -->
+            <div class="profile-content">
+                <div class="content-header">
+                    <h2 class="content-title">Profile Overview</h2>
+                    <div>
+                        <button class="btn btn-sm btn-secondary" onclick="window.location.href='/settings'">
+                            <i class="fas fa-cog"></i>
+                            Settings
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="window.location.href='/settings#security'">
+                            <i class="fas fa-key"></i>
+                            Change Password
+                        </button>
+                    </div>
+                </div>
+                <div class="content-body">
+                    <!-- Statistics Section -->
+                    {% if current_user.role in ['customer_employee', 'customer_dept_head', 'customer_hr_admin'] %}
+                    <div class="profile-section">
+                        <h3 class="section-title">My Activity</h3>
+                        <div class="stats-grid" id="activityStats">
+                            <!-- Stats will be loaded here -->
+                        </div>
+                    </div>
+                    {% elif current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+                    <div class="profile-section">
+                        <h3 class="section-title">System Overview</h3>
+                        <div class="stats-grid" id="systemStats">
+                            <!-- Stats will be loaded here -->
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Personal Information Section -->
+                    <div class="profile-section">
+                        <h3 class="section-title">Personal Information</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Full Name</span>
+                                <span class="info-value">{{ current_user.full_name or 'Not set' }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Username</span>
+                                <span class="info-value">{{ current_user.username }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Email Address</span>
+                                <span class="info-value">{{ current_user.email }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Role</span>
+                                <span class="info-value">{{ current_user.role.replace('_', ' ').title() }}</span>
+                            </div>
+                            {% if current_user.customer_id %}
+                            <div class="info-item">
+                                <span class="info-label">Organization</span>
+                                <span class="info-value" id="organizationName">Loading...</span>
+                            </div>
+                            {% endif %}
+                            {% if current_user.department_id %}
+                            <div class="info-item">
+                                <span class="info-label">Department</span>
+                                <span class="info-value" id="departmentName">Loading...</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity Section -->
+                    <div class="profile-section">
+                        <h3 class="section-title">Recent Activity</h3>
+                        <div class="activity-list" id="recentActivity">
+                            <!-- Activity will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Actions Section -->
+                    <div class="profile-section">
+                        <h3 class="section-title">Quick Actions</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                            {% if current_user.role == 'customer_employee' %}
+                            <button class="btn btn-primary" onclick="window.location.href='/products'">
+                                <i class="fas fa-shopping-cart"></i>
+                                Browse Products
+                            </button>
+                            <button class="btn btn-secondary" onclick="window.location.href='/orders'">
+                                <i class="fas fa-list"></i>
+                                My Orders
+                            </button>
+                            {% elif current_user.role in ['customer_dept_head', 'customer_hr_admin'] %}
+                            <button class="btn btn-primary" onclick="window.location.href='/orders?filter=pending_approval'">
+                                <i class="fas fa-check"></i>
+                                Pending Approvals
+                            </button>
+                            <button class="btn btn-secondary" onclick="window.location.href='/orders'">
+                                <i class="fas fa-list"></i>
+                                All Orders
+                            </button>
+                            {% endif %}
+                            
+                            {% if current_user.role == 'customer_hr_admin' %}
+                            <button class="btn btn-warning" onclick="window.location.href='/users'">
+                                <i class="fas fa-users"></i>
+                                Manage Users
+                            </button>
+                            {% endif %}
+                            
+                            {% if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+                            <button class="btn btn-primary" onclick="window.location.href='/orders'">
+                                <i class="fas fa-shopping-cart"></i>
+                                Manage Orders
+                            </button>
+                            <button class="btn btn-secondary" onclick="window.location.href='/products'">
+                                <i class="fas fa-box"></i>
+                                Manage Products
+                            </button>
+                            {% endif %}
+                            
+                            {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                            <button class="btn btn-warning" onclick="window.location.href='/customers'">
+                                <i class="fas fa-building"></i>
+                                Manage Customers
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Profile page functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        loadProfileData();
+        loadRecentActivity();
+    });
+    
+    async function loadProfileData() {
+        try {
+            // Load organization info for customer users
+            {% if current_user.customer_id %}
+            const customerResponse = await apiCall('/customers/current');
+            if (customerResponse.success) {
+                document.getElementById('organizationName').textContent = customerResponse.customer.company_name;
+            }
+            {% endif %}
+            
+            // Load department info if applicable
+            {% if current_user.department_id %}
+            const deptResponse = await apiCall('/users/departments');
+            if (deptResponse.success) {
+                const department = deptResponse.departments.find(d => d.department_id === '{{ current_user.department_id }}');
+                document.getElementById('departmentName').textContent = department ? department.name : 'Unknown';
+            }
+            {% endif %}
+            
+            // Load activity statistics
+            await loadActivityStats();
+            
+        } catch (error) {
+            console.error('Error loading profile data:', error);
+        }
+    }
+    
+    async function loadActivityStats() {
+        try {
+            {% if current_user.role in ['customer_employee', 'customer_dept_head', 'customer_hr_admin'] %}
+            const response = await apiCall('/dashboard/{{ "customer" if current_user.role != "customer_employee" else "employee" }}');
+            
+            if (response.success) {
+                const stats = response.statistics;
+                const statsGrid = document.getElementById('activityStats');
+                
+                {% if current_user.role == 'customer_employee' %}
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.total_orders || 0}</div>
+                        <div class="stat-text">Total Orders</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.pending_orders || 0}</div>
+                        <div class="stat-text">Pending</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.approved_orders || 0}</div>
+                        <div class="stat-text">Approved</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.delivered_orders || 0}</div>
+                        <div class="stat-text">Delivered</div>
+                    </div>
+                `;
+                {% else %}
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.total_orders || 0}</div>
+                        <div class="stat-text">Total Orders</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.pending_dept_approval || stats.pending_hr_approval || 0}</div>
+                        <div class="stat-text">Pending Approval</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${formatCurrency(stats.total_spent || 0)}</div>
+                        <div class="stat-text">Total Spent</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.active_users || 0}</div>
+                        <div class="stat-text">Active Users</div>
+                    </div>
+                `;
+                {% endif %}
+            }
+            {% elif current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+            const response = await apiCall('/dashboard/vendor');
+            
+            if (response.success) {
+                const stats = response.statistics;
+                const statsGrid = document.getElementById('systemStats');
+                
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.total_orders || 0}</div>
+                        <div class="stat-text">Total Orders</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.pending_orders || 0}</div>
+                        <div class="stat-text">Pending Orders</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.active_customers || 0}</div>
+                        <div class="stat-text">Active Customers</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.low_stock_count || 0}</div>
+                        <div class="stat-text">Low Stock Items</div>
+                    </div>
+                `;
+            }
+            {% endif %}
+            
+        } catch (error) {
+            console.error('Error loading activity stats:', error);
+        }
+    }
+    
+    async function loadRecentActivity() {
+        try {
+            const response = await apiCall('/dashboard/recent-activity');
+            const activityList = document.getElementById('recentActivity');
+            
+            if (response.success && response.activities && response.activities.length > 0) {
+                activityList.innerHTML = response.activities.slice(0, 5).map(activity => `
+                    <div class="activity-item">
+                        <div class="activity-icon ${getActivityIconClass(activity.type)}">
+                            <i class="fas fa-${getActivityIcon(activity.type)}"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">${getActivityTitle(activity.type)}</div>
+                            <div class="activity-description">${activity.message}</div>
+                            <div class="activity-time">${activity.timestamp ? formatDate(activity.timestamp) : 'Recently'}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                activityList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <div class="empty-state-text">No recent activity</div>
+                        <div class="empty-state-subtext">Your activity will appear here</div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading recent activity:', error);
+            
+            // Show sample activity for demonstration
+            const activityList = document.getElementById('recentActivity');
+            activityList.innerHTML = `
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-sign-in-alt"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">Logged In</div>
+                        <div class="activity-description">Successfully signed in to the system</div>
+                        <div class="activity-time">Just now</div>
+                    </div>
+                </div>
+                
+                {% if current_user.role == 'customer_employee' %}
+                <div class="activity-item">
+                    <div class="activity-icon success">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">Order Placed</div>
+                        <div class="activity-description">Placed order for office supplies</div>
+                        <div class="activity-time">2 hours ago</div>
+                    </div>
+                </div>
+                {% elif current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                <div class="activity-item">
+                    <div class="activity-icon warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">Low Stock Alert</div>
+                        <div class="activity-description">3 products are running low on stock</div>
+                        <div class="activity-time">1 hour ago</div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-user-edit"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">Profile Updated</div>
+                        <div class="activity-description">Updated profile information</div>
+                        <div class="activity-time">Yesterday</div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    function getActivityIcon(type) {
+        const iconMap = {
+            'order_update': 'shopping-cart',
+            'login': 'sign-in-alt',
+            'profile_update': 'user-edit',
+            'password_change': 'key',
+            'low_stock': 'exclamation-triangle',
+            'dispatch': 'truck',
+            'approval': 'check',
+            'default': 'info-circle'
+        };
+        
+        return iconMap[type] || iconMap.default;
+    }
+    
+    function getActivityIconClass(type) {
+        if (type.includes('success') || type.includes('approval') || type.includes('dispatch')) {
+            return 'success';
+        } else if (type.includes('warning') || type.includes('low_stock')) {
+            return 'warning';
+        }
+        return '';
+    }
+    
+    function getActivityTitle(type) {
+        const titleMap = {
+            'order_update': 'Order Update',
+            'login': 'Logged In',
+            'profile_update': 'Profile Updated',
+            'password_change': 'Password Changed',
+            'low_stock': 'Low Stock Alert',
+            'dispatch': 'Order Dispatched',
+            'approval': 'Order Approved',
+            'default': 'Activity'
+        };
+        
+        return titleMap[type] || titleMap.default;
+    }
+</script>
+{% endblock %}

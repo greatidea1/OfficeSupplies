@@ -1,0 +1,31 @@
+# Flask and Core Dependencies
+Flask==2.3.3
+Werkzeug==2.3.7
+Jinja2==3.1.2
+
+# Firebase Dependencies
+firebase-admin==6.2.0
+google-cloud-firestore==2.11.1
+google-cloud-storage==2.10.0
+
+# CORS Support
+Flask-CORS==4.0.0
+
+# Email Support
+secure-smtplib==0.1.1
+
+# File Upload Support
+python-magic==0.4.27
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# Development Dependencies (optional)
+pytest==7.4.2
+pytest-flask==1.2.0
+black==23.7.0
+flake8==6.0.0
+
+# Production Server (optional)
+gunicorn==21.2.0
+waitress==2.1.2

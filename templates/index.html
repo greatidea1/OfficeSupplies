@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office Supplies System - Welcome</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-blue: #2563eb;
+            --primary-blue-dark: #1d4ed8;
+            --secondary-green: #10b981;
+            --secondary-orange: #f59e0b;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --gradient-primary: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+            --gradient-hero: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            color: var(--gray-900);
+        }
+        
+        /* Header */
+        .header {
+            background: white;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 70px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            text-decoration: none;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: var(--shadow);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            color: white;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: var(--primary-blue);
+            border: 2px solid var(--primary-blue);
+        }
+        
+        .btn-outline:hover {
+            background: var(--primary-blue);
+            color: white;
+        }
+        
+        /* Hero Section */
+        .hero {
+            background: var(--gradient-hero);
+            color: white;
+            padding: 100px 0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="heroPattern" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="50" r="0.5" fill="white" opacity="0.05"/></pattern></defs><rect width="100" height="100" fill="url(%23heroPattern)"/></svg>');
+            animation: heroFloat 30s ease-in-out infinite;
+        }
+        
+        @keyframes heroFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(1deg); }
+        }
+        
+        .hero-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .hero-title {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+        
+        .hero-subtitle {
+            font-size: 1.25rem;
+            margin-bottom: 40px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+        
+        .hero-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn-hero {
+            padding: 16px 32px;
+            font-size: 1rem;
+        }
+        
+        .btn-white {
+            background: white;
+            color: var(--primary-blue);
+        }
+        
+        .btn-white:hover {
+            background: var(--gray-100);
+            color: var(--primary-blue-dark);
+        }
+        
+        /* Features Section */
+        .features {
+            padding: 100px 0;
+            background: var(--gray-50);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--gray-900);
+        }
+        
+        .section-subtitle {
+            text-align: center;
+            font-size: 1.125rem;
+            color: var(--gray-600);
+            margin-bottom: 60px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+        }
+        
+        .feature-card {
+            background: white;
+            padding: 40px 30px;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            border: 1px solid var(--gray-200);
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .feature-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            background: var(--gradient-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: white;
+            margin: 0 auto 24px;
+        }
+        
+        .feature-icon.secondary {
+            background: linear-gradient(135deg, var(--secondary-green), #059669);
+        }
+        
+        .feature-icon.tertiary {
+            background: linear-gradient(135deg, var(--secondary-orange), #d97706);
+        }
+        
+        .feature-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--gray-900);
+        }
+        
+        .feature-description {
+            color: var(--gray-600);
+            line-height: 1.6;
+        }
+        
+        /* Portals Section */
+        .portals {
+            padding: 100px 0;
+            background: white;
+        }
+        
+        .portals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 40px;
+            margin-top: 60px;
+        }
+        
+        .portal-card {
+            background: var(--gray-50);
+            padding: 50px 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 2px solid var(--gray-200);
+            transition: all 0.3s ease;
+        }
+        
+        .portal-card:hover {
+            border-color: var(--primary-blue);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .portal-icon {
+            width: 100px;
+            height: 100px;
+            border-radius: 25px;
+            background: var(--gradient-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+            margin: 0 auto 30px;
+        }
+        
+        .portal-card.vendor .portal-icon {
+            background: linear-gradient(135deg, var(--gray-800), var(--gray-700));
+        }
+        
+        .portal-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--gray-900);
+        }
+        
+        .portal-description {
+            color: var(--gray-600);
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .portal-features {
+            list-style: none;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+        
+        .portal-features li {
+            padding: 8px 0;
+            color: var(--gray-600);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .portal-features i {
+            color: var(--secondary-green);
+            width: 20px;
+        }
+        
+        /* Footer */
+        .footer {
+            background: var(--gray-900);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+        }
+        
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .footer-text {
+            opacity: 0.8;
+            margin-bottom: 20px;
+        }
+        
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .footer-link {
+            color: white;
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+        
+        .footer-link:hover {
+            opacity: 1;
+            color: white;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                padding: 0 16px;
+            }
+            
+            .nav-links {
+                gap: 12px;
+            }
+            
+            .hero {
+                padding: 80px 0;
+            }
+            
+            .hero-title {
+                font-size: 2.5rem;
+            }
+            
+            .hero-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+            
+            .portals-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+            
+            .portal-card {
+                padding: 40px 30px;
+            }
+            
+            .footer-links {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">
+                <i class="fas fa-box"></i>
+                Office Supplies
+            </a>
+            <nav class="nav-links">
+                <a href="/login" class="btn btn-outline">Customer Login</a>
+                <a href="/vendor-login" class="btn btn-primary">Vendor Login</a>
+            </nav>
+        </div>
+    </header>
+    
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">Office Supplies Management System</h1>
+            <p class="hero-subtitle">
+                Streamline your office supply ordering with our comprehensive vendor-customer platform. 
+                Manage products, handle approvals, and track orders seamlessly.
+            </p>
+            <div class="hero-buttons">
+                <a href="/login" class="btn btn-white btn-hero">
+                    <i class="fas fa-users"></i>
+                    Customer Portal
+                </a>
+                <a href="/vendor-login" class="btn btn-outline btn-hero" style="border-color: white; color: white;">
+                    <i class="fas fa-building"></i>
+                    Vendor Portal
+                </a>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Features Section -->
+    <section class="features">
+        <div class="container">
+            <h2 class="section-title">Why Choose Our Platform?</h2>
+            <p class="section-subtitle">
+                Designed for modern businesses to efficiently manage their office supply needs with automated workflows and comprehensive management tools.
+            </p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-workflow"></i>
+                    </div>
+                    <h3 class="feature-title">Automated Workflows</h3>
+                    <p class="feature-description">
+                        Three-tier approval process ensures proper authorization from employees through department heads to HR admins before vendor processing.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon secondary">
+                        <i class="fas fa-users-cog"></i>
+                    </div>
+                    <h3 class="feature-title">Role-Based Access</h3>
+                    <p class="feature-description">
+                        Secure multi-tier user system with specific permissions for vendors (SuperAdmin/Admin/Normal) and customers (HR/Dept Head/Employee).
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon tertiary">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3 class="feature-title">Analytics & Tracking</h3>
+                    <p class="feature-description">
+                        Comprehensive dashboards with real-time order tracking, inventory management, and detailed reporting for informed decision making.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3 class="feature-title">Mobile Responsive</h3>
+                    <p class="feature-description">
+                        Access the platform from any device with our fully responsive design that works seamlessly on desktop, tablet, and mobile.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon secondary">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <h3 class="feature-title">Smart Notifications</h3>
+                    <p class="feature-description">
+                        Automated email notifications keep all stakeholders informed about order status changes, approvals, and dispatch updates.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon tertiary">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3 class="feature-title">Secure & Reliable</h3>
+                    <p class="feature-description">
+                        Enterprise-grade security with Firebase backend, role-based permissions, and comprehensive audit trails for all activities.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Portals Section -->
+    <section class="portals">
+        <div class="container">
+            <h2 class="section-title">Choose Your Portal</h2>
+            <p class="section-subtitle">
+                Access the platform through your dedicated portal with features tailored to your role and responsibilities.
+            </p>
+            
+            <div class="portals-grid">
+                <!-- Customer Portal -->
+                <div class="portal-card customer">
+                    <div class="portal-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3 class="portal-title">Customer Portal</h3>
+                    <p class="portal-description">
+                        For organizations and their employees to browse products, place orders, and manage approvals.
+                    </p>
+                    <ul class="portal-features">
+                        <li><i class="fas fa-check"></i> Browse product catalog</li>
+                        <li><i class="fas fa-check"></i> Shopping cart & order placement</li>
+                        <li><i class="fas fa-check"></i> Department-based organization</li>
+                        <li><i class="fas fa-check"></i> Multi-level approval workflow</li>
+                        <li><i class="fas fa-check"></i> Order tracking & history</li>
+                        <li><i class="fas fa-check"></i> User management (HR Admins)</li>
+                    </ul>
+                    <a href="/login" class="btn btn-primary btn-hero">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Access Customer Portal
+                    </a>
+                </div>
+                
+                <!-- Vendor Portal -->
+                <div class="portal-card vendor">
+                    <div class="portal-icon">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <h3 class="portal-title">Vendor Portal</h3>
+                    <p class="portal-description">
+                        For vendors to manage customers, products, orders, and oversee the entire supply chain process.
+                    </p>
+                    <ul class="portal-features">
+                        <li><i class="fas fa-check"></i> Customer registration & management</li>
+                        <li><i class="fas fa-check"></i> Product catalog management</li>
+                        <li><i class="fas fa-check"></i> Order processing & fulfillment</li>
+                        <li><i class="fas fa-check"></i> Inventory management</li>
+                        <li><i class="fas fa-check"></i> Analytics & reporting</li>
+                        <li><i class="fas fa-check"></i> System administration</li>
+                    </ul>
+                    <a href="/vendor-login" class="btn btn-primary btn-hero">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Access Vendor Portal
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p class="footer-text">
+                Office Supplies Management System - Streamlining business operations
+            </p>
+            <div class="footer-links">
+                <a href="#" class="footer-link">Privacy Policy</a>
+                <a href="#" class="footer-link">Terms of Service</a>
+                <a href="#" class="footer-link">Support</a>
+                <a href="#" class="footer-link">Contact</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

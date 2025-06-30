@@ -1,0 +1,1155 @@
+{% extends "base.html" %}
+
+{% block title %}Orders - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Orders page specific styles */
+    .orders-container {
+        padding: 32px 0;
+    }
+    
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .status-tabs {
+        background: white;
+        border-radius: 16px;
+        padding: 8px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        margin-bottom: 32px;
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+    }
+    
+    .status-tab {
+        padding: 12px 20px;
+        border-radius: 12px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--gray-600);
+        font-weight: 500;
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        position: relative;
+    }
+    
+    .status-tab:hover {
+        background: var(--gray-50);
+        color: var(--gray-900);
+    }
+    
+    .status-tab.active {
+        background: var(--primary-blue);
+        color: white;
+        box-shadow: var(--shadow);
+    }
+    
+    .status-tab .count {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        margin-left: 8px;
+    }
+    
+    .status-tab.active .count {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .filters-section {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        margin-bottom: 32px;
+    }
+    
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .filter-label {
+        font-weight: 500;
+        color: var(--gray-700);
+        font-size: 0.875rem;
+    }
+    
+    .orders-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+    }
+    
+    .orders-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .orders-info {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+    }
+    
+    .orders-list {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    
+    .order-card {
+        border-bottom: 1px solid var(--gray-200);
+        padding: 24px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .order-card:hover {
+        background: var(--gray-50);
+    }
+    
+    .order-card:last-child {
+        border-bottom: none;
+    }
+    
+    .order-header {
+        display: flex;
+        align-items: center;
+        justify-content: between;
+        margin-bottom: 16px;
+    }
+    
+    .order-main-info {
+        flex: 1;
+    }
+    
+    .order-id {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 4px;
+    }
+    
+    .order-meta {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        flex-wrap: wrap;
+    }
+    
+    .order-status-section {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .order-amount {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-blue);
+    }
+    
+    .order-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--gray-200);
+    }
+    
+    .order-detail {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .detail-label {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .detail-value {
+        font-weight: 500;
+        color: var(--gray-900);
+    }
+    
+    .order-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+    }
+    
+    .order-items-preview {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--gray-200);
+    }
+    
+    .items-preview-header {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--gray-700);
+        margin-bottom: 8px;
+    }
+    
+    .items-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .item-chip {
+        background: var(--gray-100);
+        color: var(--gray-700);
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        border: 1px solid var(--gray-200);
+    }
+    
+    .approval-workflow {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05));
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        border-radius: 12px;
+        padding: 16px;
+        margin-top: 16px;
+    }
+    
+    .workflow-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+    
+    .workflow-icon {
+        width: 24px;
+        height: 24px;
+        background: var(--secondary-orange);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 12px;
+    }
+    
+    .workflow-title {
+        font-weight: 600;
+        color: var(--gray-900);
+        font-size: 0.875rem;
+    }
+    
+    .workflow-steps {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    
+    .workflow-step {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        color: var(--gray-600);
+    }
+    
+    .step-icon {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 8px;
+        background: var(--gray-300);
+        color: white;
+    }
+    
+    .step-icon.completed {
+        background: var(--secondary-green);
+    }
+    
+    .step-icon.current {
+        background: var(--secondary-orange);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--gray-500);
+    }
+    
+    .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    .empty-state-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--gray-700);
+    }
+    
+    .empty-state-text {
+        font-size: 1rem;
+        margin-bottom: 20px;
+    }
+    
+    .cart-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        margin-bottom: 32px;
+    }
+    
+    .cart-header {
+        padding: 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+    }
+    
+    .cart-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .cart-items {
+        padding: 24px;
+    }
+    
+    .cart-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .cart-item-info {
+        flex: 1;
+    }
+    
+    .cart-item-name {
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 4px;
+    }
+    
+    .cart-item-price {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+    }
+    
+    .quantity-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .quantity-btn {
+        width: 32px;
+        height: 32px;
+        border: 1px solid var(--gray-300);
+        background: white;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .quantity-btn:hover {
+        background: var(--gray-50);
+        border-color: var(--gray-400);
+    }
+    
+    .quantity-display {
+        min-width: 40px;
+        text-align: center;
+        font-weight: 600;
+    }
+    
+    .cart-total {
+        border-top: 1px solid var(--gray-200);
+        padding: 24px;
+        background: var(--gray-50);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .total-label {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--gray-900);
+    }
+    
+    .total-amount {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-blue);
+    }
+    
+    @media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .status-tabs {
+            overflow-x: scroll;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .filters-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .order-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .order-details {
+            grid-template-columns: 1fr;
+        }
+        
+        .order-actions {
+            flex-direction: column;
+        }
+        
+        .workflow-steps {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="orders-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Orders</h1>
+            </div>
+            <div class="header-actions">
+                {% if current_user.role == 'customer_employee' %}
+                <button class="btn btn-secondary" onclick="showCart()">
+                    <i class="fas fa-shopping-cart"></i>
+                    View Cart (<span id="cartCountHeader">0</span>)
+                </button>
+                <button class="btn btn-primary" onclick="createNewOrder()">
+                    <i class="fas fa-plus"></i>
+                    New Order
+                </button>
+                {% endif %}
+                
+                {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                <button class="btn btn-secondary" onclick="exportOrders()">
+                    <i class="fas fa-download"></i>
+                    Export
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Cart Section (for employees) -->
+        {% if current_user.role == 'customer_employee' %}
+        <div class="cart-section" id="cartSection" style="display: none;">
+            <div class="cart-header">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h3 class="cart-title">Shopping Cart</h3>
+                    <button class="btn btn-sm btn-secondary" onclick="hideCart()">
+                        <i class="fas fa-times"></i>
+                        Close
+                    </button>
+                </div>
+            </div>
+            <div class="cart-items" id="cartItems">
+                <!-- Cart items will be loaded here -->
+            </div>
+            <div class="cart-total">
+                <span class="total-label">Total:</span>
+                <span class="total-amount" id="cartTotal">₹0.00</span>
+                <button class="btn btn-primary" onclick="placeOrder()" id="placeOrderBtn">
+                    <i class="fas fa-shopping-cart"></i>
+                    Place Order
+                </button>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Status Tabs -->
+        <div class="status-tabs" id="statusTabs">
+            <!-- Status tabs will be loaded here -->
+        </div>
+        
+        <!-- Filters Section -->
+        <div class="filters-section">
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label class="filter-label">Date Range</label>
+                    <select class="form-control" id="dateFilter">
+                        <option value="">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="quarter">This Quarter</option>
+                    </select>
+                </div>
+                
+                {% if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+                <div class="filter-group">
+                    <label class="filter-label">Customer</label>
+                    <select class="form-control" id="customerFilter">
+                        <option value="">All Customers</option>
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div class="filter-group">
+                    <label class="filter-label">Amount Range</label>
+                    <select class="form-control" id="amountFilter">
+                        <option value="">All Amounts</option>
+                        <option value="0-1000">Under ₹1,000</option>
+                        <option value="1000-5000">₹1,000 - ₹5,000</option>
+                        <option value="5000-10000">₹5,000 - ₹10,000</option>
+                        <option value="10000+">Above ₹10,000</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label">Sort By</label>
+                    <select class="form-control" id="sortFilter">
+                        <option value="created_desc">Newest First</option>
+                        <option value="created_asc">Oldest First</option>
+                        <option value="amount_desc">Highest Amount</option>
+                        <option value="amount_asc">Lowest Amount</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Orders Section -->
+        <div class="orders-section">
+            <div class="orders-header">
+                <div class="orders-info" id="ordersInfo">
+                    Loading orders...
+                </div>
+            </div>
+            <div class="orders-list" id="ordersList">
+                <!-- Orders will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order Details Modal -->
+<div class="modal" id="orderModal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3 class="modal-title" id="orderModalTitle">Order Details</h3>
+            <button class="modal-close" onclick="closeOrderModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="orderModalBody">
+            <!-- Order details will be loaded here -->
+        </div>
+        <div class="modal-footer" id="orderModalFooter">
+            <!-- Action buttons will be loaded here -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Orders page functionality
+    let currentOrders = [];
+    let filteredOrders = [];
+    let currentStatus = 'all';
+    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        loadOrders();
+        setupEventListeners();
+        updateCartDisplay();
+        
+        // Handle URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('action') === 'cart') {
+            showCart();
+        }
+        
+        // Listen for customer selection changes
+        window.addEventListener('customerChanged', function(e) {
+            loadOrders();
+        });
+    });
+    
+    function setupEventListeners() {
+        // Auto-filter on changes
+        ['dateFilter', 'customerFilter', 'amountFilter', 'sortFilter'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('change', applyFilters);
+            }
+        });
+    }
+    
+    async function loadOrders() {
+        try {
+            const selectedCustomer = document.getElementById('customerSelector')?.value || '';
+            const queryParams = selectedCustomer ? `?customer_id=${selectedCustomer}` : '';
+            
+            const response = await apiCall(`/orders${queryParams}`);
+            
+            if (response.success) {
+                currentOrders = response.orders;
+                setupStatusTabs();
+                applyFilters();
+            }
+        } catch (error) {
+            console.error('Error loading orders:', error);
+            showEmptyState('Error loading orders');
+        }
+    }
+    
+    function setupStatusTabs() {
+        const statusCounts = {};
+        
+        // Count orders by status
+        currentOrders.forEach(order => {
+            statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
+        });
+        
+        const totalCount = currentOrders.length;
+        
+        const tabs = document.getElementById('statusTabs');
+        
+        {% if current_user.role == 'customer_employee' %}
+        const statuses = [
+            { key: 'all', label: 'All Orders', count: totalCount },
+            { key: 'draft', label: 'Draft', count: statusCounts.draft || 0 },
+            { key: 'pending_dept_approval', label: 'Pending Approval', count: statusCounts.pending_dept_approval || 0 },
+            { key: 'approved', label: 'Approved', count: statusCounts.approved || 0 },
+            { key: 'dispatched', label: 'Delivered', count: statusCounts.dispatched || 0 }
+        ];
+        {% elif current_user.role == 'customer_dept_head' %}
+        const statuses = [
+            { key: 'all', label: 'All Orders', count: totalCount },
+            { key: 'pending_dept_approval', label: 'Pending Review', count: statusCounts.pending_dept_approval || 0 },
+            { key: 'approved', label: 'Approved', count: statusCounts.approved || 0 },
+            { key: 'dispatched', label: 'Completed', count: statusCounts.dispatched || 0 }
+        ];
+        {% elif current_user.role == 'customer_hr_admin' %}
+        const statuses = [
+            { key: 'all', label: 'All Orders', count: totalCount },
+            { key: 'pending_hr_approval', label: 'Pending Approval', count: statusCounts.pending_hr_approval || 0 },
+            { key: 'approved', label: 'Approved', count: statusCounts.approved || 0 },
+            { key: 'dispatched', label: 'Completed', count: statusCounts.dispatched || 0 }
+        ];
+        {% else %}
+        const statuses = [
+            { key: 'all', label: 'All Orders', count: totalCount },
+            { key: 'approved', label: 'Ready to Pack', count: statusCounts.approved || 0 },
+            { key: 'packed', label: 'Packed', count: statusCounts.packed || 0 },
+            { key: 'ready_for_dispatch', label: 'Ready for Dispatch', count: statusCounts.ready_for_dispatch || 0 },
+            { key: 'dispatched', label: 'Dispatched', count: statusCounts.dispatched || 0 }
+        ];
+        {% endif %}
+        
+        tabs.innerHTML = statuses.map(status => `
+            <button class="status-tab ${currentStatus === status.key ? 'active' : ''}" 
+                    onclick="setStatus('${status.key}')">
+                ${status.label}
+                <span class="count">${status.count}</span>
+            </button>
+        `).join('');
+    }
+    
+    function setStatus(status) {
+        currentStatus = status;
+        setupStatusTabs();
+        applyFilters();
+    }
+    
+    function applyFilters() {
+        const dateFilter = document.getElementById('dateFilter').value;
+        const customerFilter = document.getElementById('customerFilter')?.value || '';
+        const amountFilter = document.getElementById('amountFilter').value;
+        const sortBy = document.getElementById('sortFilter').value;
+        
+        filteredOrders = currentOrders.filter(order => {
+            // Status filter
+            const matchesStatus = currentStatus === 'all' || order.status === currentStatus;
+            
+            // Date filter
+            let matchesDate = true;
+            if (dateFilter) {
+                const orderDate = new Date(order.created_at);
+                const now = new Date();
+                
+                switch (dateFilter) {
+                    case 'today':
+                        matchesDate = orderDate.toDateString() === now.toDateString();
+                        break;
+                    case 'week':
+                        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        matchesDate = orderDate >= weekAgo;
+                        break;
+                    case 'month':
+                        matchesDate = orderDate.getMonth() === now.getMonth() && 
+                                    orderDate.getFullYear() === now.getFullYear();
+                        break;
+                    case 'quarter':
+                        const quarter = Math.floor(now.getMonth() / 3);
+                        const orderQuarter = Math.floor(orderDate.getMonth() / 3);
+                        matchesDate = orderQuarter === quarter && 
+                                    orderDate.getFullYear() === now.getFullYear();
+                        break;
+                }
+            }
+            
+            // Customer filter (vendor only)
+            const matchesCustomer = !customerFilter || order.customer_id === customerFilter;
+            
+            // Amount filter
+            let matchesAmount = true;
+            if (amountFilter) {
+                const amount = order.total_amount;
+                if (amountFilter === '0-1000') matchesAmount = amount < 1000;
+                else if (amountFilter === '1000-5000') matchesAmount = amount >= 1000 && amount < 5000;
+                else if (amountFilter === '5000-10000') matchesAmount = amount >= 5000 && amount < 10000;
+                else if (amountFilter === '10000+') matchesAmount = amount >= 10000;
+            }
+            
+            return matchesStatus && matchesDate && matchesCustomer && matchesAmount;
+        });
+        
+        // Apply sorting
+        filteredOrders.sort((a, b) => {
+            switch (sortBy) {
+                case 'created_asc': return new Date(a.created_at) - new Date(b.created_at);
+                case 'created_desc': return new Date(b.created_at) - new Date(a.created_at);
+                case 'amount_asc': return a.total_amount - b.total_amount;
+                case 'amount_desc': return b.total_amount - a.total_amount;
+                default: return 0;
+            }
+        });
+        
+        displayOrders();
+        updateOrdersInfo();
+    }
+    
+    function displayOrders() {
+        const ordersList = document.getElementById('ordersList');
+        
+        if (filteredOrders.length === 0) {
+            showEmptyState();
+            return;
+        }
+        
+        ordersList.innerHTML = filteredOrders.map(order => `
+            <div class="order-card" onclick="viewOrder('${order.order_id}')">
+                <div class="order-header">
+                    <div class="order-main-info">
+                        <div class="order-id">Order #${order.order_id}</div>
+                        <div class="order-meta">
+                            <span><i class="fas fa-calendar"></i> ${formatDate(order.created_at)}</span>
+                            <span><i class="fas fa-box"></i> ${order.items_count || 0} items</span>
+                            {% if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+                            <span><i class="fas fa-building"></i> Customer ${order.customer_id}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="order-status-section">
+                        <div class="order-amount">${formatCurrency(order.total_amount)}</div>
+                        ${getStatusBadge(order.status)}
+                    </div>
+                </div>
+                
+                ${getOrderWorkflow(order)}
+                ${getOrderActions(order)}
+            </div>
+        `).join('');
+    }
+    
+    function getOrderWorkflow(order) {
+        {% if current_user.role in ['customer_employee', 'customer_dept_head', 'customer_hr_admin'] %}
+        const steps = [
+            { key: 'draft', label: 'Created', icon: 'plus' },
+            { key: 'pending_dept_approval', label: 'Dept Review', icon: 'user-check' },
+            { key: 'pending_hr_approval', label: 'HR Approval', icon: 'user-tie' },
+            { key: 'approved', label: 'Processing', icon: 'cogs' },
+            { key: 'dispatched', label: 'Delivered', icon: 'check' }
+        ];
+        
+        const currentIndex = steps.findIndex(step => step.key === order.status);
+        
+        return `
+            <div class="approval-workflow">
+                <div class="workflow-header">
+                    <div class="workflow-icon">
+                        <i class="fas fa-route"></i>
+                    </div>
+                    <span class="workflow-title">Order Progress</span>
+                </div>
+                <div class="workflow-steps">
+                    ${steps.map((step, index) => `
+                        <div class="workflow-step">
+                            <div class="step-icon ${index <= currentIndex ? 'completed' : ''} ${index === currentIndex ? 'current' : ''}">
+                                <i class="fas fa-${step.icon}"></i>
+                            </div>
+                            <span>${step.label}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        {% else %}
+        return '';
+        {% endif %}
+    }
+    
+    function getOrderActions(order) {
+        let actions = [];
+        
+        {% if current_user.role == 'customer_dept_head' %}
+        if (order.status === 'pending_dept_approval') {
+            actions = [
+                `<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); approveOrder('${order.order_id}', 'dept')">Approve</button>`,
+                `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); rejectOrder('${order.order_id}', 'dept')">Reject</button>`
+            ];
+        }
+        {% elif current_user.role == 'customer_hr_admin' %}
+        if (order.status === 'pending_hr_approval') {
+            actions = [
+                `<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); approveOrder('${order.order_id}', 'hr')">Approve</button>`,
+                `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); rejectOrder('${order.order_id}', 'hr')">Reject</button>`
+            ];
+        }
+        {% elif current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+        if (order.status === 'approved') {
+            actions = [`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); packOrder('${order.order_id}')">Mark as Packed</button>`];
+        } else if (order.status === 'packed' && '{{ current_user.role }}' !== 'vendor_normal') {
+            actions = [`<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); approveDispatch('${order.order_id}')">Approve Dispatch</button>`];
+        } else if (order.status === 'ready_for_dispatch') {
+            actions = [`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); markDispatched('${order.order_id}')">Mark Dispatched</button>`];
+        }
+        {% endif %}
+        
+        actions.push(`<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); viewOrder('${order.order_id}')">View Details</button>`);
+        
+        if (actions.length > 0) {
+            return `<div class="order-actions">${actions.join('')}</div>`;
+        }
+        
+        return '';
+    }
+    
+    function updateOrdersInfo() {
+        const info = document.getElementById('ordersInfo');
+        const total = filteredOrders.length;
+        
+        if (total === 0) {
+            info.textContent = 'No orders found';
+        } else {
+            info.textContent = `Showing ${total} order${total !== 1 ? 's' : ''}`;
+        }
+    }
+    
+    function showEmptyState() {
+        const ordersList = document.getElementById('ordersList');
+        const statusText = currentStatus === 'all' ? 'orders' : `${currentStatus.replace('_', ' ')} orders`;
+        
+        ordersList.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <div class="empty-state-title">No ${statusText}</div>
+                <div class="empty-state-text">
+                    {% if current_user.role == 'customer_employee' %}
+                    Start by browsing products and creating your first order
+                    {% else %}
+                    Orders will appear here when available
+                    {% endif %}
+                </div>
+                {% if current_user.role == 'customer_employee' %}
+                <button class="btn btn-primary" onclick="createNewOrder()">
+                    <i class="fas fa-plus"></i>
+                    Create Order
+                </button>
+                {% endif %}
+            </div>
+        `;
+    }
+    
+    {% if current_user.role == 'customer_employee' %}
+    function updateCartDisplay() {
+        const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+        const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        document.getElementById('cartCountHeader').textContent = totalItems;
+        document.getElementById('cartTotal').textContent = formatCurrency(totalAmount);
+        
+        const cartItems = document.getElementById('cartItems');
+        if (cart.length === 0) {
+            cartItems.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <div class="empty-state-title">Your cart is empty</div>
+                    <div class="empty-state-text">Add some products to get started</div>
+                    <button class="btn btn-primary" onclick="window.location.href='/products'">
+                        Browse Products
+                    </button>
+                </div>
+            `;
+            document.getElementById('placeOrderBtn').disabled = true;
+        } else {
+            cartItems.innerHTML = cart.map((item, index) => `
+                <div class="cart-item">
+                    <div class="cart-item-info">
+                        <div class="cart-item-name">${item.product_name}</div>
+                        <div class="cart-item-price">${formatCurrency(item.price)} each</div>
+                    </div>
+                    <div class="quantity-controls">
+                        <button class="quantity-btn" onclick="updateQuantity(${index}, -1)">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <span class="quantity-display">${item.quantity}</span>
+                        <button class="quantity-btn" onclick="updateQuantity(${index}, 1)">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div style="margin-left: 16px;">
+                        <strong>${formatCurrency(item.price * item.quantity)}</strong>
+                    </div>
+                    <button class="btn btn-sm btn-danger" onclick="removeFromCart(${index})" style="margin-left: 12px;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+            document.getElementById('placeOrderBtn').disabled = false;
+        }
+    }
+    
+    function showCart() {
+        document.getElementById('cartSection').style.display = 'block';
+        updateCartDisplay();
+    }
+    
+    function hideCart() {
+        document.getElementById('cartSection').style.display = 'none';
+    }
+    
+    function updateQuantity(index, change) {
+        cart[index].quantity += change;
+        if (cart[index].quantity <= 0) {
+            cart.splice(index, 1);
+        }
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartDisplay();
+    }
+    
+    function removeFromCart(index) {
+        cart.splice(index, 1);
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartDisplay();
+    }
+    
+    async function placeOrder() {
+        if (cart.length === 0) return;
+        
+        try {
+            const orderItems = cart.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity
+            }));
+            
+            const response = await apiCall('/orders', {
+                method: 'POST',
+                body: JSON.stringify({ items: orderItems })
+            });
+            
+            if (response.success) {
+                showNotification('Order placed successfully!', 'success');
+                cart = [];
+                localStorage.setItem('cart', JSON.stringify(cart));
+                updateCartDisplay();
+                hideCart();
+                loadOrders();
+            }
+        } catch (error) {
+            console.error('Error placing order:', error);
+        }
+    }
+    
+    function createNewOrder() {
+        window.location.href = '/products';
+    }
+    {% endif %}
+    
+    function viewOrder(orderId) {
+        // Implementation for viewing order details
+        window.location.href = `/orders/${orderId}`;
+    }
+    
+    {% if current_user.role in ['customer_dept_head', 'customer_hr_admin'] %}
+    async function approveOrder(orderId, type) {
+        try {
+            const endpoint = type === 'dept' ? 'dept-approval' : 'hr-approval';
+            const response = await apiCall(`/orders/${orderId}/${endpoint}`, {
+                method: 'PUT',
+                body: JSON.stringify({ action: 'approve' })
+            });
+            
+            if (response.success) {
+                showNotification('Order approved successfully!', 'success');
+                loadOrders();
+            }
+        } catch (error) {
+            console.error('Error approving order:', error);
+        }
+    }
+    
+    async function rejectOrder(orderId, type) {
+        const reason = prompt('Please provide a reason for rejection:');
+        if (!reason) return;
+        
+        try {
+            const endpoint = type === 'dept' ? 'dept-approval' : 'hr-approval';
+            const response = await apiCall(`/orders/${orderId}/${endpoint}`, {
+                method: 'PUT',
+                body: JSON.stringify({ 
+                    action: 'reject',
+                    comments: reason
+                })
+            });
+            
+            if (response.success) {
+                showNotification('Order rejected', 'warning');
+                loadOrders();
+            }
+        } catch (error) {
+            console.error('Error rejecting order:', error);
+        }
+    }
+    {% endif %}
+    
+    {% if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+    async function packOrder(orderId) {
+        try {
+            // For simplicity, mark all items as packed
+            const response = await apiCall(`/orders/${orderId}/pack`, {
+                method: 'PUT',
+                body: JSON.stringify({ 
+                    packed_items: { '0': true } // This would need order details in real implementation
+                })
+            });
+            
+            if (response.success) {
+                showNotification('Order marked as packed!', 'success');
+                loadOrders();
+            }
+        } catch (error) {
+            console.error('Error packing order:', error);
+        }
+    }
+    
+    async function approveDispatch(orderId) {
+        try {
+            const response = await apiCall(`/orders/${orderId}/dispatch-approval`, {
+                method: 'PUT',
+                body: JSON.stringify({ action: 'approve' })
+            });
+            
+            if (response.success) {
+                showNotification('Dispatch approved!', 'success');
+                loadOrders();
+            }
+        } catch (error) {
+            console.error('Error approving dispatch:', error);
+        }
+    }
+    
+    async function markDispatched(orderId) {
+        try {
+            const response = await apiCall(`/orders/${orderId}/dispatch`, {
+                method: 'PUT'
+            });
+            
+            if (response.success) {
+                showNotification('Order marked as dispatched!', 'success');
+                loadOrders();
+            }
+        } catch (error) {
+            console.error('Error marking dispatched:', error);
+        }
+    }
+    
+    function exportOrders() {
+        window.location.href = '/api/vendor/export/orders';
+    }
+    {% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,784 @@
+{% extends "base.html" %}
+
+{% block title %}Vendor Dashboard - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Vendor dashboard specific styles */
+    .dashboard-container {
+        padding: 32px 0;
+    }
+    
+    .dashboard-header {
+        margin-bottom: 40px;
+    }
+    
+    .dashboard-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin-bottom: 8px;
+    }
+    
+    .dashboard-subtitle {
+        color: var(--gray-600);
+        font-size: 1.125rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+        margin-bottom: 40px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--gradient-primary);
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .stat-card.success::before {
+        background: var(--gradient-success);
+    }
+    
+    .stat-card.warning::before {
+        background: var(--gradient-warning);
+    }
+    
+    .stat-card.danger::before {
+        background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    }
+    
+    .stat-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+    }
+    
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: white;
+        background: var(--gradient-primary);
+    }
+    
+    .stat-icon.success {
+        background: var(--gradient-success);
+    }
+    
+    .stat-icon.warning {
+        background: var(--gradient-warning);
+    }
+    
+    .stat-icon.danger {
+        background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin-bottom: 4px;
+    }
+    
+    .stat-label {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .stat-change {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 8px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .stat-change.positive {
+        color: var(--secondary-green);
+    }
+    
+    .stat-change.negative {
+        color: var(--secondary-red);
+    }
+    
+    .content-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 32px;
+        margin-bottom: 40px;
+    }
+    
+    .main-content {
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+    }
+    
+    .sidebar-content {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    
+    .section-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+    }
+    
+    .section-header {
+        padding: 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+    }
+    
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 4px;
+    }
+    
+    .section-subtitle {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+    }
+    
+    .section-body {
+        padding: 24px;
+    }
+    
+    .recent-orders-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .order-item {
+        display: flex;
+        align-items: center;
+        justify-content: between;
+        padding: 16px;
+        background: var(--gray-50);
+        border-radius: 12px;
+        border: 1px solid var(--gray-200);
+        transition: all 0.3s ease;
+    }
+    
+    .order-item:hover {
+        background: white;
+        box-shadow: var(--shadow);
+        transform: translateY(-1px);
+    }
+    
+    .order-info {
+        flex: 1;
+    }
+    
+    .order-id {
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 4px;
+    }
+    
+    .order-details {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+    
+    .order-status {
+        margin-left: 16px;
+    }
+    
+    .notifications-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .notification-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px;
+        background: var(--gray-50);
+        border-radius: 8px;
+        border-left: 3px solid var(--primary-blue);
+    }
+    
+    .notification-item.warning {
+        border-left-color: var(--secondary-orange);
+        background: rgba(245, 158, 11, 0.05);
+    }
+    
+    .notification-item.danger {
+        border-left-color: var(--secondary-red);
+        background: rgba(239, 68, 68, 0.05);
+    }
+    
+    .notification-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: white;
+        background: var(--primary-blue);
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    
+    .notification-icon.warning {
+        background: var(--secondary-orange);
+    }
+    
+    .notification-icon.danger {
+        background: var(--secondary-red);
+    }
+    
+    .notification-content {
+        flex: 1;
+    }
+    
+    .notification-message {
+        font-size: 0.875rem;
+        color: var(--gray-700);
+        margin-bottom: 2px;
+    }
+    
+    .notification-time {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+    }
+    
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 16px;
+    }
+    
+    .quick-action {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px 16px;
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        text-decoration: none;
+        color: var(--gray-700);
+        transition: all 0.3s ease;
+    }
+    
+    .quick-action:hover {
+        background: white;
+        box-shadow: var(--shadow);
+        transform: translateY(-2px);
+        color: var(--primary-blue);
+    }
+    
+    .quick-action-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: var(--gradient-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        color: white;
+        margin-bottom: 12px;
+    }
+    
+    .quick-action-label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-align: center;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--gray-500);
+    }
+    
+    .empty-state-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+    
+    .empty-state-text {
+        font-size: 1rem;
+        margin-bottom: 8px;
+    }
+    
+    .empty-state-subtext {
+        font-size: 0.875rem;
+        opacity: 0.8;
+    }
+    
+    @media (max-width: 1024px) {
+        .content-grid {
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .dashboard-container {
+            padding: 24px 0;
+        }
+        
+        .dashboard-title {
+            font-size: 2rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .stat-card {
+            padding: 20px;
+        }
+        
+        .section-header,
+        .section-body {
+            padding: 20px;
+        }
+        
+        .quick-actions {
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+        
+        .quick-action {
+            padding: 16px 12px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="dashboard-container">
+        <!-- Dashboard Header -->
+        <div class="dashboard-header">
+            <h1 class="dashboard-title">Vendor Dashboard</h1>
+            <p class="dashboard-subtitle">
+                Welcome back, {{ current_user.full_name }}! Here's what's happening with your business today.
+            </p>
+        </div>
+        
+        <!-- Statistics Cards -->
+        <div class="stats-grid" id="statsGrid">
+            <!-- Stats will be loaded here -->
+        </div>
+        
+        <!-- Main Content Grid -->
+        <div class="content-grid">
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Recent Orders -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3 class="section-title">Recent Orders</h3>
+                        <p class="section-subtitle">Latest orders requiring attention</p>
+                    </div>
+                    <div class="section-body">
+                        <div class="recent-orders-list" id="recentOrdersList">
+                            <!-- Orders will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3 class="section-title">Quick Actions</h3>
+                        <p class="section-subtitle">Common tasks and shortcuts</p>
+                    </div>
+                    <div class="section-body">
+                        <div class="quick-actions">
+                            <a href="{{ url_for('products') }}" class="quick-action">
+                                <div class="quick-action-icon">
+                                    <i class="fas fa-plus"></i>
+                                </div>
+                                <span class="quick-action-label">Add Product</span>
+                            </a>
+                            
+                            {% if current_user.role == 'vendor_superadmin' %}
+                            <a href="{{ url_for('customers') }}" class="quick-action">
+                                <div class="quick-action-icon">
+                                    <i class="fas fa-building"></i>
+                                </div>
+                                <span class="quick-action-label">Add Customer</span>
+                            </a>
+                            {% endif %}
+                            
+                            <a href="{{ url_for('orders') }}" class="quick-action">
+                                <div class="quick-action-icon">
+                                    <i class="fas fa-shipping-fast"></i>
+                                </div>
+                                <span class="quick-action-label">Manage Orders</span>
+                            </a>
+                            
+                            <a href="{{ url_for('products') }}?filter=low_stock" class="quick-action">
+                                <div class="quick-action-icon">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <span class="quick-action-label">Low Stock</span>
+                            </a>
+                            
+                            {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                            <a href="{{ url_for('users') }}" class="quick-action">
+                                <div class="quick-action-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <span class="quick-action-label">Manage Users</span>
+                            </a>
+                            
+                            <a href="{{ url_for('settings') }}" class="quick-action">
+                                <div class="quick-action-icon">
+                                    <i class="fas fa-cog"></i>
+                                </div>
+                                <span class="quick-action-label">Settings</span>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sidebar Content -->
+            <div class="sidebar-content">
+                <!-- Notifications -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3 class="section-title">Notifications</h3>
+                        <p class="section-subtitle">Important alerts and updates</p>
+                    </div>
+                    <div class="section-body">
+                        <div class="notifications-list" id="notificationsList">
+                            <!-- Notifications will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- System Health (SuperAdmin only) -->
+                {% if current_user.role == 'vendor_superadmin' %}
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3 class="section-title">System Health</h3>
+                        <p class="section-subtitle">System status overview</p>
+                    </div>
+                    <div class="section-body">
+                        <div id="systemHealth">
+                            <!-- System health will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Vendor Dashboard functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDashboardData();
+        
+        // Refresh data every 5 minutes
+        setInterval(loadDashboardData, 5 * 60 * 1000);
+    });
+    
+    async function loadDashboardData() {
+        try {
+            await Promise.all([
+                loadStatistics(),
+                loadRecentOrders(),
+                loadNotifications(),
+                {% if current_user.role == 'vendor_superadmin' %}
+                loadSystemHealth()
+                {% endif %}
+            ]);
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+        }
+    }
+    
+    async function loadStatistics() {
+        try {
+            const response = await apiCall('/dashboard/vendor');
+            
+            if (response.success) {
+                const stats = response.statistics;
+                const statsGrid = document.getElementById('statsGrid');
+                
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-icon">
+                                <i class="fas fa-shopping-cart"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">${stats.total_orders || 0}</div>
+                        <div class="stat-label">Total Orders</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            ${stats.orders_this_month || 0} this month
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card warning">
+                        <div class="stat-header">
+                            <div class="stat-icon warning">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">${stats.pending_orders || 0}</div>
+                        <div class="stat-label">Pending Orders</div>
+                        <div class="stat-change">
+                            <i class="fas fa-info-circle"></i>
+                            Awaiting processing
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card success">
+                        <div class="stat-header">
+                            <div class="stat-icon success">
+                                <i class="fas fa-shipping-fast"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">${stats.ready_for_dispatch || 0}</div>
+                        <div class="stat-label">Ready for Dispatch</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-check"></i>
+                            Ready to ship
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">${stats.active_customers || 0}</div>
+                        <div class="stat-label">Active Customers</div>
+                        <div class="stat-change">
+                            <i class="fas fa-building"></i>
+                            Organizations
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card danger">
+                        <div class="stat-header">
+                            <div class="stat-icon danger">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">${stats.low_stock_count || 0}</div>
+                        <div class="stat-label">Low Stock Items</div>
+                        <div class="stat-change negative">
+                            <i class="fas fa-arrow-down"></i>
+                            Requires attention
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-icon">
+                                <i class="fas fa-rupee-sign"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">${formatCurrency(stats.total_revenue || 0)}</div>
+                        <div class="stat-label">Total Revenue</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-chart-line"></i>
+                            All time
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+        }
+    }
+    
+    async function loadRecentOrders() {
+        try {
+            const response = await apiCall('/orders?status=approved');
+            
+            const ordersList = document.getElementById('recentOrdersList');
+            
+            if (response.success && response.orders && response.orders.length > 0) {
+                ordersList.innerHTML = response.orders.slice(0, 5).map(order => `
+                    <div class="order-item" onclick="viewOrder('${order.order_id}')">
+                        <div class="order-info">
+                            <div class="order-id">Order #${order.order_id}</div>
+                            <div class="order-details">
+                                Customer: ${order.customer_id} • ${formatCurrency(order.total_amount)} • ${order.items_count} items
+                            </div>
+                        </div>
+                        <div class="order-status">
+                            ${getStatusBadge(order.status)}
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                ordersList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="empty-state-text">No recent orders</div>
+                        <div class="empty-state-subtext">New orders will appear here</div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading recent orders:', error);
+        }
+    }
+    
+    async function loadNotifications() {
+        try {
+            const response = await apiCall('/vendor/notifications');
+            
+            const notificationsList = document.getElementById('notificationsList');
+            
+            if (response.success && response.notifications && response.notifications.length > 0) {
+                notificationsList.innerHTML = response.notifications.slice(0, 5).map(notification => `
+                    <div class="notification-item ${notification.priority === 'high' ? 'danger' : notification.priority === 'medium' ? 'warning' : ''}">
+                        <div class="notification-icon ${notification.priority === 'high' ? 'danger' : notification.priority === 'medium' ? 'warning' : ''}">
+                            <i class="fas fa-${getNotificationIcon(notification.type)}"></i>
+                        </div>
+                        <div class="notification-content">
+                            <div class="notification-message">${notification.message}</div>
+                            <div class="notification-time">Just now</div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                notificationsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="fas fa-bell"></i>
+                        </div>
+                        <div class="empty-state-text">No notifications</div>
+                        <div class="empty-state-subtext">All caught up!</div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading notifications:', error);
+        }
+    }
+    
+    {% if current_user.role == 'vendor_superadmin' %}
+    async function loadSystemHealth() {
+        try {
+            const response = await apiCall('/vendor/system-health');
+            
+            const systemHealth = document.getElementById('systemHealth');
+            
+            if (response.success) {
+                const health = response.health;
+                systemHealth.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span>Database</span>
+                            <span class="badge ${health.database_healthy ? 'badge-success' : 'badge-danger'}">
+                                ${health.database_healthy ? 'Healthy' : 'Issues'}
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span>Storage</span>
+                            <span class="badge ${health.storage_healthy ? 'badge-success' : 'badge-danger'}">
+                                ${health.storage_healthy ? 'Healthy' : 'Issues'}
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span>Email Config</span>
+                            <span class="badge ${health.email_configured ? 'badge-success' : 'badge-warning'}">
+                                ${health.email_configured ? 'Configured' : 'Not Set'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading system health:', error);
+        }
+    }
+    {% endif %}
+    
+    function getNotificationIcon(type) {
+        const iconMap = {
+            'low_stock': 'exclamation-triangle',
+            'pending_orders': 'clock',
+            'ready_for_dispatch': 'shipping-fast',
+            'default': 'info-circle'
+        };
+        
+        return iconMap[type] || iconMap.default;
+    }
+    
+    function viewOrder(orderId) {
+        window.location.href = `/orders?order_id=${orderId}`;
+    }
+    
+    // Format currency helper (already defined in base template, but ensuring it's available)
+    if (typeof formatCurrency === 'undefined') {
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR'
+            }).format(amount);
+        }
+    }
+</script>
+{% endblock %}

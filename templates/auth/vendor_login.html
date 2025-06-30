@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Login - Office Supplies System</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-blue: #2563eb;
+            --primary-blue-dark: #1d4ed8;
+            --secondary-green: #10b981;
+            --secondary-orange: #f59e0b;
+            --secondary-red: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --gradient-vendor: linear-gradient(135deg, #1f2937, #374151);
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            max-width: 1000px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            min-height: 600px;
+        }
+        
+        .login-left {
+            background: var(--gradient-vendor);
+            padding: 60px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .login-left::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="vendorGrain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.05"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.05"/><circle cx="50" cy="50" r="0.5" fill="white" opacity="0.03"/></pattern></defs><rect width="100" height="100" fill="url(%23vendorGrain)"/></svg>');
+            animation: float 25s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(-1deg); }
+        }
+        
+        .login-logo {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .login-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+        
+        .login-subtitle {
+            font-size: 1.125rem;
+            opacity: 0.9;
+            text-align: center;
+            line-height: 1.6;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .vendor-badge {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .login-right {
+            padding: 60px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .login-form-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+        }
+        
+        .login-form-subtitle {
+            color: var(--gray-600);
+            margin-bottom: 32px;
+            font-size: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 8px;
+            font-size: 0.875rem;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--gray-700);
+            box-shadow: 0 0 0 4px rgba(55, 65, 81, 0.1);
+        }
+        
+        .input-group {
+            position: relative;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+            font-size: 1.125rem;
+        }
+        
+        .input-group .form-control {
+            padding-left: 48px;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--gray-400);
+            cursor: pointer;
+            font-size: 1.125rem;
+            transition: color 0.3s ease;
+        }
+        
+        .password-toggle:hover {
+            color: var(--gray-600);
+        }
+        
+        .form-error {
+            color: var(--secondary-red);
+            font-size: 0.875rem;
+            margin-top: 8px;
+            display: none;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 16px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            width: 100%;
+        }
+        
+        .btn-primary {
+            background: var(--gradient-vendor);
+            color: white;
+            box-shadow: var(--shadow);
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .login-links {
+            text-align: center;
+            margin-top: 24px;
+        }
+        
+        .login-link {
+            color: var(--gray-600);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        
+        .login-link:hover {
+            color: var(--gray-800);
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 24px 0;
+            color: var(--gray-500);
+            font-size: 0.875rem;
+        }
+        
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--gray-200);
+        }
+        
+        .divider span {
+            padding: 0 16px;
+        }
+        
+        .loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .alert {
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: var(--secondary-red);
+        }
+        
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--secondary-green);
+        }
+        
+        .security-note {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 20px;
+            font-size: 0.875rem;
+            color: var(--gray-600);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .login-container {
+                grid-template-columns: 1fr;
+                max-width: 400px;
+            }
+            
+            .login-left {
+                padding: 40px 20px;
+                min-height: 200px;
+            }
+            
+            .login-right {
+                padding: 40px 20px;
+            }
+            
+            .login-title {
+                font-size: 2rem;
+            }
+            
+            .login-form-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- Left Side - Vendor Branding -->
+        <div class="login-left">
+            <div class="vendor-badge">
+                <i class="fas fa-shield-alt"></i>
+                VENDOR PORTAL
+            </div>
+            <div class="login-logo">
+                <i class="fas fa-building"></i>
+            </div>
+            <h1 class="login-title">Vendor Dashboard</h1>
+            <p class="login-subtitle">
+                Manage your office supplies business, customers, and orders with powerful tools and analytics.
+            </p>
+        </div>
+        
+        <!-- Right Side - Login Form -->
+        <div class="login-right">
+            <h2 class="login-form-title">Vendor Login</h2>
+            <p class="login-form-subtitle">Access your vendor management dashboard</p>
+            
+            <!-- Alert Container -->
+            <div id="alertContainer"></div>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <div class="input-group">
+                        <i class="input-icon fas fa-user-tie"></i>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            name="username" 
+                            id="username"
+                            placeholder="Enter your vendor username"
+                            required
+                        >
+                    </div>
+                    <span class="form-error" id="usernameError"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <div class="input-group">
+                        <i class="input-icon fas fa-key"></i>
+                        <input 
+                            type="password" 
+                            class="form-control" 
+                            name="password" 
+                            id="password"
+                            placeholder="Enter your password"
+                            required
+                        >
+                        <button type="button" class="password-toggle" onclick="togglePassword()">
+                            <i class="fas fa-eye" id="passwordToggleIcon"></i>
+                        </button>
+                    </div>
+                    <span class="form-error" id="passwordError"></span>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    <span id="loginText">Access Dashboard</span>
+                    <div class="loading" id="loginLoading">
+                        <div class="spinner"></div>
+                        Authenticating...
+                    </div>
+                </button>
+                
+                <div class="security-note">
+                    <i class="fas fa-info-circle"></i>
+                    This is a secure vendor portal. All activities are logged and monitored.
+                </div>
+            </form>
+            
+            <div class="divider">
+                <span>or</span>
+            </div>
+            
+            <div class="login-links">
+                <a href="/login" class="login-link">
+                    <i class="fas fa-users"></i>
+                    Customer Portal Login
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Form handling
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const loginData = {
+                username: formData.get('username'),
+                password: formData.get('password'),
+                user_type: 'vendor'
+            };
+            
+            // Validate form
+            if (!validateForm()) {
+                return;
+            }
+            
+            // Show loading state
+            setLoadingState(true);
+            clearErrors();
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(loginData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('Login successful! Loading dashboard...', 'success');
+                    
+                    // Check if password reset is required
+                    if (data.password_reset_required) {
+                        showAlert('Password reset required. Redirecting to change password...', 'warning');
+                        setTimeout(() => {
+                            window.location.href = '/settings#security';
+                        }, 2000);
+                    } else {
+                        // Redirect after short delay
+                        setTimeout(() => {
+                            window.location.href = data.redirect_url || '/dashboard';
+                        }, 1000);
+                    }
+                } else {
+                    showAlert(data.message || 'Login failed', 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('Network error. Please try again.', 'error');
+            } finally {
+                setLoadingState(false);
+            }
+        });
+        
+        function validateForm() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            let isValid = true;
+            
+            if (!username) {
+                showFieldError('username', 'Username is required');
+                isValid = false;
+            } else {
+                clearFieldError('username');
+            }
+            
+            if (!password) {
+                showFieldError('password', 'Password is required');
+                isValid = false;
+            } else {
+                clearFieldError('password');
+            }
+            
+            return isValid;
+        }
+        
+        function showFieldError(fieldName, message) {
+            const field = document.getElementById(fieldName);
+            const errorElement = document.getElementById(fieldName + 'Error');
+            
+            field.style.borderColor = 'var(--secondary-red)';
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+        
+        function clearFieldError(fieldName) {
+            const field = document.getElementById(fieldName);
+            const errorElement = document.getElementById(fieldName + 'Error');
+            
+            field.style.borderColor = 'var(--gray-200)';
+            errorElement.style.display = 'none';
+        }
+        
+        function clearErrors() {
+            document.querySelectorAll('.form-error').forEach(error => {
+                error.style.display = 'none';
+            });
+            
+            document.querySelectorAll('.form-control').forEach(field => {
+                field.style.borderColor = 'var(--gray-200)';
+            });
+        }
+        
+        function setLoadingState(loading) {
+            const btn = document.getElementById('loginBtn');
+            const text = document.getElementById('loginText');
+            const loadingEl = document.getElementById('loginLoading');
+            
+            if (loading) {
+                btn.disabled = true;
+                text.style.display = 'none';
+                loadingEl.style.display = 'flex';
+            } else {
+                btn.disabled = false;
+                text.style.display = 'block';
+                loadingEl.style.display = 'none';
+            }
+        }
+        
+        function showAlert(message, type) {
+            const container = document.getElementById('alertContainer');
+            container.innerHTML = `
+                <div class="alert alert-${type}" style="display: flex;">
+                    <i class="fas fa-${type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'check-circle'}"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            // Auto-hide success messages
+            if (type === 'success') {
+                setTimeout(() => {
+                    container.innerHTML = '';
+                }, 3000);
+            }
+        }
+        
+        function togglePassword() {
+            const passwordField = document.getElementById('password');
+            const toggleIcon = document.getElementById('passwordToggleIcon');
+            
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                toggleIcon.className = 'fas fa-eye-slash';
+            } else {
+                passwordField.type = 'password';
+                toggleIcon.className = 'fas fa-eye';
+            }
+        }
+        
+        // Focus first input on load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('username').focus();
+        });
+        
+        // Handle Enter key in form fields
+        document.querySelectorAll('.form-control').forEach(field => {
+            field.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+                }
+            });
+        });
+    </script>
+</body>
+</html>
