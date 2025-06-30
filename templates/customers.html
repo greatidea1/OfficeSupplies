@@ -620,10 +620,18 @@
                     <input type="text" class="form-control" name="company_name" required data-label="Company Name">
                     <span class="form-error"></span>
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label">Email Address</label>
                     <input type="email" class="form-control" name="email" required data-label="Email">
+                    <span class="form-help">This will be the HR Admin's login email</span>
+                    <span class="form-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">HR Admin Password</label>
+                    <input type="password" class="form-control" name="hr_password" required data-label="HR Admin Password" minlength="8">
+                    <span class="form-help">Password for the HR Admin user (minimum 8 characters)</span>
                     <span class="form-error"></span>
                 </div>
                 

@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .users-container {
+        padding: 32px 0;
+    }
+    
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .users-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+    }
+    
+    .users-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .users-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .users-table th {
+        background: var(--gray-50);
+        padding: 16px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--gray-700);
+        border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .users-table td {
+        padding: 16px;
+        border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .users-table tr:hover {
+        background: var(--gray-50);
+    }
+    
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--primary-blue);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+    }
+    
+    .user-details {
+        flex: 1;
+    }
+    
+    .user-name {
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 2px;
+    }
+    
+    .user-email {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--gray-500);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="users-container">
+        <div class="page-header">
+            <h1 class="page-title">User Management</h1>
+            {% if current_user.role in ['vendor_superadmin', 'vendor_admin', 'customer_hr_admin'] %}
+            <button class="btn btn-primary" onclick="showAddUserModal()">
+                <i class="fas fa-user-plus"></i>
+                Add User
+            </button>
+            {% endif %}
+        </div>
+        
+        <div class="users-section">
+            <div class="users-header">
+                <div>
+                    <h3>System Users</h3>
+                    <p style="color: var(--gray-600); margin: 0;">Manage user accounts and permissions</p>
+                </div>
+            </div>
+            
+            <div id="usersContainer">
+                <!-- Users will be loaded here -->
+                <div style="padding: 40px; text-align: center;">
+                    <div class="spinner"></div>
+                    Loading users...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        loadUsers();
+    });
+    
+    async function loadUsers() {
+        try {
+            const response = await apiCall('/users');
+            const container = document.getElementById('usersContainer');
+            
+            if (response.success && response.users.length > 0) {
+                container.innerHTML = `
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Organization</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${response.users.map(user => `
+                                <tr>
+                                    <td>
+                                        <div class="user-info">
+                                            <div class="user-avatar">
+                                                ${(user.full_name || user.username).charAt(0).toUpperCase()}
+                                            </div>
+                                            <div class="user-details">
+                                                <div class="user-name">${user.full_name || user.username}</div>
+                                                <div class="user-email">${user.email}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-primary">
+                                            ${user.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge ${user.is_active ? 'badge-success' : 'badge-danger'}">
+                                            ${user.is_active ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </td>
+                                    <td>${user.customer_name || 'Vendor'}</td>
+                                    <td>
+                                        ${user.can_edit ? `
+                                            <button class="btn btn-sm btn-secondary" onclick="editUser('${user.user_id}')">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                        ` : ''}
+                                        <button class="btn btn-sm btn-primary" onclick="viewUser('${user.user_id}')">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-users" style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;"></i>
+                        <h3>No users found</h3>
+                        <p>Users will appear here when added.</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading users:', error);
+            document.getElementById('usersContainer').innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 64px; margin-bottom: 20px; color: var(--secondary-red);"></i>
+                    <h3>Error loading users</h3>
+                    <p>Please try again later.</p>
+                </div>
+            `;
+        }
+    }
+    
+    function showAddUserModal() {
+        showNotification('Add user functionality coming soon!', 'info');
+    }
+    
+    function editUser(userId) {
+        showNotification('Edit user functionality coming soon!', 'info');
+    }
+    
+    function viewUser(userId) {
+        showNotification('View user functionality coming soon!', 'info');
+    }
+</script>
+{% endblock %}

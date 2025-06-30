@@ -142,14 +142,28 @@ def create_app():
         """API: User login"""
         try:
             data = request.get_json()
-            username = data.get('username')
-            password = data.get('password')
-            user_type = data.get('user_type', 'customer')  # customer or vendor
+            user_type = data.get('user_type', 'customer')
             
-            if not username or not password:
-                return jsonify({'success': False, 'message': 'Username and password required'})
+            if user_type == 'customer':
+                # Customer login requires customer_id + email + password
+                customer_id = data.get('customer_id')
+                email = data.get('email')
+                password = data.get('password')
+                
+                if not customer_id or not email or not password:
+                    return jsonify({'success': False, 'message': 'Customer ID, email and password required'})
+                
+                result = auth_controller.login(email, password, user_type, customer_id)
+            else:
+                # Vendor login uses username + password
+                username = data.get('username')
+                password = data.get('password')
+                
+                if not username or not password:
+                    return jsonify({'success': False, 'message': 'Username and password required'})
+                
+                result = auth_controller.login(username, password, user_type)
             
-            result = auth_controller.login(username, password, user_type)
             return jsonify(result)
             
         except Exception as e:

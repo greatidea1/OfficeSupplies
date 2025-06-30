@@ -14,14 +14,22 @@ class AuthController:
     def __init__(self):
         self.session_timeout = timedelta(hours=8)  # 8 hour session timeout
     
-    def login(self, username, password, user_type='customer'):
+    def login(self, username_or_email, password, user_type='customer', customer_id=None):
         """Authenticate user and create session"""
         try:
-            # Find user by username
-            user = User.get_by_username(username)
+            # For customer login, we need customer_id + email combination
+            if user_type == 'customer':
+                if not customer_id:
+                    return {'success': False, 'message': 'Customer ID is required'}
+                
+                # Find user by customer_id and email
+                user = self.get_customer_user_by_email_and_customer_id(username_or_email, customer_id)
+            else:
+                # For vendor login, find by username
+                user = User.get_by_username(username_or_email)
             
             if not user:
-                return {'success': False, 'message': 'Invalid username or password'}
+                return {'success': False, 'message': 'Invalid login credentials'}
             
             # Check if user is active
             if not user.is_active:
@@ -29,7 +37,7 @@ class AuthController:
             
             # Verify password
             if not user.verify_password(password):
-                return {'success': False, 'message': 'Invalid username or password'}
+                return {'success': False, 'message': 'Invalid login credentials'}
             
             # Check user type matches role
             if user_type == 'vendor' and not user.role.startswith('vendor_'):
@@ -70,6 +78,23 @@ class AuthController:
         except Exception as e:
             print(f"Login error: {e}")
             return {'success': False, 'message': 'Login failed'}
+    
+    def get_customer_user_by_email_and_customer_id(self, email, customer_id):
+        """Get customer user by email and customer_id combination"""
+        try:
+            from config import config
+            db = config.get_db()
+            
+            # Query users with customer_id and email
+            docs = db.collection('users').where('customer_id', '==', customer_id).where('email', '==', email).limit(1).get()
+            
+            for doc in docs:
+                return User.from_dict(doc.to_dict())
+            
+            return None
+        except Exception as e:
+            print(f"Error getting customer user: {e}")
+            return None
     
     def logout(self):
         """Clear user session"""

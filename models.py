@@ -257,17 +257,16 @@ class Customer(BaseModel):
             print(f"Error getting all customers: {e}")
             return []
     
-    def create_hr_admin_user(self, send_email=False):
-        """Create HR admin user for this customer"""
+    def create_hr_admin_user_with_password(self, password, send_email=False):
+        """Create HR admin user with specified password"""
         try:
-            # Generate default credentials
+            # Generate username from customer ID
             username = f"{self.customer_id}_hr"
-            temp_password = f"temp_{self.customer_id}_{uuid.uuid4().hex[:8]}"
             
             hr_user = User.create_customer_hr_admin(
                 username=username,
                 email=self.email,
-                password=temp_password,
+                password=password,
                 customer_id=self.customer_id,
                 full_name=f"{self.company_name} HR Admin"
             )
@@ -277,16 +276,16 @@ class Customer(BaseModel):
                 self.save()
                 
                 if send_email:
-                    # Send welcome email with credentials
+                    # Send welcome email
                     from controllers.auth_controller import auth_controller
-                    auth_controller.send_welcome_email(hr_user, temp_password)
+                    auth_controller.send_welcome_email(hr_user, password)
                 
-                return {'success': True, 'user': hr_user, 'temp_password': temp_password}
+                return {'success': True, 'user': hr_user, 'password': password}
             else:
                 return {'success': False, 'message': 'Failed to create HR admin user'}
                 
         except Exception as e:
-            print(f"Error creating HR admin user: {e}")
+            print(f"Error creating HR admin user with password: {e}")
             return {'success': False, 'message': 'Failed to create HR admin user'}
 
 class Product(BaseModel):

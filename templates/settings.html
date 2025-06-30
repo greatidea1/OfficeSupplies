@@ -1,0 +1,494 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-container {
+        padding: 32px 0;
+    }
+    
+    .page-header {
+        margin-bottom: 32px;
+    }
+    
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin-bottom: 8px;
+    }
+    
+    .page-subtitle {
+        color: var(--gray-600);
+        font-size: 1.125rem;
+    }
+    
+    .settings-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 32px;
+    }
+    
+    .settings-sidebar {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        height: fit-content;
+        overflow: hidden;
+    }
+    
+    .settings-nav {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+    
+    .settings-nav-item {
+        border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .settings-nav-item:last-child {
+        border-bottom: none;
+    }
+    
+    .settings-nav-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+        color: var(--gray-700);
+        text-decoration: none;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .settings-nav-link:hover {
+        background: var(--gray-50);
+        color: var(--gray-900);
+    }
+    
+    .settings-nav-link.active {
+        background: var(--primary-blue);
+        color: white;
+    }
+    
+    .settings-content {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+    }
+    
+    .settings-section {
+        display: none;
+    }
+    
+    .settings-section.active {
+        display: block;
+    }
+    
+    .section-header {
+        padding: 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 4px;
+    }
+    
+    .section-description {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+    }
+    
+    .section-body {
+        padding: 24px;
+    }
+    
+    .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 24px;
+    }
+    
+    .setting-card {
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 20px;
+        background: var(--gray-50);
+    }
+    
+    .setting-title {
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 8px;
+    }
+    
+    .setting-description {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+        margin-bottom: 16px;
+    }
+    
+    @media (max-width: 768px) {
+        .settings-layout {
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+        
+        .settings-sidebar {
+            order: 2;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="settings-container">
+        <div class="page-header">
+            <h1 class="page-title">Settings</h1>
+            <p class="page-subtitle">Manage your account and system preferences</p>
+        </div>
+        
+        <div class="settings-layout">
+            <!-- Settings Sidebar -->
+            <div class="settings-sidebar">
+                <ul class="settings-nav">
+                    <li class="settings-nav-item">
+                        <a class="settings-nav-link active" onclick="showSection('profile')">
+                            <i class="fas fa-user"></i>
+                            Profile
+                        </a>
+                    </li>
+                    <li class="settings-nav-item">
+                        <a class="settings-nav-link" onclick="showSection('security')">
+                            <i class="fas fa-key"></i>
+                            Security
+                        </a>
+                    </li>
+                    {% if current_user.role == 'vendor_superadmin' %}
+                    <li class="settings-nav-item">
+                        <a class="settings-nav-link" onclick="showSection('vendor')">
+                            <i class="fas fa-building"></i>
+                            Vendor Settings
+                        </a>
+                    </li>
+                    <li class="settings-nav-item">
+                        <a class="settings-nav-link" onclick="showSection('email')">
+                            <i class="fas fa-envelope"></i>
+                            Email Configuration
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if current_user.role == 'customer_hr_admin' %}
+                    <li class="settings-nav-item">
+                        <a class="settings-nav-link" onclick="showSection('organization')">
+                            <i class="fas fa-users"></i>
+                            Organization
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+            
+            <!-- Settings Content -->
+            <div class="settings-content">
+                <!-- Profile Section -->
+                <div class="settings-section active" id="profile">
+                    <div class="section-header">
+                        <h2 class="section-title">Profile Settings</h2>
+                        <p class="section-description">Update your personal information</p>
+                    </div>
+                    <div class="section-body">
+                        <form id="profileForm">
+                            <div class="form-group">
+                                <label class="form-label">Full Name</label>
+                                <input type="text" class="form-control" name="full_name" value="{{ current_user.full_name or '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Email Address</label>
+                                <input type="email" class="form-control" value="{{ current_user.email }}" disabled>
+                                <span class="form-help">Email cannot be changed</span>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Username</label>
+                                <input type="text" class="form-control" value="{{ current_user.username }}" disabled>
+                                <span class="form-help">Username cannot be changed</span>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Update Profile</button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Security Section -->
+                <div class="settings-section" id="security">
+                    <div class="section-header">
+                        <h2 class="section-title">Security Settings</h2>
+                        <p class="section-description">Manage your password and security preferences</p>
+                    </div>
+                    <div class="section-body">
+                        <form id="passwordForm">
+                            <div class="form-group">
+                                <label class="form-label">Current Password</label>
+                                <input type="password" class="form-control" name="current_password" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">New Password</label>
+                                <input type="password" class="form-control" name="new_password" required minlength="8">
+                                <span class="form-help">Minimum 8 characters</span>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Confirm New Password</label>
+                                <input type="password" class="form-control" name="confirm_password" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Change Password</button>
+                        </form>
+                    </div>
+                </div>
+                
+                {% if current_user.role == 'vendor_superadmin' %}
+                <!-- Vendor Settings Section -->
+                <div class="settings-section" id="vendor">
+                    <div class="section-header">
+                        <h2 class="section-title">Vendor Configuration</h2>
+                        <p class="section-description">Configure your company information</p>
+                    </div>
+                    <div class="section-body">
+                        <div id="vendorSettingsForm">
+                            <div style="padding: 40px; text-align: center;">
+                                <div class="spinner"></div>
+                                Loading vendor settings...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Email Configuration Section -->
+                <div class="settings-section" id="email">
+                    <div class="section-header">
+                        <h2 class="section-title">Email Configuration</h2>
+                        <p class="section-description">Configure SMTP settings for email notifications</p>
+                    </div>
+                    <div class="section-body">
+                        <div class="settings-grid">
+                            <div class="setting-card">
+                                <div class="setting-title">Email Status</div>
+                                <div class="setting-description">Current email configuration status</div>
+                                <span class="badge badge-warning" id="emailStatus">Not Configured</span>
+                                <button class="btn btn-sm btn-primary" onclick="testEmail()" style="margin-top: 12px;">
+                                    <i class="fas fa-paper-plane"></i>
+                                    Test Email
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if current_user.role == 'customer_hr_admin' %}
+                <!-- Organization Section -->
+                <div class="settings-section" id="organization">
+                    <div class="section-header">
+                        <h2 class="section-title">Organization Settings</h2>
+                        <p class="section-description">Manage your organization preferences</p>
+                    </div>
+                    <div class="section-body">
+                        <div class="settings-grid">
+                            <div class="setting-card">
+                                <div class="setting-title">Department Management</div>
+                                <div class="setting-description">Create and manage departments</div>
+                                <a href="/users#departments" class="btn btn-sm btn-primary">Manage Departments</a>
+                            </div>
+                            <div class="setting-card">
+                                <div class="setting-title">User Management</div>
+                                <div class="setting-description">Add and manage organization users</div>
+                                <a href="/users" class="btn btn-sm btn-primary">Manage Users</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if current_user.role == 'vendor_superadmin' %}
+        loadVendorSettings();
+        {% endif %}
+        
+        // Handle form submissions
+        document.getElementById('profileForm').addEventListener('submit', handleProfileUpdate);
+        document.getElementById('passwordForm').addEventListener('submit', handlePasswordChange);
+    });
+    
+    function showSection(sectionName) {
+        // Hide all sections
+        document.querySelectorAll('.settings-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        
+        // Remove active class from all nav links
+        document.querySelectorAll('.settings-nav-link').forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        // Show selected section
+        document.getElementById(sectionName).classList.add('active');
+        
+        // Add active class to clicked nav link
+        event.target.classList.add('active');
+    }
+    
+    async function handleProfileUpdate(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const profileData = {
+            full_name: formData.get('full_name')
+        };
+        
+        try {
+            const response = await apiCall('/profile', {
+                method: 'PUT',
+                body: JSON.stringify(profileData)
+            });
+            
+            if (response.success) {
+                showNotification('Profile updated successfully!', 'success');
+            } else {
+                showNotification(response.message || 'Failed to update profile', 'error');
+            }
+        } catch (error) {
+            showNotification('Failed to update profile', 'error');
+        }
+    }
+    
+    async function handlePasswordChange(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const newPassword = formData.get('new_password');
+        const confirmPassword = formData.get('confirm_password');
+        
+        if (newPassword !== confirmPassword) {
+            showNotification('Passwords do not match', 'error');
+            return;
+        }
+        
+        const passwordData = {
+            current_password: formData.get('current_password'),
+            new_password: newPassword
+        };
+        
+        try {
+            const response = await apiCall('/auth/change-password', {
+                method: 'PUT',
+                body: JSON.stringify(passwordData)
+            });
+            
+            if (response.success) {
+                showNotification('Password changed successfully!', 'success');
+                e.target.reset();
+            } else {
+                showNotification(response.message || 'Failed to change password', 'error');
+            }
+        } catch (error) {
+            showNotification('Failed to change password', 'error');
+        }
+    }
+    
+    {% if current_user.role == 'vendor_superadmin' %}
+    async function loadVendorSettings() {
+        try {
+            const response = await apiCall('/vendor/settings');
+            const container = document.getElementById('vendorSettingsForm');
+            
+            if (response.success) {
+                const settings = response.settings;
+                container.innerHTML = `
+                    <form id="vendorForm">
+                        <div class="form-group">
+                            <label class="form-label">Company Name</label>
+                            <input type="text" class="form-control" name="company_name" value="${settings.company_name || ''}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Postal Address</label>
+                            <textarea class="form-control" name="postal_address" rows="3">${settings.postal_address || ''}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Primary Contact Name</label>
+                            <input type="text" class="form-control" name="primary_contact_name" value="${settings.primary_contact_name || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Primary Contact Phone</label>
+                            <input type="tel" class="form-control" name="primary_contact_phone" value="${settings.primary_contact_phone || ''}">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Settings</button>
+                    </form>
+                `;
+                
+                document.getElementById('vendorForm').addEventListener('submit', handleVendorUpdate);
+                
+                // Update email status
+                const emailStatus = document.getElementById('emailStatus');
+                if (settings.email_address) {
+                    emailStatus.textContent = 'Configured';
+                    emailStatus.className = 'badge badge-success';
+                }
+            }
+        } catch (error) {
+            console.error('Error loading vendor settings:', error);
+        }
+    }
+    
+    async function handleVendorUpdate(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const vendorData = Object.fromEntries(formData.entries());
+        
+        try {
+            const response = await apiCall('/vendor/settings', {
+                method: 'PUT',
+                body: JSON.stringify(vendorData)
+            });
+            
+            if (response.success) {
+                showNotification('Vendor settings updated successfully!', 'success');
+            } else {
+                showNotification(response.message || 'Failed to update settings', 'error');
+            }
+        } catch (error) {
+            showNotification('Failed to update vendor settings', 'error');
+        }
+    }
+    
+    async function testEmail() {
+        try {
+            const response = await apiCall('/vendor/test-email', { method: 'POST' });
+            
+            if (response.success) {
+                showNotification('Test email sent successfully!', 'success');
+            } else {
+                showNotification(response.message || 'Failed to send test email', 'error');
+            }
+        } catch (error) {
+            showNotification('Failed to test email configuration', 'error');
+        }
+    }
+    {% endif %}
+</script>
+{% endblock %}
