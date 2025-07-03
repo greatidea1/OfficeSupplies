@@ -389,6 +389,41 @@ class UserController:
         except Exception as e:
             print(f"Get departments error: {e}")
             return {'success': False, 'message': 'Failed to retrieve departments'}
+        
+    def get_departments_for_customer(self, customer_id=None):
+        """Get departments for dropdown (Customer users or vendor with customer_id)"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            # Determine customer_id to use
+            if current_user.role.startswith('customer_'):
+                target_customer_id = current_user.customer_id
+            elif current_user.role.startswith('vendor_') and customer_id:
+                target_customer_id = customer_id
+            else:
+                return {'success': False, 'message': 'Customer ID required'}
+            
+            departments = Department.get_by_customer_id(target_customer_id)
+            
+            dept_list = []
+            for dept in departments:
+                if dept.is_active:
+                    dept_list.append({
+                        'department_id': dept.department_id,
+                        'name': dept.name,
+                        'description': dept.description
+                    })
+            
+            return {
+                'success': True,
+                'departments': dept_list
+            }
+            
+        except Exception as e:
+            print(f"Get departments error: {e}")
+            return {'success': False, 'message': 'Failed to retrieve departments'}
     
     def create_department(self):
         """Create new department (Customer HR Admin only)"""

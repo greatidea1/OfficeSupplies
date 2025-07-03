@@ -24,6 +24,50 @@
         margin: 0;
     }
     
+    .filters-section {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        margin-bottom: 32px;
+    }
+    
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .filter-label {
+        font-weight: 500;
+        color: var(--gray-700);
+        font-size: 0.875rem;
+    }
+    
+    .search-section {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .search-input {
+        flex: 1;
+        min-width: 250px;
+        padding: 12px 16px;
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        font-size: 0.875rem;
+    }
+    
     .users-section {
         background: white;
         border-radius: 16px;
@@ -102,6 +146,117 @@
         padding: 60px 20px;
         color: var(--gray-500);
     }
+    
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow-xl);
+        max-width: 600px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        animation: modalSlideIn 0.3s ease;
+    }
+    
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .modal-header {
+        padding: 24px 24px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: var(--gray-400);
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: var(--transition);
+    }
+    
+    .modal-close:hover {
+        background: var(--gray-100);
+        color: var(--gray-600);
+    }
+    
+    .modal-body {
+        padding: 24px;
+    }
+    
+    .modal-footer {
+        padding: 0 24px 24px;
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    
+    @media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+        
+        .filters-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .search-section {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .search-input {
+            min-width: auto;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -118,11 +273,68 @@
             {% endif %}
         </div>
         
+        <!-- Filters Section -->
+        <div class="filters-section">
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label class="filter-label">Role</label>
+                    <select class="form-control" id="roleFilter">
+                        <option value="">All Roles</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label">Status</label>
+                    <select class="form-control" id="statusFilter">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                
+                {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                <div class="filter-group">
+                    <label class="filter-label">Customer</label>
+                    <select class="form-control" id="customerFilter">
+                        <option value="">All Customers</option>
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div class="filter-group">
+                    <label class="filter-label">Sort By</label>
+                    <select class="form-control" id="sortFilter">
+                        <option value="name_asc">Name (A-Z)</option>
+                        <option value="name_desc">Name (Z-A)</option>
+                        <option value="created_desc">Newest First</option>
+                        <option value="created_asc">Oldest First</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="search-section">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="searchInput" 
+                    placeholder="Search users by name, email, or username..."
+                >
+                <button class="btn btn-primary" onclick="searchUsers()">
+                    <i class="fas fa-search"></i>
+                    Search
+                </button>
+                <button class="btn btn-secondary" onclick="clearFilters()">
+                    <i class="fas fa-times"></i>
+                    Clear
+                </button>
+            </div>
+        </div>
+        
         <div class="users-section">
             <div class="users-header">
                 <div>
                     <h3>System Users</h3>
-                    <p style="color: var(--gray-600); margin: 0;">Manage user accounts and permissions</p>
+                    <p style="color: var(--gray-600); margin: 0;" id="usersInfo">Loading users...</p>
                 </div>
             </div>
             
@@ -136,102 +348,700 @@
         </div>
     </div>
 </div>
+
+<!-- Add User Modal -->
+<div class="modal" id="addUserModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Add New User</h3>
+            <button class="modal-close" onclick="closeAddUserModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="addUserForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" name="full_name" required>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" name="username" required>
+                        <span class="form-help">Used for login (must be unique)</span>
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" class="form-control" name="email" required>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Role</label>
+                        <select class="form-control" name="role" id="userRole" required>
+                            <option value="">Select Role</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <!-- Customer Selection (for vendor users) -->
+                <div class="form-group" id="customerSelectionGroup" style="display: none;">
+                    <label class="form-label">Customer Organization</label>
+                    <select class="form-control" name="customer_id" id="customerSelection">
+                        <option value="">Select Customer</option>
+                    </select>
+                    <span class="form-error"></span>
+                </div>
+                
+                <!-- Department Selection (for customer employees) -->
+                <div class="form-group" id="departmentSelectionGroup" style="display: none;">
+                    <label class="form-label">Department</label>
+                    <select class="form-control" name="department_id" id="departmentSelection">
+                        <option value="">Select Department</option>
+                    </select>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Temporary Password</label>
+                    <input type="password" class="form-control" name="temp_password" required minlength="8">
+                    <span class="form-help">User will be required to change this on first login</span>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="send_email" value="true">
+                        Send welcome email to user
+                    </label>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeAddUserModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddUser()">Create User</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal" id="editUserModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Edit User</h3>
+            <button class="modal-close" onclick="closeEditUserModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editUserForm">
+                <input type="hidden" name="user_id" id="editUserId">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" name="full_name" id="editFullName">
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" class="form-control" name="email" id="editEmail">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Role</label>
+                        <select class="form-control" name="role" id="editRole">
+                            <option value="">Select Role</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select class="form-control" name="is_active" id="editStatus">
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <!-- Department Selection for editing -->
+                <div class="form-group" id="editDepartmentGroup" style="display: none;">
+                    <label class="form-label">Department</label>
+                    <select class="form-control" name="department_id" id="editDepartment">
+                        <option value="">Select Department</option>
+                    </select>
+                    <span class="form-error"></span>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeEditUserModal()">Cancel</button>
+            <button class="btn btn-warning" onclick="resetUserPassword()">Reset Password</button>
+            <button class="btn btn-primary" onclick="submitEditUser()">Update User</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    let currentUsers = [];
+    let filteredUsers = [];
+    let availableRoles = [];
+    let customers = [];
+    let departments = [];
+    
     document.addEventListener('DOMContentLoaded', function() {
         loadUsers();
+        loadAvailableRoles();
+        loadCustomers();
+        setupEventListeners();
     });
+    
+    function setupEventListeners() {
+        // Search on Enter key
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchUsers();
+            }
+        });
+        
+        // Auto-search on filter changes
+        ['roleFilter', 'statusFilter', 'customerFilter', 'sortFilter'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('change', searchUsers);
+            }
+        });
+        
+        // Role change handler for add user form
+        document.getElementById('userRole').addEventListener('change', function() {
+            handleRoleChange(this.value, 'add');
+        });
+        
+        // Role change handler for edit user form
+        document.getElementById('editRole').addEventListener('change', function() {
+            handleRoleChange(this.value, 'edit');
+        });
+        
+        // Customer change handler for department loading
+        document.getElementById('customerSelection').addEventListener('change', function() {
+            loadDepartments(this.value, 'departmentSelection');
+        });
+    }
     
     async function loadUsers() {
         try {
             const response = await apiCall('/users');
             const container = document.getElementById('usersContainer');
             
-            if (response.success && response.users.length > 0) {
-                container.innerHTML = `
-                    <table class="users-table">
-                        <thead>
-                            <tr>
-                                <th>User</th>
-                                <th>Role</th>
-                                <th>Status</th>
-                                <th>Organization</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${response.users.map(user => `
-                                <tr>
-                                    <td>
-                                        <div class="user-info">
-                                            <div class="user-avatar">
-                                                ${(user.full_name || user.username).charAt(0).toUpperCase()}
-                                            </div>
-                                            <div class="user-details">
-                                                <div class="user-name">${user.full_name || user.username}</div>
-                                                <div class="user-email">${user.email}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span class="badge badge-primary">
-                                            ${user.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="badge ${user.is_active ? 'badge-success' : 'badge-danger'}">
-                                            ${user.is_active ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </td>
-                                    <td>${user.customer_name || 'Vendor'}</td>
-                                    <td>
-                                        ${user.can_edit ? `
-                                            <button class="btn btn-sm btn-secondary" onclick="editUser('${user.user_id}')">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                        ` : ''}
-                                        <button class="btn btn-sm btn-primary" onclick="viewUser('${user.user_id}')">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
+            if (response.success && response.users) {
+                currentUsers = response.users;
+                filteredUsers = [...currentUsers];
+                
+                displayUsers();
+                updateUsersInfo();
+                populateRoleFilter();
             } else {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-users" style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;"></i>
-                        <h3>No users found</h3>
-                        <p>Users will appear here when added.</p>
-                    </div>
-                `;
+                showEmptyState('No users found');
             }
         } catch (error) {
             console.error('Error loading users:', error);
-            document.getElementById('usersContainer').innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 64px; margin-bottom: 20px; color: var(--secondary-red);"></i>
-                    <h3>Error loading users</h3>
-                    <p>Please try again later.</p>
-                </div>
-            `;
+            showEmptyState('Error loading users');
         }
     }
     
-    function showAddUserModal() {
-        showNotification('Add user functionality coming soon!', 'info');
+    async function loadAvailableRoles() {
+        try {
+            const response = await apiCall('/users');
+            if (response.success && response.available_roles) {
+                availableRoles = response.available_roles;
+                populateRoleSelectors();
+            }
+        } catch (error) {
+            console.error('Error loading available roles:', error);
+        }
     }
     
-    function editUser(userId) {
-        showNotification('Edit user functionality coming soon!', 'info');
+    async function loadCustomers() {
+        try {
+            {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+            const response = await apiCall('/vendor/customers-dropdown');
+            if (response.success && response.customers) {
+                customers = response.customers;
+                populateCustomerSelectors();
+            }
+            {% endif %}
+        } catch (error) {
+            console.error('Error loading customers:', error);
+        }
+    }
+    
+    async function loadDepartments(customerId, selectId) {
+        try {
+            if (!customerId) {
+                document.getElementById(selectId).innerHTML = '<option value="">Select Department</option>';
+                return;
+            }
+            
+            const response = await apiCall('/user-controller/departments?customer_id=' + customerId);
+            const select = document.getElementById(selectId);
+            
+            if (response.success && response.departments) {
+                select.innerHTML = '<option value="">Select Department</option>' +
+                    response.departments.map(dept => 
+                        `<option value="${dept.department_id}">${dept.name}</option>`
+                    ).join('');
+            }
+        } catch (error) {
+            console.error('Error loading departments:', error);
+        }
+    }
+    
+    function displayUsers() {
+        const container = document.getElementById('usersContainer');
+        
+        if (filteredUsers.length === 0) {
+            showEmptyState('No users found');
+            return;
+        }
+        
+        container.innerHTML = `
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Organization</th>
+                        <th>Department</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filteredUsers.map(user => `
+                        <tr>
+                            <td>
+                                <div class="user-info">
+                                    <div class="user-avatar">
+                                        ${(user.full_name || user.username).charAt(0).toUpperCase()}
+                                    </div>
+                                    <div class="user-details">
+                                        <div class="user-name">${user.full_name || user.username}</div>
+                                        <div class="user-email">${user.email}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge badge-primary">
+                                    ${formatRole(user.role)}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge ${user.is_active ? 'badge-success' : 'badge-danger'}">
+                                    ${user.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                            </td>
+                            <td>${user.customer_name || 'Vendor'}</td>
+                            <td>${user.department_name || '-'}</td>
+                            <td>
+                                <div style="display: flex; gap: 8px;">
+                                    ${user.can_edit ? `
+                                        <button class="btn btn-sm btn-secondary" onclick="editUser('${user.user_id}')">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    ` : ''}
+                                    <button class="btn btn-sm btn-primary" onclick="viewUser('${user.user_id}')">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+    
+    function searchUsers() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const role = document.getElementById('roleFilter').value;
+        const status = document.getElementById('statusFilter').value;
+        const customerId = document.getElementById('customerFilter')?.value || '';
+        const sortBy = document.getElementById('sortFilter').value;
+        
+        filteredUsers = currentUsers.filter(user => {
+            // Search filter
+            const matchesSearch = !searchTerm || 
+                (user.full_name && user.full_name.toLowerCase().includes(searchTerm)) ||
+                user.username.toLowerCase().includes(searchTerm) ||
+                user.email.toLowerCase().includes(searchTerm);
+            
+            // Role filter
+            const matchesRole = !role || user.role === role;
+            
+            // Status filter
+            const matchesStatus = !status || 
+                (status === 'active' && user.is_active) ||
+                (status === 'inactive' && !user.is_active);
+            
+            // Customer filter
+            const matchesCustomer = !customerId || user.customer_id === customerId;
+            
+            return matchesSearch && matchesRole && matchesStatus && matchesCustomer;
+        });
+        
+        // Apply sorting
+        filteredUsers.sort((a, b) => {
+            switch (sortBy) {
+                case 'name_asc': 
+                    return (a.full_name || a.username).localeCompare(b.full_name || b.username);
+                case 'name_desc': 
+                    return (b.full_name || b.username).localeCompare(a.full_name || a.username);
+                case 'created_desc': 
+                    return new Date(b.created_at) - new Date(a.created_at);
+                case 'created_asc': 
+                    return new Date(a.created_at) - new Date(b.created_at);
+                default: 
+                    return 0;
+            }
+        });
+        
+        displayUsers();
+        updateUsersInfo();
+    }
+    
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('roleFilter').value = '';
+        document.getElementById('statusFilter').value = '';
+        if (document.getElementById('customerFilter')) {
+            document.getElementById('customerFilter').value = '';
+        }
+        document.getElementById('sortFilter').value = 'name_asc';
+        
+        searchUsers();
+    }
+    
+    function updateUsersInfo() {
+        const info = document.getElementById('usersInfo');
+        const total = filteredUsers.length;
+        
+        if (total === 0) {
+            info.textContent = 'No users found';
+        } else {
+            info.textContent = `Showing ${total} user${total !== 1 ? 's' : ''}`;
+        }
+    }
+    
+    function showEmptyState(message) {
+        const container = document.getElementById('usersContainer');
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users" style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;"></i>
+                <h3>${message}</h3>
+                <p>Users will appear here when added.</p>
+            </div>
+        `;
+    }
+    
+    function populateRoleFilter() {
+        const roleFilter = document.getElementById('roleFilter');
+        const uniqueRoles = [...new Set(currentUsers.map(user => user.role))];
+        
+        roleFilter.innerHTML = '<option value="">All Roles</option>' +
+            uniqueRoles.map(role => 
+                `<option value="${role}">${formatRole(role)}</option>`
+            ).join('');
+    }
+    
+    function populateRoleSelectors() {
+        const addRoleSelect = document.getElementById('userRole');
+        const editRoleSelect = document.getElementById('editRole');
+        
+        const roleOptions = availableRoles.map(role => 
+            `<option value="${role.value}">${role.label}</option>`
+        ).join('');
+        
+        addRoleSelect.innerHTML = '<option value="">Select Role</option>' + roleOptions;
+        editRoleSelect.innerHTML = '<option value="">Select Role</option>' + roleOptions;
+    }
+    
+    function populateCustomerSelectors() {
+        const customerFilter = document.getElementById('customerFilter');
+        const customerSelection = document.getElementById('customerSelection');
+        
+        const customerOptions = customers.map(customer => 
+            `<option value="${customer.customer_id}">${customer.company_name}</option>`
+        ).join('');
+        
+        if (customerFilter) {
+            customerFilter.innerHTML = '<option value="">All Customers</option>' + customerOptions;
+        }
+        
+        if (customerSelection) {
+            customerSelection.innerHTML = '<option value="">Select Customer</option>' + customerOptions;
+        }
+    }
+    
+    function handleRoleChange(role, formType) {
+        const isCustomerRole = role.startsWith('customer_');
+        const isEmployeeRole = role === 'customer_employee';
+        
+        if (formType === 'add') {
+            const customerGroup = document.getElementById('customerSelectionGroup');
+            const departmentGroup = document.getElementById('departmentSelectionGroup');
+            
+            // Show customer selection for customer roles (if user is vendor)
+            {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+            if (isCustomerRole) {
+                customerGroup.style.display = 'block';
+                customerGroup.querySelector('select').required = true;
+            } else {
+                customerGroup.style.display = 'none';
+                customerGroup.querySelector('select').required = false;
+            }
+            {% endif %}
+            
+            // Show department selection for employees
+            if (isEmployeeRole) {
+                departmentGroup.style.display = 'block';
+                departmentGroup.querySelector('select').required = true;
+            } else {
+                departmentGroup.style.display = 'none';
+                departmentGroup.querySelector('select').required = false;
+            }
+        } else if (formType === 'edit') {
+            const editDepartmentGroup = document.getElementById('editDepartmentGroup');
+            
+            if (isEmployeeRole) {
+                editDepartmentGroup.style.display = 'block';
+            } else {
+                editDepartmentGroup.style.display = 'none';
+            }
+        }
+    }
+    
+    function formatRole(role) {
+        const roleMap = {
+            'vendor_superadmin': 'Vendor Super Admin',
+            'vendor_admin': 'Vendor Admin',
+            'vendor_normal': 'Vendor User',
+            'customer_hr_admin': 'HR Admin',
+            'customer_dept_head': 'Department Head',
+            'customer_employee': 'Employee'
+        };
+        return roleMap[role] || role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+    
+    // Modal Functions
+    function showAddUserModal() {
+        document.getElementById('addUserModal').classList.add('show');
+        document.querySelector('[name="full_name"]').focus();
+    }
+    
+    function closeAddUserModal() {
+        document.getElementById('addUserModal').classList.remove('show');
+        document.getElementById('addUserForm').reset();
+        
+        // Hide conditional groups
+        document.getElementById('customerSelectionGroup').style.display = 'none';
+        document.getElementById('departmentSelectionGroup').style.display = 'none';
+    }
+    
+    async function submitAddUser() {
+        const form = document.getElementById('addUserForm');
+        const formData = new FormData(form);
+        
+        if (!validateForm(form)) {
+            return;
+        }
+        
+        try {
+            const userData = {
+                full_name: formData.get('full_name'),
+                username: formData.get('username'),
+                email: formData.get('email'),
+                role: formData.get('role'),
+                temp_password: formData.get('temp_password'),
+                send_email: formData.get('send_email') === 'true'
+            };
+            
+            // Add customer_id if selected
+            if (formData.get('customer_id')) {
+                userData.customer_id = formData.get('customer_id');
+            }
+            
+            // Add department_id if selected
+            if (formData.get('department_id')) {
+                userData.department_id = formData.get('department_id');
+            }
+            
+            const response = await apiCall('/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(userData)
+            });
+            
+            if (response.success) {
+                showNotification('User created successfully!', 'success');
+                closeAddUserModal();
+                loadUsers();
+            } else {
+                showNotification(response.message || 'Failed to create user', 'error');
+            }
+        } catch (error) {
+            console.error('Error creating user:', error);
+            showNotification('Failed to create user', 'error');
+        }
+    }
+    
+    async function editUser(userId) {
+        try {
+            const response = await apiCall(`/users/${userId}`);
+            
+            if (response.success) {
+                const user = response.user;
+                
+                // Populate edit form
+                document.getElementById('editUserId').value = user.user_id;
+                document.getElementById('editFullName').value = user.full_name || '';
+                document.getElementById('editEmail').value = user.email;
+                document.getElementById('editRole').value = user.role;
+                document.getElementById('editStatus').value = user.is_active.toString();
+                
+                // Handle department selection for employees
+                if (user.role === 'customer_employee' && user.department_id) {
+                    await loadDepartments(user.customer_id, 'editDepartment');
+                    document.getElementById('editDepartment').value = user.department_id;
+                }
+                
+                handleRoleChange(user.role, 'edit');
+                
+                document.getElementById('editUserModal').classList.add('show');
+            }
+        } catch (error) {
+            console.error('Error loading user details:', error);
+            showNotification('Failed to load user details', 'error');
+        }
+    }
+    
+    function closeEditUserModal() {
+        document.getElementById('editUserModal').classList.remove('show');
+        document.getElementById('editUserForm').reset();
+        document.getElementById('editDepartmentGroup').style.display = 'none';
+    }
+    
+    async function submitEditUser() {
+        const form = document.getElementById('editUserForm');
+        const formData = new FormData(form);
+        const userId = formData.get('user_id');
+        
+        if (!validateForm(form)) {
+            return;
+        }
+        
+        try {
+            const userData = {
+                full_name: formData.get('full_name'),
+                email: formData.get('email'),
+                role: formData.get('role'),
+                is_active: formData.get('is_active') === 'true'
+            };
+            
+            // Add department_id if selected
+            if (formData.get('department_id')) {
+                userData.department_id = formData.get('department_id');
+            }
+            
+            const response = await apiCall(`/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(userData)
+            });
+            
+            if (response.success) {
+                showNotification('User updated successfully!', 'success');
+                closeEditUserModal();
+                loadUsers();
+            } else {
+                showNotification(response.message || 'Failed to update user', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating user:', error);
+            showNotification('Failed to update user', 'error');
+        }
+    }
+    
+    async function resetUserPassword() {
+        const userId = document.getElementById('editUserId').value;
+        
+        if (!confirm('Are you sure you want to reset this user\'s password?')) {
+            return;
+        }
+        
+        try {
+            const response = await apiCall(`/users/${userId}/reset-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ send_email: true })
+            });
+            
+            if (response.success) {
+                showNotification('Password reset successfully! Temporary password: ' + response.temp_password, 'success');
+            } else {
+                showNotification(response.message || 'Failed to reset password', 'error');
+            }
+        } catch (error) {
+            console.error('Error resetting password:', error);
+            showNotification('Failed to reset password', 'error');
+        }
     }
     
     function viewUser(userId) {
-        showNotification('View user functionality coming soon!', 'info');
+        // Navigate to user detail page or show user details modal
+        showNotification('User details view coming soon!', 'info');
+    }
+    
+    function validateForm(form) {
+        const requiredFields = form.querySelectorAll('[required]');
+        let isValid = true;
+        
+        requiredFields.forEach(field => {
+            const errorSpan = field.parentNode.querySelector('.form-error');
+            
+            if (!field.value.trim()) {
+                if (errorSpan) {
+                    errorSpan.textContent = `${field.name.replace('_', ' ')} is required`;
+                    errorSpan.style.display = 'block';
+                }
+                field.style.borderColor = 'var(--secondary-red)';
+                isValid = false;
+            } else {
+                if (errorSpan) {
+                    errorSpan.textContent = '';
+                    errorSpan.style.display = 'none';
+                }
+                field.style.borderColor = 'var(--gray-300)';
+            }
+        });
+        
+        return isValid;
     }
 </script>
 {% endblock %}

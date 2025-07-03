@@ -426,6 +426,20 @@ def create_app():
         """API: Update user"""
         return jsonify(user_controller.update_user(user_id))
     
+
+    @app.route('/api/users/<user_id>/reset-password', methods=['POST'])
+    @login_required
+    def api_reset_user_password(user_id):
+        """API: Reset user password"""
+        return jsonify(user_controller.reset_user_password(user_id))
+
+    @app.route('/api/user-controller/departments')
+    @login_required
+    def api_get_departments():
+        """API: Get departments for dropdown"""
+        customer_id = request.args.get('customer_id')
+        return jsonify(user_controller.get_departments_for_customer(customer_id))
+    
     # ================== PROFILE ROUTES ==================
     
     @app.route('/profile')
