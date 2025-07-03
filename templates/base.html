@@ -19,6 +19,7 @@
         :root {
             /* Colors */
             --primary-blue: #2563eb;
+            --primary-aqua:rgb(42, 173, 173);
             --primary-blue-dark: #1d4ed8;
             --primary-blue-light: #3b82f6;
             --secondary-green: #10b981;
@@ -472,19 +473,16 @@
             align-items: center;
             gap: 8px;
             background: none;
-            border: none;
-            color: var(--gray-600);
+            color: var(--primary-aqua);
             font-weight: 500;
+            font-size: 16px; /* <-- Added line to increase font size */
             cursor: pointer;
             padding: 8px 12px;
             border-radius: 6px;
             transition: var(--transition);
         }
         
-        .dropdown-toggle:hover {
-            color: var(--gray-900);
-            background: var(--gray-50);
-        }
+        
         
         .dropdown-menu {
             position: absolute;
@@ -494,7 +492,7 @@
             border: 1px solid var(--gray-200);
             border-radius: 8px;
             box-shadow: var(--shadow-lg);
-            min-width: 200px;
+            min-width: 180px;
             display: none;
             z-index: 1000;
             margin-top: 4px;

@@ -159,7 +159,7 @@
     
     .customer-card {
         background: white;
-        border: 1px solid var(--gray-200);
+        border: 2px solid var(--gray-300);
         border-radius: 12px;
         overflow: hidden;
         transition: all 0.3s ease;
@@ -197,7 +197,7 @@
         background: rgba(255, 255, 255, 0.2);
         padding: 4px 8px;
         border-radius: 6px;
-        font-size: 0.75rem;
+        font-size: 1rem;
         font-weight: 600;
         margin-bottom: 8px;
     }
@@ -214,7 +214,7 @@
     }
     
     .customer-body {
-        padding: 24px;
+        padding: 18px;
     }
     
     .customer-details {
@@ -946,7 +946,7 @@
             <div class="customer-card" onclick="viewCustomer('${customer.customer_id}')">
                 <div class="customer-header">
                     <div class="status-indicator ${customer.is_active ? 'active' : 'inactive'}"></div>
-                    <div class="customer-id">ID: ${customer.customer_id}</div>
+                    <div class="customer-id">Org Customer ID: ${customer.customer_id}</div>
                     <div class="customer-name">${customer.company_name}</div>
                     <div class="customer-email">${customer.email}</div>
                 </div>
@@ -957,13 +957,18 @@
                     
                     <div class="customer-details">
                         <div class="customer-detail">
-                            <span class="detail-label">Primary Phone</span>
-                            <span class="detail-value">${customer.primary_phone}</span>
-                        </div>
-                        <div class="customer-detail">
                             <span class="detail-label">Registered</span>
                             <span class="detail-value">${formatDate(customer.created_at)}</span>
                         </div>
+                        <div class="customer-detail">
+                            <span class="detail-label">Customer HR-Admin</span>
+                            <span class="detail-value">${customer.username}</span>
+                        </div>
+                        <div class="customer-detail">
+                            <span class="detail-label">Primary Phone</span>
+                            <span class="detail-value">${customer.primary_phone}</span>
+                        </div>
+
                     </div>
                     
                     <div class="customer-stats">

@@ -1066,15 +1066,6 @@
         const customerField = document.querySelector('#addUserModal [name="customer_id"]');
         const sendEmailField = document.querySelector('#addUserModal [name="send_email"]');
         
-        console.log('Fields found:', {
-            firstName: !!firstNameField,
-            lastName: !!lastNameField,
-            email: !!emailField,
-            role: !!roleField,
-            password: !!passwordField,
-            username: !!usernameField
-        });
-        
         // Validate required fields
         if (!firstNameField?.value || !lastNameField?.value || !emailField?.value || !roleField?.value || !passwordField?.value) {
             showNotification('Please fill in all required fields', 'error');
