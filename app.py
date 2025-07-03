@@ -147,7 +147,7 @@ def create_app():
             # Get JSON data
             try:
                 data = request.get_json()
-                print(f"Request data: {data}")
+                #print(f"Request data: {data}")
             except Exception as e:
                 print(f"Error parsing JSON: {e}")
                 return jsonify({'success': False, 'message': 'Invalid JSON data'}), 400
