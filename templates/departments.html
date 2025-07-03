@@ -33,7 +33,7 @@
     
     .department-card {
         background: white;
-        border: 1px solid var(--gray-200);
+        border: 1px solid var(--gray-300);
         border-radius: 16px;
         overflow: hidden;
         transition: all 0.3s ease;
@@ -151,18 +151,20 @@
     }
     
     .action-btn {
-        flex: 1;
+        flex: none; /* override flex: 1 if present */
+        margin: 0 auto;
         padding: 8px 16px;
         border: none;
         border-radius: 6px;
-        font-size: 0.875rem;
+        font-size: 0.95rem;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.3s ease;
     }
     
+    
     .btn-view {
-        background: var(--primary-blue);
+        background: var(--primary-aqua);
         color: white;
     }
     
@@ -171,8 +173,9 @@
     }
     
     .btn-edit {
-        background: var(--secondary-orange);
+        background: var(--primary-aqua);
         color: white;
+        padding: 13px;
     }
     
     .btn-edit:hover {
@@ -521,9 +524,6 @@
                     </div>
                 </div>
                 <div class="department-footer">
-                    <button class="action-btn btn-view" onclick="event.stopPropagation(); viewDepartment('${dept.department_id}')">
-                        View Details
-                    </button>
                     <button class="action-btn btn-edit" onclick="event.stopPropagation(); editDepartment('${dept.department_id}')">
                         Edit & Assign
                     </button>
