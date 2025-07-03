@@ -136,7 +136,7 @@ class CustomerController:
             return {'success': False, 'message': 'Failed to retrieve customer'}
     
     def create_customer(self):
-        """Create new customer (Vendor SuperAdmin only)"""
+        """Create new customer (Vendor SuperAdmin only) - FIXED VERSION"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or current_user.role != 'vendor_superadmin':
@@ -179,32 +179,51 @@ class CustomerController:
             
             # Save customer
             if customer.save():
-                # Create HR admin user
-                hr_result = customer.create_hr_admin_user(send_email=data.get('send_email', False))
+                # Create HR admin user with provided password or auto-generated
+                hr_password = data.get('hr_password', f"hr_{customer.customer_id}_temp123")
                 
-                if hr_result['success']:
+                # Create HR admin user
+                hr_user = User.create_customer_hr_admin(
+                    username=f"{customer.customer_id}_hr",
+                    email=customer.email,
+                    password=hr_password,
+                    customer_id=customer.customer_id,
+                    full_name=f"{customer.company_name} HR Admin"
+                )
+                
+                # Allow immediate login for testing
+                if data.get('enable_immediate_login', False):
+                    hr_user.is_first_login = False
+                    hr_user.password_reset_required = False
+                
+                if hr_user.save():
+                    # Mark HR admin as created
+                    customer.hr_admin_created = True
+                    customer.save()
+                    
+                    # Send email if requested
+                    if data.get('send_email', False):
+                        self.auth.send_welcome_email(hr_user, hr_password)
+                    
                     return {
                         'success': True,
                         'message': 'Customer registered successfully',
                         'customer_id': customer.customer_id,
                         'hr_credentials': {
-                            'username': hr_result['user'].username,
-                            'temp_password': hr_result['temp_password']
+                            'username': hr_user.username,
+                            'email': hr_user.email,
+                            'temp_password': hr_password
                         }
                     }
                 else:
-                    # Customer created but HR user creation failed
-                    return {
-                        'success': True,
-                        'message': 'Customer created but HR user creation failed. Please create manually.',
-                        'customer_id': customer.customer_id,
-                        'warning': hr_result['message']
-                    }
+                    return {'success': False, 'message': 'Customer created but HR user creation failed'}
             else:
                 return {'success': False, 'message': 'Failed to create customer'}
                 
         except Exception as e:
             print(f"Create customer error: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': 'Failed to create customer'}
     
     def update_customer(self, customer_id):

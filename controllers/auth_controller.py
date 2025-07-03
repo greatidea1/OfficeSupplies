@@ -22,8 +22,18 @@ class AuthController:
                 if not customer_id:
                     return {'success': False, 'message': 'Customer ID is required'}
                 
-                # Find user by customer_id and email
+                # Find user by customer_id and email - FIXED VERSION
                 user = self.get_customer_user_by_email_and_customer_id(username_or_email, customer_id)
+                
+                if not user:
+                    # Debug: Try to find what users exist for this customer
+                    print(f"DEBUG: No user found for customer_id={customer_id}, email={username_or_email}")
+                    # Try to find any users for this customer_id
+                    from config import config
+                    db = config.get_db()
+                    debug_docs = db.collection('users').where('customer_id', '==', customer_id).get()
+                    print(f"DEBUG: Found {len(list(debug_docs))} users for customer_id {customer_id}")
+                    return {'success': False, 'message': 'Invalid login credentials'}
             else:
                 # For vendor login, find by username
                 user = User.get_by_username(username_or_email)
@@ -37,6 +47,7 @@ class AuthController:
             
             # Verify password
             if not user.verify_password(password):
+                print(f"DEBUG: Password verification failed for user {user.username}")
                 return {'success': False, 'message': 'Invalid login credentials'}
             
             # Check user type matches role
@@ -77,23 +88,42 @@ class AuthController:
             
         except Exception as e:
             print(f"Login error: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': 'Login failed'}
     
     def get_customer_user_by_email_and_customer_id(self, email, customer_id):
-        """Get customer user by email and customer_id combination"""
+        """Get customer user by email and customer_id combination - FIXED VERSION"""
         try:
             from config import config
             db = config.get_db()
             
-            # Query users with customer_id and email
-            docs = db.collection('users').where('customer_id', '==', customer_id).where('email', '==', email).limit(1).get()
+            print(f"DEBUG: Looking for user with customer_id={customer_id}, email={email}")
+            
+            # Query users with customer_id first, then filter by email
+            docs = db.collection('users').where('customer_id', '==', customer_id).get()
             
             for doc in docs:
-                return User.from_dict(doc.to_dict())
+                user_data = doc.to_dict()
+                user = User.from_dict(user_data)
+                
+                print(f"DEBUG: Found user {user.username}, email={user.email}, role={user.role}")
+                
+                # Check if email matches (either in email field or username field)
+                if user.email == email or user.username == email:
+                    if user.role.startswith('customer_'):
+                        print(f"DEBUG: User match found: {user.username}")
+                        return user
+                    else:
+                        print(f"DEBUG: User found but role is {user.role}, not customer role")
             
+            print(f"DEBUG: No matching user found")
             return None
+            
         except Exception as e:
             print(f"Error getting customer user: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def logout(self):

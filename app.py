@@ -139,10 +139,24 @@ def create_app():
     
     @app.route('/api/auth/login', methods=['POST'])
     def api_login():
-        """API: User login"""
+        """API: User login - FIXED VERSION"""
         try:
-            data = request.get_json()
+            print(f"Login request received: {request.method} {request.path}")
+            print(f"Content-Type: {request.content_type}")
+            
+            # Get JSON data
+            try:
+                data = request.get_json()
+                print(f"Request data: {data}")
+            except Exception as e:
+                print(f"Error parsing JSON: {e}")
+                return jsonify({'success': False, 'message': 'Invalid JSON data'}), 400
+            
+            if not data:
+                return jsonify({'success': False, 'message': 'No data provided'}), 400
+            
             user_type = data.get('user_type', 'customer')
+            print(f"User type: {user_type}")
             
             if user_type == 'customer':
                 # Customer login requires customer_id + email + password
@@ -150,8 +164,10 @@ def create_app():
                 email = data.get('email')
                 password = data.get('password')
                 
+                print(f"Customer login attempt: customer_id={customer_id}, email={email}")
+                
                 if not customer_id or not email or not password:
-                    return jsonify({'success': False, 'message': 'Customer ID, email and password required'})
+                    return jsonify({'success': False, 'message': 'Customer ID, email and password required'}), 400
                 
                 result = auth_controller.login(email, password, user_type, customer_id)
             else:
@@ -159,16 +175,25 @@ def create_app():
                 username = data.get('username')
                 password = data.get('password')
                 
+                print(f"Vendor login attempt: username={username}")
+                
                 if not username or not password:
-                    return jsonify({'success': False, 'message': 'Username and password required'})
+                    return jsonify({'success': False, 'message': 'Username and password required'}), 400
                 
                 result = auth_controller.login(username, password, user_type)
             
-            return jsonify(result)
+            print(f"Login result: {result}")
             
+            if result.get('success'):
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 401
+                
         except Exception as e:
-            print(f"Login error: {e}")
-            return jsonify({'success': False, 'message': 'Login failed'})
+            print(f"Login API error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'success': False, 'message': 'Internal server error'}), 500
     
     @app.route('/api/auth/logout', methods=['POST'])
     def api_logout():

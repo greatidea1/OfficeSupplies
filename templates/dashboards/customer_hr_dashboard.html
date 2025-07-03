@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+
+{% block title %}HR Dashboard - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        padding: 32px 0;
+    }
+    
+    .dashboard-header {
+        margin-bottom: 40px;
+    }
+    
+    .dashboard-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin-bottom: 8px;
+    }
+    
+    .dashboard-subtitle {
+        color: var(--gray-600);
+        font-size: 1.125rem;
+    }
+    
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+        margin-bottom: 40px;
+    }
+    
+    .action-card {
+        background: white;
+        border-radius: 16px;
+        padding: 32px 24px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        transition: all 0.3s ease;
+        text-decoration: none;
+        color: inherit;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .action-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+        color: inherit;
+        text-decoration: none;
+    }
+    
+    .action-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--gradient-primary);
+    }
+    
+    .action-card.secondary::before {
+        background: var(--gradient-success);
+    }
+    
+    .action-card.tertiary::before {
+        background: var(--gradient-warning);
+    }
+    
+    .action-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        background: var(--gradient-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+        margin-bottom: 20px;
+    }
+    
+    .action-card.secondary .action-icon {
+        background: var(--gradient-success);
+    }
+    
+    .action-card.tertiary .action-icon {
+        background: var(--gradient-warning);
+    }
+    
+    .action-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 8px;
+    }
+    
+    .action-description {
+        color: var(--gray-600);
+        line-height: 1.6;
+        margin-bottom: 16px;
+    }
+    
+    .action-button {
+        background: var(--gray-100);
+        color: var(--gray-700);
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .action-card:hover .action-button {
+        background: var(--primary-blue);
+        color: white;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 24px;
+        margin-bottom: 40px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        text-align: center;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-blue);
+        margin-bottom: 8px;
+    }
+    
+    .stat-label {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .content-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 32px;
+        margin-bottom: 40px;
+    }
+    
+    .main-content {
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+    }
+    
+    .sidebar-content {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    
+    .section-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+    }
+    
+    .section-header {
+        padding: 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--gray-900);
+    }
+    
+    .section-body {
+        padding: 24px;
+    }
+    
+    @media (max-width: 1024px) {
+        .content-grid {
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+        
+        .quick-actions {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .dashboard-container {
+            padding: 24px 0;
+        }
+        
+        .dashboard-title {
+            font-size: 2rem;
+        }
+        
+        .quick-actions {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        
+        .action-card {
+            padding: 24px 20px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="dashboard-container">
+        <!-- Dashboard Header -->
+        <div class="dashboard-header">
+            <h1 class="dashboard-title">HR Dashboard</h1>
+            <p class="dashboard-subtitle">Manage your organization's users and approve orders.</p>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <a href="{{ url_for('users') }}" class="action-card">
+                <div class="action-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h3 class="action-title">Manage Users</h3>
+                <p class="action-description">Add, edit, and manage user accounts for your organization.</p>
+                <span class="action-button">
+                    <i class="fas fa-arrow-right"></i>
+                    Manage Users
+                </span>
+            </a>
+            
+            <a href="{{ url_for('orders') }}?status=pending_hr_approval" class="action-card secondary">
+                <div class="action-icon">
+                    <i class="fas fa-clipboard-check"></i>
+                </div>
+                <h3 class="action-title">Pending Approvals</h3>
+                <p class="action-description">Review and approve orders awaiting HR approval.</p>
+                <span class="action-button">
+                    <i class="fas fa-arrow-right"></i>
+                    Review Orders
+                </span>
+            </a>
+            
+            <a href="{{ url_for('orders') }}" class="action-card tertiary">
+                <div class="action-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3 class="action-title">Order Reports</h3>
+                <p class="action-description">View detailed reports and analytics for your organization.</p>
+                <span class="action-button">
+                    <i class="fas fa-arrow-right"></i>
+                    View Reports
+                </span>
+            </a>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="stats-grid" id="statsGrid">
+            <!-- Stats will be loaded here -->
+        </div>
+        
+        <!-- Main Content Grid -->
+        <div class="content-grid">
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Pending Orders -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3 class="section-title">Pending HR Approvals</h3>
+                        <a href="{{ url_for('orders') }}?status=pending_hr_approval" class="btn btn-sm btn-outline">View All</a>
+                    </div>
+                    <div class="section-body">
+                        <div id="pendingOrders">
+                            <!-- Orders will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Activity -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3 class="section-title">Recent Activity</h3>
+                    </div>
+                    <div class="section-body">
+                        <div id="recentActivity">
+                            <!-- Activity will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sidebar Content -->
+            <div class="sidebar-content">
+                <!-- Quick Stats -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3 class="section-title">Quick Overview</h3>
+                    </div>
+                    <div class="section-body">
+                        <div style="display: flex; flex-direction: column; gap: 16px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="color: var(--gray-600);">Total Users</span>
+                                <span id="totalUsers" style="font-weight: 600;">-</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="color: var(--gray-600);">Active Departments</span>
+                                <span id="totalDepartments" style="font-weight: 600;">-</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="color: var(--gray-600);">This Month Orders</span>
+                                <span id="monthlyOrders" style="font-weight: 600;">-</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="color: var(--gray-600);">Monthly Spend</span>
+                                <span id="monthlySpend" style="font-weight: 600;">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Links -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3 class="section-title">Quick Links</h3>
+                    </div>
+                    <div class="section-body">
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <a href="{{ url_for('profile') }}" class="btn btn-outline">
+                                <i class="fas fa-user"></i>
+                                My Profile
+                            </a>
+                            <a href="{{ url_for('users') }}" class="btn btn-outline">
+                                <i class="fas fa-user-plus"></i>
+                                Add User
+                            </a>
+                            <a href="{{ url_for('orders') }}?status=completed" class="btn btn-outline">
+                                <i class="fas fa-history"></i>
+                                Order History
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDashboardData();
+        
+        // Refresh data every 5 minutes
+        setInterval(loadDashboardData, 5 * 60 * 1000);
+    });
+    
+    async function loadDashboardData() {
+        try {
+            await Promise.all([
+                loadStatistics(),
+                loadPendingOrders(),
+                loadRecentActivity()
+            ]);
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+        }
+    }
+    
+    async function loadStatistics() {
+        try {
+            const response = await apiCall('/dashboard/customer');
+            
+            if (response.success) {
+                const stats = response.statistics;
+                const statsGrid = document.getElementById('statsGrid');
+                
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.total_orders || 0}</div>
+                        <div class="stat-label">Total Orders</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.pending_hr_approval || 0}</div>
+                        <div class="stat-label">Pending HR Approval</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.active_users || 0}</div>
+                        <div class="stat-label">Active Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.departments || 0}</div>
+                        <div class="stat-label">Departments</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${formatCurrency(stats.total_spent || 0)}</div>
+                        <div class="stat-label">Total Spent</div>
+                    </div>
+                `;
+                
+                // Update sidebar quick stats
+                document.getElementById('totalUsers').textContent = stats.active_users || 0;
+                document.getElementById('totalDepartments').textContent = stats.departments || 0;
+                document.getElementById('monthlyOrders').textContent = stats.orders_this_month || 0;
+                document.getElementById('monthlySpend').textContent = formatCurrency(stats.total_spent || 0);
+            }
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+        }
+    }
+    
+    async function loadPendingOrders() {
+        try {
+            const response = await apiCall('/orders?status=pending_hr_approval&per_page=5');
+            
+            const pendingContainer = document.getElementById('pendingOrders');
+            
+            if (response.success && response.orders && response.orders.length > 0) {
+                pendingContainer.innerHTML = response.orders.map(order => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--gray-50); border-radius: 8px; margin-bottom: 12px; cursor: pointer;" onclick="viewOrder('${order.order_id}')">
+                        <div>
+                            <div style="font-weight: 600; color: var(--gray-900);">Order #${order.order_id}</div>
+                            <div style="font-size: 0.875rem; color: var(--gray-600);">
+                                ${formatDate(order.created_at)} • ${order.items_count || 0} items • ${formatCurrency(order.total_amount)}
+                            </div>
+                        </div>
+                        <div>
+                            ${getStatusBadge(order.status)}
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                pendingContainer.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--gray-500);">
+                        <i class="fas fa-clipboard-check" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                        <div>No pending approvals</div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading pending orders:', error);
+        }
+    }
+    
+    async function loadRecentActivity() {
+        try {
+            const activityContainer = document.getElementById('recentActivity');
+            
+            // Placeholder for recent activity
+            activityContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: var(--gray-500);">
+                    <i class="fas fa-clock" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                    <div>No recent activity</div>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error loading recent activity:', error);
+        }
+    }
+    
+    function viewOrder(orderId) {
+        window.location.href = `/orders/${orderId}`;
+    }
+</script>
+{% endblock %}
