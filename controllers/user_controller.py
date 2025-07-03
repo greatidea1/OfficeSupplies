@@ -458,7 +458,7 @@ class UserController:
             return {'success': False, 'message': 'Failed to retrieve departments'}
         
     def get_departments_for_customer(self, customer_id=None):
-        """Get departments for dropdown (Customer users or vendor with customer_id)"""
+        """Get departments for dropdown (Customer users or vendor with customer_id) - FIXED VERSION"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:

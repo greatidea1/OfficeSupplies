@@ -150,16 +150,17 @@ class User(BaseModel):
     
     @classmethod
     def get_by_customer_id(cls, customer_id):
-        """Get users by customer ID"""
+        """Get departments by customer ID - UPDATED VERSION"""
         try:
             db = config.get_db()
-            docs = db.collection('users').where('customer_id', '==', customer_id).get()
-            users = []
+            # Get all departments (active and inactive) for management purposes
+            docs = db.collection('departments').where('customer_id', '==', customer_id).get()
+            departments = []
             for doc in docs:
-                users.append(cls.from_dict(doc.to_dict()))
-            return users
+                departments.append(cls.from_dict(doc.to_dict()))
+            return departments
         except Exception as e:
-            print(f"Error getting users by customer ID: {e}")
+            print(f"Error getting departments by customer ID: {e}")
             return []
     
     @classmethod
@@ -572,6 +573,20 @@ class Order(BaseModel):
             return orders
         except Exception as e:
             print(f"Error getting orders by customer ID: {e}")
+            return []
+        
+    @classmethod
+    def get_active_by_customer_id(cls, customer_id):
+        """Get only active departments by customer ID"""
+        try:
+            db = config.get_db()
+            docs = db.collection('departments').where('customer_id', '==', customer_id).where('is_active', '==', True).get()
+            departments = []
+            for doc in docs:
+                departments.append(cls.from_dict(doc.to_dict()))
+            return departments
+        except Exception as e:
+            print(f"Error getting active departments by customer ID: {e}")
             return []
     
     @classmethod

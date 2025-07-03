@@ -449,12 +449,16 @@
     
     async function loadOrganizationUsers() {
         try {
-            const response = await apiCall('/users?role=customer_employee,customer_dept_head');
+            // Load all users from the current customer organization
+            const response = await apiCall('/users');
             
             if (response.success) {
+                // Filter to only get employees and department heads from current organization
                 organizationUsers = response.users.filter(user => 
-                    user.role === 'customer_employee' || user.role === 'customer_dept_head'
+                    (user.role === 'customer_employee' || user.role === 'customer_dept_head') && 
+                    user.is_active
                 );
+                console.log('Loaded organization users:', organizationUsers);
             }
         } catch (error) {
             console.error('Error loading organization users:', error);
@@ -604,6 +608,15 @@
     
     async function loadUsersAssignmentGrid(departmentId) {
         const grid = document.getElementById('usersAssignmentGrid');
+        
+        if (organizationUsers.length === 0) {
+            grid.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: var(--gray-500);">
+                    No users available for assignment
+                </div>
+            `;
+            return;
+        }
         
         // Get current department users
         const dept = departments.find(d => d.department_id === departmentId);

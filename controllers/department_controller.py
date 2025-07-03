@@ -135,7 +135,7 @@ class DepartmentController:
             return {'success': False, 'message': 'Failed to retrieve departments'}
     
     def create_department(self):
-        """Create new department (HR Admin only)"""
+        """Create new department (HR Admin only) - FIXED VERSION"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or current_user.role != 'customer_hr_admin':
@@ -145,6 +145,12 @@ class DepartmentController:
             
             if not data.get('name'):
                 return {'success': False, 'message': 'Department name is required'}
+            
+            # Check if department name already exists for this customer
+            existing_departments = Department.get_by_customer_id(current_user.customer_id)
+            for dept in existing_departments:
+                if dept.name.lower() == data['name'].lower():
+                    return {'success': False, 'message': 'Department name already exists'}
             
             department = Department()
             department.customer_id = current_user.customer_id

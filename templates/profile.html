@@ -277,7 +277,7 @@
     
     .empty-state {
         text-align: center;
-        padding: 40px 20px;
+        padding: 10px 20px;
         color: var(--gray-500);
     }
     
@@ -346,6 +346,10 @@
                 </div>
                 <div class="profile-info">
                     <div class="profile-stat">
+                        <span class="stat-label">Full Name</span>
+                        <span class="stat-value">{{ current_user.full_name }}</span>
+                    </div>
+                    <div class="profile-stat">
                         <span class="stat-label">Username</span>
                         <span class="stat-value">{{ current_user.username }}</span>
                     </div>
@@ -363,7 +367,7 @@
                     </div>
                     {% if current_user.customer_id %}
                     <div class="profile-stat">
-                        <span class="stat-label">Customer ID</span>
+                        <span class="stat-label">Organization Customer ID</span>
                         <span class="stat-value">{{ current_user.customer_id }}</span>
                     </div>
                     {% endif %}
@@ -389,7 +393,7 @@
                     <!-- Statistics Section -->
                     {% if current_user.role in ['customer_employee', 'customer_dept_head', 'customer_hr_admin'] %}
                     <div class="profile-section">
-                        <h3 class="section-title">My Activity</h3>
+                        <h3 class="section-title">My Overall Activity</h3>
                         <div class="stats-grid" id="activityStats">
                             <!-- Stats will be loaded here -->
                         </div>
@@ -403,44 +407,10 @@
                     </div>
                     {% endif %}
                     
-                    <!-- Personal Information Section -->
-                    <div class="profile-section">
-                        <h3 class="section-title">Personal Information</h3>
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <span class="info-label">Full Name</span>
-                                <span class="info-value">{{ current_user.full_name or 'Not set' }}</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Username</span>
-                                <span class="info-value">{{ current_user.username }}</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Email Address</span>
-                                <span class="info-value">{{ current_user.email }}</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Role</span>
-                                <span class="info-value">{{ current_user.role.replace('_', ' ').title() }}</span>
-                            </div>
-                            {% if current_user.customer_id %}
-                            <div class="info-item">
-                                <span class="info-label">Organization</span>
-                                <span class="info-value" id="organizationName">Loading...</span>
-                            </div>
-                            {% endif %}
-                            {% if current_user.department_id %}
-                            <div class="info-item">
-                                <span class="info-label">Department</span>
-                                <span class="info-value" id="departmentName">Loading...</span>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
                     
                     <!-- Recent Activity Section -->
                     <div class="profile-section">
-                        <h3 class="section-title">Recent Activity</h3>
+                        <h3 class="section-title">Activity History</h3>
                         <div class="activity-list" id="recentActivity">
                             <!-- Activity will be loaded here -->
                         </div>

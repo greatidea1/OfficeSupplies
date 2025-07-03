@@ -816,6 +816,12 @@
             if (isEmployeeRole) {
                 departmentGroup.style.display = 'block';
                 departmentGroup.querySelector('select').required = true;
+                
+                // Load departments for current customer
+                {% if current_user.role == 'customer_hr_admin' %}
+                // For HR admin, load departments immediately
+                loadDepartments('{{ current_user.customer_id }}', 'departmentSelection');
+                {% endif %}
             } else {
                 departmentGroup.style.display = 'none';
                 departmentGroup.querySelector('select').required = false;
@@ -825,11 +831,34 @@
             
             if (isEmployeeRole) {
                 editDepartmentGroup.style.display = 'block';
+                // Load departments for editing
+                {% if current_user.role == 'customer_hr_admin' %}
+                loadDepartments('{{ current_user.customer_id }}', 'editDepartment');
+                {% endif %}
             } else {
                 editDepartmentGroup.style.display = 'none';
             }
         }
     }
+    
+    // Updated customer selection change handler
+    document.addEventListener('DOMContentLoaded', function() {
+        // ... existing code ...
+        
+        // Customer change handler for department loading
+        const customerSelect = document.getElementById('customerSelection');
+        if (customerSelect) {
+            customerSelect.addEventListener('change', function() {
+                const customerId = this.value;
+                const roleSelect = document.getElementById('userRole');
+                
+                // Only load departments if employee role is selected
+                if (roleSelect.value === 'customer_employee' && customerId) {
+                    loadDepartments(customerId, 'departmentSelection');
+                }
+            });
+        }
+    });
     
     function formatRole(role) {
         const roleMap = {
