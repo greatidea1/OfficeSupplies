@@ -226,6 +226,58 @@ class DepartmentController:
         except Exception as e:
             print(f"Update user assignments error: {e}")
             return False
+        
+    def assign_department_head(self, department_id):
+        """Assign department head to a department (HR Admin only)"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user or current_user.role != 'customer_hr_admin':
+                return {'success': False, 'message': 'Only HR admins can assign department heads'}
+            
+            department = Department.get_by_id(department_id)
+            if not department or department.customer_id != current_user.customer_id:
+                return {'success': False, 'message': 'Department not found'}
+            
+            data = request.get_json()
+            new_head_id = data.get('department_head_id')
+            
+            if not new_head_id:
+                return {'success': False, 'message': 'Department head ID is required'}
+            
+            # Get the new department head user
+            new_head = User.get_by_id(new_head_id)
+            if not new_head or new_head.customer_id != current_user.customer_id:
+                return {'success': False, 'message': 'User not found'}
+            
+            if new_head.role != 'customer_dept_head':
+                return {'success': False, 'message': 'User must have Department Head role'}
+            
+            # Remove current department head from this department
+            current_users = User.get_by_department_id(department_id)
+            for user in current_users:
+                if user.role == 'customer_dept_head':
+                    user.department_id = None
+                    user.save()
+            
+            # Remove new head from any other department
+            if new_head.department_id and new_head.department_id != department_id:
+                new_head.department_id = None
+                new_head.save()
+            
+            # Assign new head to this department
+            new_head.department_id = department_id
+            new_head.save()
+            
+            return {
+                'success': True,
+                'message': 'Department head assigned successfully'
+            }
+            
+        except Exception as e:
+            print(f"Assign department head error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'message': 'Failed to assign department head'}
     
     def delete_department(self, department_id):
         """Delete department and unassign users (HR Admin only) - UPDATED VERSION"""

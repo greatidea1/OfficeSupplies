@@ -380,6 +380,13 @@ def create_app():
         """API: Delete department"""
         return jsonify(department_controller.delete_department(department_id))
     
+    @app.route('/api/departments/<department_id>/assign-head', methods=['PUT'])
+    @login_required
+    @role_required('customer_hr_admin')
+    def api_assign_department_head(department_id):
+        """API: Assign department head"""
+        return jsonify(department_controller.assign_department_head(department_id))
+    
     # ================== ORDER ROUTES ==================
     
     @app.route('/orders')
