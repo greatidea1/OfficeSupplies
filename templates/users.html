@@ -408,9 +408,9 @@
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Temporary Password</label>
-                    <input type="password" class="form-control" name="temp_password" required minlength="8">
-                    <span class="form-help">User will be required to change this on first login</span>
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" name="password" required minlength="8">
+                    <span class="form-help">Set a secure password for the user</span>
                     <span class="form-error"></span>
                 </div>
                 
@@ -872,7 +872,7 @@
                 username: formData.get('username'),
                 email: formData.get('email'),
                 role: formData.get('role'),
-                temp_password: formData.get('temp_password'),
+                password: formData.get('password'),  // Changed from temp_password to password
                 send_email: formData.get('send_email') === 'true'
             };
             

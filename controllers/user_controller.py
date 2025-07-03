@@ -133,7 +133,7 @@ class UserController:
             return {'success': False, 'message': 'Failed to retrieve user'}
     
     def create_user(self):
-        """Create new user"""
+        """Create new user - FIXED VERSION"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -141,8 +141,8 @@ class UserController:
             
             data = request.get_json()
             
-            # Validate required fields
-            required_fields = ['username', 'email', 'role']
+            # Validate required fields - REMOVED temp_password, added password
+            required_fields = ['username', 'email', 'role', 'password']
             for field in required_fields:
                 if field not in data or not data[field]:
                     return {'success': False, 'message': f'{field} is required'}
@@ -161,20 +161,19 @@ class UserController:
             if existing_email:
                 return {'success': False, 'message': 'Email already exists'}
             
-            # Generate temporary password
-            temp_password = f"temp_{uuid.uuid4().hex[:8]}"
-            
             # Create user
             user = User(
                 username=data['username'],
                 email=data['email'],
-                password_hash=User.hash_password(temp_password),
+                password_hash=User.hash_password(data['password']),  # Use regular password
                 role=data['role']
             )
             
             user.full_name = data.get('full_name', '')
-            user.is_first_login = True
-            user.password_reset_required = True
+            # REMOVED temporary password flags - make user immediately usable
+            user.is_first_login = False
+            user.password_reset_required = False
+            user.is_active = True
             
             # Set customer_id based on role and current user
             if data['role'].startswith('customer_'):
@@ -190,23 +189,91 @@ class UserController:
                 user.department_id = data['department_id']
             
             if user.save():
-                # Send welcome email
+                # Send welcome email if requested (with actual password, not temp)
                 send_email = data.get('send_email', False)
                 if send_email:
-                    self.auth.send_welcome_email(user, temp_password)
+                    # Create a custom welcome email without password for security
+                    self.send_welcome_email_without_password(user)
                 
                 return {
                     'success': True,
                     'message': 'User created successfully',
-                    'user_id': user.user_id,
-                    'temp_password': temp_password
+                    'user_id': user.user_id
                 }
             else:
                 return {'success': False, 'message': 'Failed to create user'}
                 
         except Exception as e:
             print(f"Create user error: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': 'Failed to create user'}
+        
+    def send_welcome_email_without_password(self, user):
+        """Send welcome email without exposing password"""
+        try:
+            from controllers.auth_controller import auth_controller
+            from models import VendorSettings
+            
+            settings = VendorSettings.get_settings()
+            
+            subject = f"Welcome to {settings.company_name} - Office Supplies System"
+            
+            html_body = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }}
+                    .container {{ max-width: 600px; margin: 0 auto; background-color: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+                    .header {{ text-align: center; margin-bottom: 30px; }}
+                    .logo {{ font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 10px; }}
+                    .title {{ font-size: 20px; color: #1f2937; margin-bottom: 10px; }}
+                    .credentials {{ background-color: #f8fafc; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #2563eb; }}
+                    .footer {{ margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <div class="logo">{settings.company_name}</div>
+                        <div class="title">Welcome to Office Supplies System</div>
+                    </div>
+                    
+                    <p>Hello {user.full_name or user.username},</p>
+                    
+                    <p>Your account has been created successfully. You can now access the Office Supplies System using your credentials.</p>
+                    
+                    <div class="credentials">
+                        <strong>Login Information:</strong><br>
+                        <strong>Username:</strong> {user.username}<br>
+                        <strong>Email:</strong> {user.email}<br>
+                        <strong>Role:</strong> {user.role.replace('_', ' ').title()}<br>
+                        <strong>Password:</strong> Use the password provided by your administrator
+                    </div>
+                    
+                    <p><strong>Login URLs:</strong></p>
+                    <ul>
+                        <li><strong>Customer Portal:</strong> <a href="http://localhost:3000/login">http://localhost:3000/login</a></li>
+                        <li><strong>Vendor Portal:</strong> <a href="http://localhost:3000/vendor-login">http://localhost:3000/vendor-login</a></li>
+                    </ul>
+                    
+                    <p>If you have any questions or need assistance, please contact our support team.</p>
+                    
+                    <div class="footer">
+                        <p>Best regards,<br>{settings.company_name} Team</p>
+                        <p>This is an automated message. Please do not reply to this email.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            return auth_controller.send_email_notification(user.email, subject, html_body, True)
+            
+        except Exception as e:
+            print(f"Welcome email error: {e}")
+            return False
     
     def update_user(self, user_id):
         """Update user information"""

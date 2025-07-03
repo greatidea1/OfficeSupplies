@@ -93,7 +93,7 @@ class AuthController:
             return {'success': False, 'message': 'Login failed'}
     
     def get_customer_user_by_email_and_customer_id(self, email, customer_id):
-        """Get customer user by email and customer_id combination - FIXED VERSION"""
+        """Get customer user by email and customer_id combination - DEBUG VERSION"""
         try:
             from config import config
             db = config.get_db()
@@ -103,11 +103,22 @@ class AuthController:
             # Query users with customer_id first, then filter by email
             docs = db.collection('users').where('customer_id', '==', customer_id).get()
             
+            print(f"DEBUG: Found {len(list(docs))} users with customer_id={customer_id}")
+            
+            # Re-query since docs iterator is consumed
+            docs = db.collection('users').where('customer_id', '==', customer_id).get()
+            
             for doc in docs:
                 user_data = doc.to_dict()
                 user = User.from_dict(user_data)
                 
-                print(f"DEBUG: Found user {user.username}, email={user.email}, role={user.role}")
+                print(f"DEBUG: Checking user:")
+                print(f"  - username: {user.username}")
+                print(f"  - email: {user.email}")
+                print(f"  - role: {user.role}")
+                print(f"  - is_active: {user.is_active}")
+                print(f"  - is_first_login: {user.is_first_login}")
+                print(f"  - password_reset_required: {user.password_reset_required}")
                 
                 # Check if email matches (either in email field or username field)
                 if user.email == email or user.username == email:
@@ -116,6 +127,8 @@ class AuthController:
                         return user
                     else:
                         print(f"DEBUG: User found but role is {user.role}, not customer role")
+                else:
+                    print(f"DEBUG: Email/username doesn't match. Looking for '{email}', found email='{user.email}', username='{user.username}'")
             
             print(f"DEBUG: No matching user found")
             return None
