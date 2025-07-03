@@ -306,11 +306,9 @@ def create_app():
     @login_required
     def products():
         """Products page"""
-        current_user = auth_controller.get_current_user()
-        if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal']:
-            return render_template('vendor/products.html')
-        else:
-            return render_template('customer/products.html')
+        # Use the same template for both vendor and customer users
+        # The template handles role-based functionality with Jinja2 conditionals
+        return render_template('products.html')
     
     @app.route('/api/products')
     @login_required

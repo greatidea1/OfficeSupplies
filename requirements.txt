@@ -29,3 +29,6 @@ flake8==6.0.0
 # Production Server (optional)
 gunicorn==21.2.0
 waitress==2.1.2
+
+# Other
+Pillow>=9.5.0
