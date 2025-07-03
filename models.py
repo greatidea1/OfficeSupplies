@@ -629,6 +629,35 @@ class Department(BaseModel):
         except Exception as e:
             print(f"Error getting departments by customer ID: {e}")
             return []
+        
+        # Add these methods to the Department class in models.py
+
+    @classmethod
+    def get_by_id(cls, department_id):
+        """Get department by ID"""
+        try:
+            db = config.get_db()
+            doc = db.collection('departments').document(department_id).get()
+            if doc.exists:
+                return cls.from_dict(doc.to_dict())
+            return None
+        except Exception as e:
+            print(f"Error getting department by ID: {e}")
+            return None
+
+    @classmethod
+    def get_by_department_id(cls, department_id):
+        """Get users by department ID"""
+        try:
+            db = config.get_db()
+            docs = db.collection('users').where('department_id', '==', department_id).get()
+            users = []
+            for doc in docs:
+                users.append(cls.from_dict(doc.to_dict()))
+            return users
+        except Exception as e:
+            print(f"Error getting users by department ID: {e}")
+            return []
 
 class VendorSettings(BaseModel):
     """Vendor settings model for system configuration"""

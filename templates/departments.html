@@ -1,0 +1,788 @@
+{% extends "base.html" %}
+
+{% block title %}Department Management - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .departments-container {
+        padding: 32px 0;
+    }
+    
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .departments-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+    
+    .department-card {
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .department-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--primary-blue);
+    }
+    
+    .department-header {
+        padding: 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .department-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 100px;
+        height: 100px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+    
+    .department-name {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    
+    .department-description {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+    
+    .department-body {
+        padding: 24px;
+    }
+    
+    .department-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    
+    .department-stat {
+        text-align: center;
+        padding: 12px;
+        background: var(--gray-50);
+        border-radius: 8px;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--primary-blue);
+        margin-bottom: 4px;
+    }
+    
+    .stat-text {
+        font-size: 0.75rem;
+        color: var(--gray-600);
+    }
+    
+    .department-users {
+        margin-bottom: 16px;
+    }
+    
+    .users-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    
+    .user-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--gray-100);
+        color: var(--gray-700);
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+    }
+    
+    .user-avatar-small {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--primary-blue);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.6rem;
+        font-weight: 600;
+    }
+    
+    .department-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--gray-200);
+        background: var(--gray-50);
+        display: flex;
+        gap: 8px;
+    }
+    
+    .action-btn {
+        flex: 1;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-view {
+        background: var(--primary-blue);
+        color: white;
+    }
+    
+    .btn-view:hover {
+        background: var(--primary-blue-dark);
+    }
+    
+    .btn-edit {
+        background: var(--secondary-orange);
+        color: white;
+    }
+    
+    .btn-edit:hover {
+        opacity: 0.9;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--gray-500);
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--gray-200);
+    }
+    
+    .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.3;
+    }
+    
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow-xl);
+        max-width: 600px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        padding: 24px 24px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: var(--gray-400);
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: var(--transition);
+    }
+    
+    .modal-close:hover {
+        background: var(--gray-100);
+        color: var(--gray-600);
+    }
+    
+    .modal-body {
+        padding: 24px;
+    }
+    
+    .modal-footer {
+        padding: 0 24px 24px;
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+    }
+    
+    .users-assignment {
+        margin-top: 20px;
+    }
+    
+    .users-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        padding: 16px;
+    }
+    
+    .user-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 6px;
+        transition: background 0.3s ease;
+    }
+    
+    .user-checkbox:hover {
+        background: var(--gray-50);
+    }
+    
+    .user-checkbox input[type="checkbox"] {
+        margin: 0;
+    }
+    
+    @media (max-width: 768px) {
+        .departments-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .department-stats {
+            grid-template-columns: 1fr;
+        }
+        
+        .users-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="departments-container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Department Management</h1>
+                <p style="color: var(--gray-600); margin: 8px 0 0 0;">Manage departments and assign users to departments</p>
+            </div>
+            <button class="btn btn-primary" onclick="showAddDepartmentModal()">
+                <i class="fas fa-plus"></i>
+                Add Department
+            </button>
+        </div>
+        
+        <div class="departments-grid" id="departmentsGrid">
+            <!-- Departments will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<!-- Add Department Modal -->
+<div class="modal" id="addDepartmentModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Add New Department</h3>
+            <button class="modal-close" onclick="closeAddDepartmentModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="addDepartmentForm">
+                <div class="form-group">
+                    <label class="form-label">Department Name</label>
+                    <input type="text" class="form-control" name="name" required>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" name="description" rows="3" placeholder="Optional description of the department"></textarea>
+                    <span class="form-error"></span>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeAddDepartmentModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddDepartment()">Create Department</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Department Modal -->
+<div class="modal" id="editDepartmentModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Edit Department</h3>
+            <button class="modal-close" onclick="closeEditDepartmentModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editDepartmentForm">
+                <input type="hidden" name="department_id" id="editDepartmentId">
+                
+                <div class="form-group">
+                    <label class="form-label">Department Name</label>
+                    <input type="text" class="form-control" name="name" id="editDepartmentName" required>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" name="description" id="editDepartmentDescription" rows="3"></textarea>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="users-assignment">
+                    <label class="form-label">Assign Users to Department</label>
+                    <div class="users-grid" id="usersAssignmentGrid">
+                        <!-- Users will be loaded here -->
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeEditDepartmentModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitEditDepartment()">Update Department</button>
+        </div>
+    </div>
+</div>
+
+<!-- Department Details Modal -->
+<div class="modal" id="departmentDetailsModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title" id="departmentDetailsTitle">Department Details</h3>
+            <button class="modal-close" onclick="closeDepartmentDetailsModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="departmentDetailsBody">
+            <!-- Department details will be loaded here -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeDepartmentDetailsModal()">Close</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let departments = [];
+    let organizationUsers = [];
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDepartments();
+        loadOrganizationUsers();
+    });
+    
+    async function loadDepartments() {
+        try {
+            const response = await apiCall('/departments');
+            
+            if (response.success) {
+                departments = response.departments;
+                displayDepartments();
+            } else {
+                showEmptyState('Failed to load departments');
+            }
+        } catch (error) {
+            console.error('Error loading departments:', error);
+            showEmptyState('Error loading departments');
+        }
+    }
+    
+    async function loadOrganizationUsers() {
+        try {
+            const response = await apiCall('/users?role=customer_employee,customer_dept_head');
+            
+            if (response.success) {
+                organizationUsers = response.users.filter(user => 
+                    user.role === 'customer_employee' || user.role === 'customer_dept_head'
+                );
+            }
+        } catch (error) {
+            console.error('Error loading organization users:', error);
+        }
+    }
+    
+    function displayDepartments() {
+        const grid = document.getElementById('departmentsGrid');
+        
+        if (departments.length === 0) {
+            showEmptyState('No departments found');
+            return;
+        }
+        
+        grid.innerHTML = departments.map(dept => `
+            <div class="department-card" onclick="viewDepartment('${dept.department_id}')">
+                <div class="department-header">
+                    <div class="department-name">${dept.name}</div>
+                    <div class="department-description">${dept.description || 'No description'}</div>
+                </div>
+                <div class="department-body">
+                    <div class="department-stats">
+                        <div class="department-stat">
+                            <div class="stat-number">${dept.user_count || 0}</div>
+                            <div class="stat-text">Total Users</div>
+                        </div>
+                        <div class="department-stat">
+                            <div class="stat-number">${dept.active_users || 0}</div>
+                            <div class="stat-text">Active Users</div>
+                        </div>
+                    </div>
+                    
+                    <div class="department-users">
+                        <div style="font-weight: 500; color: var(--gray-700); font-size: 0.875rem; margin-bottom: 8px;">
+                            Team Members:
+                        </div>
+                        <div class="users-list">
+                            ${(dept.users || []).slice(0, 3).map(user => `
+                                <div class="user-badge">
+                                    <div class="user-avatar-small">
+                                        ${(user.full_name || user.username).charAt(0).toUpperCase()}
+                                    </div>
+                                    ${user.full_name || user.username}
+                                </div>
+                            `).join('')}
+                            ${dept.users && dept.users.length > 3 ? `
+                                <div class="user-badge">
+                                    +${dept.users.length - 3} more
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+                <div class="department-footer">
+                    <button class="action-btn btn-view" onclick="event.stopPropagation(); viewDepartment('${dept.department_id}')">
+                        View Details
+                    </button>
+                    <button class="action-btn btn-edit" onclick="event.stopPropagation(); editDepartment('${dept.department_id}')">
+                        Edit & Assign
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function showEmptyState(message) {
+        const grid = document.getElementById('departmentsGrid');
+        grid.innerHTML = `
+            <div class="empty-state" style="grid-column: 1 / -1;">
+                <div class="empty-state-icon">
+                    <i class="fas fa-sitemap"></i>
+                </div>
+                <div style="font-size: 1.25rem; font-weight: 600; margin-bottom: 8px; color: var(--gray-700);">${message}</div>
+                <div style="font-size: 1rem; margin-bottom: 20px;">Create departments to organize your team members</div>
+                <button class="btn btn-primary" onclick="showAddDepartmentModal()">
+                    <i class="fas fa-plus"></i>
+                    Add Department
+                </button>
+            </div>
+        `;
+    }
+    
+    // Modal Functions
+    function showAddDepartmentModal() {
+        document.getElementById('addDepartmentModal').classList.add('show');
+        document.querySelector('[name="name"]').focus();
+    }
+    
+    function closeAddDepartmentModal() {
+        document.getElementById('addDepartmentModal').classList.remove('show');
+        document.getElementById('addDepartmentForm').reset();
+    }
+    
+    async function submitAddDepartment() {
+        const form = document.getElementById('addDepartmentForm');
+        const formData = new FormData(form);
+        
+        if (!validateForm(form)) {
+            return;
+        }
+        
+        try {
+            const deptData = {
+                name: formData.get('name'),
+                description: formData.get('description') || ''
+            };
+            
+            const response = await apiCall('/departments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(deptData)
+            });
+            
+            if (response.success) {
+                showNotification('Department created successfully!', 'success');
+                closeAddDepartmentModal();
+                loadDepartments();
+            } else {
+                showNotification(response.message || 'Failed to create department', 'error');
+            }
+        } catch (error) {
+            console.error('Error creating department:', error);
+            showNotification('Failed to create department', 'error');
+        }
+    }
+    
+    async function editDepartment(departmentId) {
+        try {
+            const dept = departments.find(d => d.department_id === departmentId);
+            if (!dept) return;
+            
+            // Populate edit form
+            document.getElementById('editDepartmentId').value = dept.department_id;
+            document.getElementById('editDepartmentName').value = dept.name;
+            document.getElementById('editDepartmentDescription').value = dept.description || '';
+            
+            // Load users assignment grid
+            await loadUsersAssignmentGrid(departmentId);
+            
+            document.getElementById('editDepartmentModal').classList.add('show');
+        } catch (error) {
+            console.error('Error loading department for edit:', error);
+        }
+    }
+    
+    async function loadUsersAssignmentGrid(departmentId) {
+        const grid = document.getElementById('usersAssignmentGrid');
+        
+        // Get current department users
+        const dept = departments.find(d => d.department_id === departmentId);
+        const departmentUserIds = (dept.users || []).map(u => u.user_id);
+        
+        grid.innerHTML = organizationUsers.map(user => `
+            <div class="user-checkbox">
+                <input type="checkbox" 
+                       id="user_${user.user_id}" 
+                       value="${user.user_id}"
+                       ${departmentUserIds.includes(user.user_id) ? 'checked' : ''}>
+                <label for="user_${user.user_id}" style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <div class="user-avatar-small">
+                        ${(user.full_name || user.username).charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div style="font-weight: 500; font-size: 0.875rem;">${user.full_name || user.username}</div>
+                        <div style="font-size: 0.75rem; color: var(--gray-600);">${formatRole(user.role)}</div>
+                    </div>
+                </label>
+            </div>
+        `).join('');
+    }
+    
+    function closeEditDepartmentModal() {
+        document.getElementById('editDepartmentModal').classList.remove('show');
+        document.getElementById('editDepartmentForm').reset();
+    }
+    
+    async function submitEditDepartment() {
+        const form = document.getElementById('editDepartmentForm');
+        const formData = new FormData(form);
+        const departmentId = formData.get('department_id');
+        
+        if (!validateForm(form)) {
+            return;
+        }
+        
+        try {
+            // Get selected users
+            const selectedUsers = Array.from(document.querySelectorAll('#usersAssignmentGrid input[type="checkbox"]:checked'))
+                .map(checkbox => checkbox.value);
+            
+            const deptData = {
+                name: formData.get('name'),
+                description: formData.get('description') || '',
+                user_assignments: selectedUsers
+            };
+            
+            const response = await apiCall(`/departments/${departmentId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(deptData)
+            });
+            
+            if (response.success) {
+                showNotification('Department updated successfully!', 'success');
+                closeEditDepartmentModal();
+                loadDepartments();
+            } else {
+                showNotification(response.message || 'Failed to update department', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating department:', error);
+            showNotification('Failed to update department', 'error');
+        }
+    }
+    
+    async function viewDepartment(departmentId) {
+        try {
+            const response = await apiCall(`/departments/${departmentId}`);
+            
+            if (response.success) {
+                const dept = response.department;
+                
+                document.getElementById('departmentDetailsTitle').textContent = dept.name;
+                document.getElementById('departmentDetailsBody').innerHTML = `
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="margin-bottom: 16px;">Department Information</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div><strong>Name:</strong> ${dept.name}</div>
+                            <div><strong>Status:</strong> 
+                                <span class="badge ${dept.is_active ? 'badge-success' : 'badge-danger'}">
+                                    ${dept.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                            </div>
+                            <div style="grid-column: 1 / -1;"><strong>Description:</strong> ${dept.description || 'No description'}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="margin-bottom: 16px;">Statistics</h4>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                            <div style="text-align: center; padding: 16px; background: var(--gray-50); border-radius: 8px;">
+                                <div style="font-size: 1.5rem; font-weight: 600; color: var(--primary-blue);">${dept.user_count || 0}</div>
+                                <div style="font-size: 0.875rem; color: var(--gray-600);">Total Users</div>
+                            </div>
+                            <div style="text-align: center; padding: 16px; background: var(--gray-50); border-radius: 8px;">
+                                <div style="font-size: 1.5rem; font-weight: 600; color: var(--secondary-green);">${dept.active_users || 0}</div>
+                                <div style="font-size: 0.875rem; color: var(--gray-600);">Active Users</div>
+                            </div>
+                            <div style="text-align: center; padding: 16px; background: var(--gray-50); border-radius: 8px;">
+                                <div style="font-size: 1.5rem; font-weight: 600; color: var(--secondary-orange);">${dept.total_orders || 0}</div>
+                                <div style="font-size: 0.875rem; color: var(--gray-600);">Orders</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 style="margin-bottom: 16px;">Department Members</h4>
+                        ${dept.users && dept.users.length > 0 ? `
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
+                                ${dept.users.map(user => `
+                                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--gray-50); border-radius: 8px;">
+                                        <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--primary-blue); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600;">
+                                            ${(user.full_name || user.username).charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 500;">${user.full_name || user.username}</div>
+                                            <div style="font-size: 0.875rem; color: var(--gray-600);">${formatRole(user.role)}</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div style="text-align: center; padding: 40px; color: var(--gray-500);">
+                                <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                                <div>No users assigned to this department</div>
+                            </div>
+                        `}
+                    </div>
+                `;
+                
+                document.getElementById('departmentDetailsModal').classList.add('show');
+            }
+        } catch (error) {
+            console.error('Error loading department details:', error);
+        }
+    }
+    
+    function closeDepartmentDetailsModal() {
+        document.getElementById('departmentDetailsModal').classList.remove('show');
+    }
+    
+    function formatRole(role) {
+        const roleMap = {
+            'customer_hr_admin': 'HR Admin',
+            'customer_dept_head': 'Department Head',
+            'customer_employee': 'Employee'
+        };
+        return roleMap[role] || role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+    
+    function validateForm(form) {
+        const requiredFields = form.querySelectorAll('[required]');
+        let isValid = true;
+        
+        requiredFields.forEach(field => {
+            const errorSpan = field.parentNode.querySelector('.form-error');
+            
+            if (!field.value.trim()) {
+                if (errorSpan) {
+                    errorSpan.textContent = `${field.name.replace('_', ' ')} is required`;
+                    errorSpan.style.display = 'block';
+                }
+                field.style.borderColor = 'var(--secondary-red)';
+                isValid = false;
+            } else {
+                if (errorSpan) {
+                    errorSpan.textContent = '';
+                    errorSpan.style.display = 'none';
+                }
+                field.style.borderColor = 'var(--gray-300)';
+            }
+        });
+        
+        return isValid;
+    }
+</script>
+{% endblock %}

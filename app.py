@@ -14,6 +14,7 @@ from controllers.product_controller import product_controller
 from controllers.order_controller import order_controller
 from controllers.customer_controller import customer_controller
 from controllers.user_controller import user_controller
+from controllers.department_controller import department_controller
 
 # Import models
 from models import User, Customer, Product, Order, VendorSettings
@@ -336,6 +337,48 @@ def create_app():
     def api_update_product(product_id):
         """API: Update product"""
         return jsonify(product_controller.update_product(product_id))
+    
+    # ================== DEPARTMENT ROUTES ==================
+
+    @app.route('/departments')
+    @login_required
+    @role_required('customer_hr_admin')
+    def departments():
+        """Departments management page (HR Admin only)"""
+        return render_template('departments.html')
+
+    @app.route('/api/departments')
+    @login_required
+    def api_departments():
+        """API: Get departments list"""
+        return jsonify(department_controller.get_departments())
+
+    @app.route('/api/departments', methods=['POST'])
+    @login_required
+    @role_required('customer_hr_admin')
+    def api_create_department():
+        """API: Create new department"""
+        return jsonify(department_controller.create_department())
+
+    @app.route('/api/departments/<department_id>')
+    @login_required
+    def api_department_details(department_id):
+        """API: Get department details"""
+        return jsonify(department_controller.get_department(department_id))
+
+    @app.route('/api/departments/<department_id>', methods=['PUT'])
+    @login_required
+    @role_required('customer_hr_admin')
+    def api_update_department(department_id):
+        """API: Update department"""
+        return jsonify(department_controller.update_department(department_id))
+
+    @app.route('/api/departments/<department_id>', methods=['DELETE'])
+    @login_required
+    @role_required('customer_hr_admin')
+    def api_delete_department(department_id):
+        """API: Delete department"""
+        return jsonify(department_controller.delete_department(department_id))
     
     # ================== ORDER ROUTES ==================
     
