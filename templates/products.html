@@ -448,6 +448,140 @@
     </button>
 </div>
 {% endif %}
+
+<!-- Add Product Modal (for vendors) -->
+{% if current_user.role.startswith('vendor_') %}
+<div class="modal" id="addProductModal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Add New Product</h3>
+            <button class="modal-close" onclick="closeAddProductModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="addProductForm" enctype="multipart/form-data">
+                <!-- Basic Product Information -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Item Number <span style="color: var(--secondary-red);">*</span></label>
+                        <input type="text" class="form-control" name="item_no" id="productItemNo" required>
+                        <span class="form-help">Unique identifier for the product</span>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Category <span style="color: var(--secondary-red);">*</span></label>
+                        <select class="form-control" name="category" required>
+                            <option value="">Select Category</option>
+                            <option value="Office Stationery">Office Stationery</option>
+                            <option value="Computer Accessories">Computer Accessories</option>
+                            <option value="Furniture">Furniture</option>
+                            <option value="Office Equipment">Office Equipment</option>
+                            <option value="Printing Supplies">Printing Supplies</option>
+                            <option value="Storage & Organization">Storage & Organization</option>
+                            <option value="Cleaning Supplies">Cleaning Supplies</option>
+                            <option value="Safety Equipment">Safety Equipment</option>
+                            <option value="Communication Equipment">Communication Equipment</option>
+                            <option value="Miscellaneous">Miscellaneous</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Product Name <span style="color: var(--secondary-red);">*</span></label>
+                    <input type="text" class="form-control" name="product_name" required>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Make/Manufacturer</label>
+                        <input type="text" class="form-control" name="product_make">
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Model</label>
+                        <input type="text" class="form-control" name="product_model">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Description/Details</label>
+                    <textarea class="form-control" name="description" rows="3" placeholder="Product description, features, specifications..."></textarea>
+                    <span class="form-error"></span>
+                </div>
+                
+                <!-- Pricing and Stock Information -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Quantity <span style="color: var(--secondary-red);">*</span></label>
+                        <input type="number" class="form-control" name="quantity" min="0" required>
+                        <span class="form-help">Number of units in stock</span>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Low Stock Threshold</label>
+                        <input type="number" class="form-control" name="low_stock_threshold" value="10" min="0">
+                        <span class="form-help">Alert when stock falls below this number</span>
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Rate (₹) <span style="color: var(--secondary-red);">*</span></label>
+                        <input type="number" class="form-control" name="price" step="0.01" min="0" required>
+                        <span class="form-help">Price per unit (excluding GST)</span>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">GST Rate (%)</label>
+                        <select class="form-control" name="gst_rate">
+                            <option value="0">0% (Exempt)</option>
+                            <option value="5">5%</option>
+                            <option value="12">12%</option>
+                            <option value="18" selected>18%</option>
+                            <option value="28">28%</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">HSN Code</label>
+                    <input type="text" class="form-control" name="hsn_code" placeholder="e.g., 84713000">
+                    <span class="form-help">Harmonized System of Nomenclature code for tax classification</span>
+                    <span class="form-error"></span>
+                </div>
+                
+                <!-- Product Image Upload -->
+                <div class="form-group">
+                    <label class="form-label">Product Image</label>
+                    <input type="file" class="form-control" name="product_image" accept="image/jpeg,image/jpg,image/png,image/gif" onchange="handleImageUpload(event)">
+                    <span class="form-help">Upload product image (JPG, PNG, GIF - max 10MB). Images will be automatically resized to 800x800 pixels.</span>
+                    <span class="form-error" id="imageError"></span>
+                    
+                    <!-- Image Preview -->
+                    <div id="imagePreview" style="margin-top: 12px; padding: 12px; border: 1px solid var(--gray-200); border-radius: 8px; display: none;">
+                        <!-- Preview will be inserted here -->
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeAddProductModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddProduct()">
+                <i class="fas fa-plus"></i>
+                Create Product
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -834,7 +968,141 @@
     {% if current_user.role.startswith('vendor_') %}
     // Vendor functions
     function showAddProductModal() {
-        showNotification('Add Product functionality coming soon!', 'info');
+        document.getElementById('addProductModal').classList.add('show');
+        
+        // Focus first field
+        setTimeout(() => {
+            const productNameField = document.querySelector('#addProductModal [name="product_name"]');
+            if (productNameField) {
+                productNameField.focus();
+            }
+        }, 100);
+    }
+    
+    function closeAddProductModal() {
+        document.getElementById('addProductModal').classList.remove('show');
+        document.getElementById('addProductForm').reset();
+        
+        // Clear image preview
+        const imagePreview = document.getElementById('imagePreview');
+        if (imagePreview) {
+            imagePreview.style.display = 'none';
+            imagePreview.innerHTML = '';
+        }
+    }
+    
+    function handleImageUpload(event) {
+        const file = event.target.files[0];
+        const imagePreview = document.getElementById('imagePreview');
+        const imageError = document.getElementById('imageError');
+        
+        // Clear previous states
+        imagePreview.style.display = 'none';
+        imagePreview.innerHTML = '';
+        imageError.style.display = 'none';
+        
+        if (!file) return;
+        
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+        if (!allowedTypes.includes(file.type)) {
+            imageError.textContent = 'Please select a valid image file (JPG, PNG, GIF)';
+            imageError.style.display = 'block';
+            event.target.value = '';
+            return;
+        }
+        
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            imageError.textContent = 'Image file size should be less than 10MB';
+            imageError.style.display = 'block';
+            event.target.value = '';
+            return;
+        }
+        
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            imagePreview.innerHTML = `
+                <img src="${e.target.result}" style="max-width: 100%; max-height: 200px; border-radius: 8px; object-fit: cover;">
+                <div style="margin-top: 8px; font-size: 0.875rem; color: var(--gray-600);">
+                    ${file.name} (${(file.size / 1024).toFixed(1)} KB)
+                </div>
+            `;
+            imagePreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    function generateItemNumber() {
+        // Generate a unique item number
+        const timestamp = Date.now().toString().slice(-8);
+        const random = Math.random().toString(36).substr(2, 4).toUpperCase();
+        return `ITM${timestamp}${random}`;
+    }
+    
+    async function submitAddProduct() {
+        const form = document.getElementById('addProductForm');
+        const formData = new FormData(form);
+        
+        // Validate required fields
+        const requiredFields = ['item_no', 'product_name', 'category', 'price', 'quantity'];
+        let isValid = true;
+        
+        for (const field of requiredFields) {
+            const input = form.querySelector(`[name="${field}"]`);
+            const errorSpan = input.parentNode.querySelector('.form-error');
+            
+            if (!input.value.trim()) {
+                if (errorSpan) {
+                    errorSpan.textContent = `${field.replace('_', ' ')} is required`;
+                    errorSpan.style.display = 'block';
+                }
+                input.style.borderColor = 'var(--secondary-red)';
+                isValid = false;
+            } else {
+                if (errorSpan) {
+                    errorSpan.style.display = 'none';
+                }
+                input.style.borderColor = 'var(--gray-300)';
+            }
+        }
+        
+        if (!isValid) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        try {
+            // Show loading state
+            const submitBtn = document.querySelector('#addProductModal .btn-primary');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+            submitBtn.disabled = true;
+            
+            const response = await fetch('/api/products', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Product created successfully!', 'success');
+                closeAddProductModal();
+                loadProducts(); // Reload products list
+            } else {
+                showNotification(result.message || 'Failed to create product', 'error');
+            }
+        } catch (error) {
+            console.error('Error creating product:', error);
+            showNotification('Failed to create product', 'error');
+        } finally {
+            // Restore button state
+            const submitBtn = document.querySelector('#addProductModal .btn-primary');
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
     }
     
     function editProduct(productId) {
@@ -844,6 +1112,14 @@
     function viewProduct(productId) {
         showNotification('View Product functionality coming soon!', 'info');
     }
+    
+    // Generate item number when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        const itemNoField = document.getElementById('productItemNo');
+        if (itemNoField) {
+            itemNoField.value = generateItemNumber();
+        }
+    });
     {% endif %}
 </script>
 {% endblock %}

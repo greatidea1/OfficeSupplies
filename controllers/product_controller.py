@@ -93,6 +93,154 @@ class ProductController:
         except Exception as e:
             print(f"Get products error: {e}")
             return {'success': False, 'message': 'Failed to retrieve products'}
+        
+    # Add this method to the ProductController class in product_controller.py
+
+    def upload_product_image(self, file, product_id):
+        """Upload and resize product image"""
+        try:
+            # Validate file
+            if not file or not file.filename:
+                return None
+            
+            # Check file type
+            allowed_extensions = {'jpg', 'jpeg', 'png', 'gif'}
+            file_extension = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+            
+            if file_extension not in allowed_extensions:
+                return None
+            
+            # Generate unique filename
+            import uuid
+            filename = f"product_{product_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
+            
+            # Resize image to 800x800
+            from PIL import Image
+            import io
+            
+            # Open and process image
+            image = Image.open(file.stream)
+            
+            # Convert to RGB if needed (for PNG with transparency)
+            if image.mode in ('RGBA', 'LA', 'P'):
+                background = Image.new('RGB', image.size, (255, 255, 255))
+                if image.mode == 'P':
+                    image = image.convert('RGBA')
+                background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                image = background
+            
+            # Resize to 800x800 maintaining aspect ratio
+            image.thumbnail((800, 800), Image.Resampling.LANCZOS)
+            
+            # Create a new 800x800 image with white background
+            new_image = Image.new('RGB', (800, 800), (255, 255, 255))
+            
+            # Calculate position to center the image
+            x = (800 - image.width) // 2
+            y = (800 - image.height) // 2
+            new_image.paste(image, (x, y))
+            
+            # Save to bytes
+            img_bytes = io.BytesIO()
+            new_image.save(img_bytes, format='JPEG', quality=85, optimize=True)
+            img_bytes.seek(0)
+            
+            # Get storage handler
+            storage_handler = config.get_storage()
+            
+            if config.use_local_storage:
+                # Local storage
+                import os
+                file_path = f"products/{filename}"
+                full_path = os.path.join('uploads', file_path)
+                
+                # Ensure directory exists
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                
+                # Save file
+                with open(full_path, 'wb') as f:
+                    f.write(img_bytes.getvalue())
+                
+                return f"/uploads/{file_path}"
+            else:
+                # Firebase Storage
+                blob = storage_handler.blob(f"products/{filename}")
+                blob.upload_from_file(img_bytes, content_type='image/jpeg')
+                blob.make_public()
+                
+                return blob.public_url
+            
+        except Exception as e:
+            print(f"Upload product image error: {e}")
+            return None
+
+    # Update the create_product method to handle image upload
+    def create_product(self):
+        """Create new product (Vendor only) - UPDATED WITH IMAGE UPLOAD"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user or not current_user.role.startswith('vendor_'):
+                return {'success': False, 'message': 'Only vendor users can create products'}
+            
+            # Handle both form data and JSON
+            if request.content_type and request.content_type.startswith('multipart/form-data'):
+                data = request.form.to_dict()
+            else:
+                data = request.get_json()
+            
+            # Validate required fields
+            required_fields = ['item_no', 'product_name', 'category', 'price', 'quantity']
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    return {'success': False, 'message': f'{field.replace("_", " ").title()} is required'}
+            
+            # Check if item number already exists
+            existing_product = Product.get_by_item_no(data['item_no'])
+            if existing_product:
+                return {'success': False, 'message': 'Item number already exists'}
+            
+            # Create new product
+            product = Product()
+            product.item_no = data['item_no']
+            product.category = data['category']
+            product.product_name = data['product_name']
+            product.product_make = data.get('product_make', '')
+            product.product_model = data.get('product_model', '')
+            product.description = data.get('description', '')
+            product.price = float(data['price'])
+            product.quantity = int(data['quantity'])
+            product.gst_rate = float(data.get('gst_rate', 18.0))
+            product.hsn_code = data.get('hsn_code', '')
+            product.low_stock_threshold = int(data.get('low_stock_threshold', 10))
+            
+            # Handle product specifications
+            if 'specifications' in data:
+                product.product_specifications = data['specifications']
+            
+            # Save product first to get product_id
+            if product.save():
+                # Handle image upload
+                if 'product_image' in request.files:
+                    file = request.files['product_image']
+                    if file and file.filename:
+                        image_url = self.upload_product_image(file, product.product_id)
+                        if image_url:
+                            product.image_urls = [image_url]
+                            product.save()  # Update with image URL
+                
+                return {
+                    'success': True,
+                    'message': 'Product created successfully',
+                    'product_id': product.product_id
+                }
+            else:
+                return {'success': False, 'message': 'Failed to create product'}
+                
+        except Exception as e:
+            print(f"Create product error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'message': 'Failed to create product'}
     
     def get_product(self, product_id):
         """Get single product details"""
