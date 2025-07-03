@@ -140,7 +140,7 @@ class UserController:
             return {'success': False, 'message': 'Failed to retrieve user'}
     
     def create_user(self):
-        """Create new user - FIXED VERSION"""
+        """Create new user - UPDATED VERSION"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -148,8 +148,8 @@ class UserController:
             
             data = request.get_json()
             
-            # Validate required fields - REMOVED temp_password, added password
-            required_fields = ['username', 'email', 'role', 'password']
+            # Validate required fields
+            required_fields = ['first_name', 'last_name', 'username', 'email', 'role', 'password']
             for field in required_fields:
                 if field not in data or not data[field]:
                     return {'success': False, 'message': f'{field} is required'}
@@ -168,16 +168,25 @@ class UserController:
             if existing_email:
                 return {'success': False, 'message': 'Email already exists'}
             
+            # Validate department requirement
+            if data['role'] in ['customer_employee', 'customer_dept_head']:
+                if not data.get('department_id'):
+                    return {'success': False, 'message': 'Department is required for employees and department heads'}
+            
             # Create user
             user = User(
                 username=data['username'],
                 email=data['email'],
-                password_hash=User.hash_password(data['password']),  # Use regular password
+                password_hash=User.hash_password(data['password']),
                 role=data['role']
             )
             
-            user.full_name = data.get('full_name', '')
-            # REMOVED temporary password flags - make user immediately usable
+            # Set name fields
+            user.first_name = data['first_name']
+            user.last_name = data['last_name']
+            user.full_name = data.get('full_name', f"{data['first_name']} {data['last_name']}")
+            
+            # Set user as immediately usable
             user.is_first_login = False
             user.password_reset_required = False
             user.is_active = True
@@ -191,15 +200,14 @@ class UserController:
                 else:
                     return {'success': False, 'message': 'Customer ID required for customer users'}
             
-            # Set department_id for customer employees
-            if data['role'] == 'customer_employee' and 'department_id' in data:
+            # Set department_id
+            if 'department_id' in data and data['department_id']:
                 user.department_id = data['department_id']
             
             if user.save():
-                # Send welcome email if requested (with actual password, not temp)
+                # Send welcome email if requested
                 send_email = data.get('send_email', False)
                 if send_email:
-                    # Create a custom welcome email without password for security
                     self.send_welcome_email_without_password(user)
                 
                 return {

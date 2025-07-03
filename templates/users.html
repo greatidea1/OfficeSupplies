@@ -357,70 +357,70 @@
             <button class="modal-close" onclick="closeAddUserModal()">&times;</button>
         </div>
         <div class="modal-body">
-            <form id="addUserForm">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Full Name</label>
-                        <input type="text" class="form-control" name="full_name" required>
-                        <span class="form-error"></span>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Username</label>
-                        <input type="text" class="form-control" name="username" required>
-                        <span class="form-help">Used for login (must be unique)</span>
-                        <span class="form-error"></span>
-                    </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">First Name</label>
+                    <input type="text" class="form-control" name="first_name" id="firstName" required>
+                    <span class="form-error"></span>
                 </div>
                 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Email Address</label>
-                        <input type="email" class="form-control" name="email" required>
-                        <span class="form-error"></span>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Role</label>
-                        <select class="form-control" name="role" id="userRole" required>
-                            <option value="">Select Role</option>
-                        </select>
-                        <span class="form-error"></span>
-                    </div>
+                <div class="form-group">
+                    <label class="form-label">Last Name</label>
+                    <input type="text" class="form-control" name="last_name" id="lastName" required>
+                    <span class="form-error"></span>
                 </div>
-                
-                <!-- Customer Selection (for vendor users) -->
-                <div class="form-group" id="customerSelectionGroup" style="display: none;">
-                    <label class="form-label">Customer Organization</label>
-                    <select class="form-control" name="customer_id" id="customerSelection">
-                        <option value="">Select Customer</option>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" class="form-control" name="email" required>
+                <span class="form-error"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-control" name="password" required minlength="8">
+                <span class="form-help">Set a secure password for the user</span>
+                <span class="form-error"></span>
+            </div>
+            
+            <!-- Hidden username field -->
+            <input type="hidden" name="username" id="generatedUsername">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Role</label>
+                    <select class="form-control" name="role" id="userRole" required>
+                        <option value="">Select Role</option>
                     </select>
                     <span class="form-error"></span>
                 </div>
                 
-                <!-- Department Selection (for customer employees) -->
-                <div class="form-group" id="departmentSelectionGroup" style="display: none;">
+                <div class="form-group">
                     <label class="form-label">Department</label>
-                    <select class="form-control" name="department_id" id="departmentSelection">
+                    <select class="form-control" name="department_id" id="userDepartment">
                         <option value="">Select Department</option>
                     </select>
+                    <span class="form-help">Required for employees and department heads</span>
                     <span class="form-error"></span>
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <input type="password" class="form-control" name="password" required minlength="8">
-                    <span class="form-help">Set a secure password for the user</span>
-                    <span class="form-error"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" name="send_email" value="true">
-                        Send welcome email to user
-                    </label>
-                </div>
-            </form>
+            </div>
+            
+            <!-- Customer Selection (for vendor users) -->
+            <div class="form-group" id="customerSelectionGroup" style="display: none;">
+                <label class="form-label">Customer Organization</label>
+                <select class="form-control" name="customer_id" id="customerSelection">
+                    <option value="">Select Customer</option>
+                </select>
+                <span class="form-error"></span>
+            </div>
+            
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" name="send_email" value="true">
+                    Send welcome email to user
+                </label>
+            </div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeAddUserModal()">Cancel</button>
@@ -533,10 +533,132 @@
             handleRoleChange(this.value, 'edit');
         });
         
-        // Customer change handler for department loading
-        document.getElementById('customerSelection').addEventListener('change', function() {
-            loadDepartments(this.value, 'departmentSelection');
+        // Department selection handler to clear requirement message
+        document.getElementById('userDepartment').addEventListener('change', function() {
+            updateDepartmentRequirementMessage();
         });
+        
+        // Customer change handler for department loading
+        const customerSelect = document.getElementById('customerSelection');
+        if (customerSelect) {
+            customerSelect.addEventListener('change', function() {
+                const customerId = this.value;
+                const roleSelect = document.getElementById('userRole');
+                
+                // Load departments when customer is selected and role requires it
+                if (customerId && ['customer_employee', 'customer_dept_head'].includes(roleSelect.value)) {
+                    loadDepartments(customerId, 'userDepartment');
+                }
+            });
+        }
+        
+        // Username generation from first and last name - FIXED IDs
+        const firstNameField = document.querySelector('[name="first_name"]');
+        const lastNameField = document.querySelector('[name="last_name"]');
+        
+        if (firstNameField && lastNameField) {
+            firstNameField.addEventListener('input', generateUsername);
+            lastNameField.addEventListener('input', generateUsername);
+        }
+    }
+    
+    function generateUsername() {
+        const firstNameField = document.querySelector('[name="first_name"]');
+        const lastNameField = document.querySelector('[name="last_name"]');
+        const usernameField = document.getElementById('generatedUsername');
+        
+        if (!firstNameField || !lastNameField || !usernameField) {
+            return;
+        }
+        
+        const firstName = firstNameField.value.trim().toLowerCase();
+        const lastName = lastNameField.value.trim().toLowerCase();
+        
+        if (firstName && lastName) {
+            // Generate username as firstname.lastname
+            let baseUsername = `${firstName}.${lastName}`;
+            
+            // Remove any special characters and spaces
+            baseUsername = baseUsername.replace(/[^a-z0-9.]/g, '');
+            
+            // Add timestamp to make it unique
+            const timestamp = Date.now().toString().slice(-4);
+            const username = `${baseUsername}${timestamp}`;
+            
+            usernameField.value = username;
+            console.log('Generated username:', username);
+        } else {
+            usernameField.value = '';
+        }
+    }
+    
+    function updateDepartmentRequirementMessage() {
+        const departmentField = document.getElementById('userDepartment');
+        const roleField = document.getElementById('userRole');
+        const helpText = departmentField.parentNode.querySelector('.form-help');
+        
+        const role = roleField.value;
+        const needsDepartment = role === 'customer_employee' || role === 'customer_dept_head';
+        
+        if (needsDepartment) {
+            if (departmentField.value) {
+                // Department selected - show success message
+                helpText.style.color = 'var(--secondary-green)';
+                helpText.textContent = 'Department assigned';
+            } else {
+                // No department selected - show requirement
+                helpText.style.color = 'var(--secondary-red)';
+                helpText.textContent = 'Department is required for this role';
+            }
+        } else {
+            // Department not required for this role
+            helpText.style.color = 'var(--gray-500)';
+            helpText.textContent = 'Optional for this role';
+        }
+    }
+    
+    function handleRoleChange(role, formType) {
+        const isCustomerRole = role.startsWith('customer_');
+        const needsDepartment = role === 'customer_employee' || role === 'customer_dept_head';
+        
+        if (formType === 'add') {
+            const customerGroup = document.getElementById('customerSelectionGroup');
+            const departmentField = document.getElementById('userDepartment');
+            
+            // Show customer selection for customer roles (if user is vendor)
+            {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+            if (isCustomerRole) {
+                customerGroup.style.display = 'block';
+                customerGroup.querySelector('select').required = true;
+            } else {
+                customerGroup.style.display = 'none';
+                customerGroup.querySelector('select').required = false;
+            }
+            {% endif %}
+            
+            // Handle department requirement
+            if (needsDepartment) {
+                departmentField.required = true;
+            } else {
+                departmentField.required = false;
+                departmentField.value = '';
+            }
+            
+            // Update the help message
+            updateDepartmentRequirementMessage();
+            
+        } else if (formType === 'edit') {
+            const editDepartmentGroup = document.getElementById('editDepartmentGroup');
+            
+            if (needsDepartment) {
+                editDepartmentGroup.style.display = 'block';
+                {% if current_user.role == 'customer_hr_admin' %}
+                loadDepartments('{{ current_user.customer_id }}', 'editDepartment');
+                {% endif %}
+            } else {
+                editDepartmentGroup.style.display = 'none';
+            }
+        }
     }
     
     async function loadUsers() {
@@ -795,11 +917,11 @@
     
     function handleRoleChange(role, formType) {
         const isCustomerRole = role.startsWith('customer_');
-        const isEmployeeRole = role === 'customer_employee';
+        const needsDepartment = role === 'customer_employee' || role === 'customer_dept_head';
         
         if (formType === 'add') {
             const customerGroup = document.getElementById('customerSelectionGroup');
-            const departmentGroup = document.getElementById('departmentSelectionGroup');
+            const departmentField = document.getElementById('userDepartment');
             
             // Show customer selection for customer roles (if user is vendor)
             {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
@@ -812,26 +934,22 @@
             }
             {% endif %}
             
-            // Show department selection for employees
-            if (isEmployeeRole) {
-                departmentGroup.style.display = 'block';
-                departmentGroup.querySelector('select').required = true;
-                
-                // Load departments for current customer
-                {% if current_user.role == 'customer_hr_admin' %}
-                // For HR admin, load departments immediately
-                loadDepartments('{{ current_user.customer_id }}', 'departmentSelection');
-                {% endif %}
+            // Handle department requirement
+            if (needsDepartment) {
+                departmentField.required = true;
+                departmentField.parentNode.querySelector('.form-help').style.color = 'var(--secondary-red)';
+                departmentField.parentNode.querySelector('.form-help').textContent = 'Department is required for this role';
             } else {
-                departmentGroup.style.display = 'none';
-                departmentGroup.querySelector('select').required = false;
+                departmentField.required = false;
+                departmentField.value = '';
+                departmentField.parentNode.querySelector('.form-help').style.color = 'var(--gray-500)';
+                departmentField.parentNode.querySelector('.form-help').textContent = 'Optional for this role';
             }
         } else if (formType === 'edit') {
             const editDepartmentGroup = document.getElementById('editDepartmentGroup');
             
-            if (isEmployeeRole) {
+            if (needsDepartment) {
                 editDepartmentGroup.style.display = 'block';
-                // Load departments for editing
                 {% if current_user.role == 'customer_hr_admin' %}
                 loadDepartments('{{ current_user.customer_id }}', 'editDepartment');
                 {% endif %}
@@ -874,46 +992,131 @@
     
     // Modal Functions
     function showAddUserModal() {
-        document.getElementById('addUserModal').classList.add('show');
-        document.querySelector('[name="full_name"]').focus();
+        const modal = document.getElementById('addUserModal');
+        modal.classList.add('show');
+        
+        // Focus first field
+        setTimeout(() => {
+            const firstNameField = document.querySelector('[name="first_name"]');
+            if (firstNameField) {
+                firstNameField.focus();
+            }
+        }, 100);
+        
+        // Load departments immediately for HR Admin
+        {% if current_user.role == 'customer_hr_admin' %}
+        loadDepartmentsForForm();
+        {% endif %}
     }
     
     function closeAddUserModal() {
-        document.getElementById('addUserModal').classList.remove('show');
-        document.getElementById('addUserForm').reset();
+        const modal = document.getElementById('addUserModal');
+        modal.classList.remove('show');
+        
+        // Reset form
+        const form = document.getElementById('addUserForm');
+        if (form) {
+            form.reset();
+        }
+        
+        // Clear generated username
+        const usernameField = document.getElementById('generatedUsername');
+        if (usernameField) {
+            usernameField.value = '';
+        }
         
         // Hide conditional groups
-        document.getElementById('customerSelectionGroup').style.display = 'none';
-        document.getElementById('departmentSelectionGroup').style.display = 'none';
+        const customerGroup = document.getElementById('customerSelectionGroup');
+        if (customerGroup) {
+            customerGroup.style.display = 'none';
+        }
+    }
+
+    async function loadDepartmentsForForm() {
+        try {
+            const response = await apiCall('/user-controller/departments?customer_id={{ current_user.customer_id }}');
+            const departmentSelect = document.getElementById('userDepartment');
+            
+            if (response.success && response.departments) {
+                departmentSelect.innerHTML = '<option value="">Select Department</option>' +
+                    response.departments.map(dept => 
+                        `<option value="${dept.department_id}">${dept.name}</option>`
+                    ).join('');
+                console.log('Loaded departments:', response.departments.length);
+            } else {
+                console.error('Failed to load departments:', response.message);
+                departmentSelect.innerHTML = '<option value="">No departments available</option>';
+            }
+        } catch (error) {
+            console.error('Error loading departments for form:', error);
+        }
     }
     
     async function submitAddUser() {
-        const form = document.getElementById('addUserForm');
-        const formData = new FormData(form);
+        console.log('submitAddUser called');
         
-        if (!validateForm(form)) {
+        // Get form fields directly by name attribute
+        const firstNameField = document.querySelector('#addUserModal [name="first_name"]');
+        const lastNameField = document.querySelector('#addUserModal [name="last_name"]');
+        const emailField = document.querySelector('#addUserModal [name="email"]');
+        const roleField = document.querySelector('#addUserModal [name="role"]');
+        const passwordField = document.querySelector('#addUserModal [name="password"]');
+        const usernameField = document.getElementById('generatedUsername');
+        const departmentField = document.querySelector('#addUserModal [name="department_id"]');
+        const customerField = document.querySelector('#addUserModal [name="customer_id"]');
+        const sendEmailField = document.querySelector('#addUserModal [name="send_email"]');
+        
+        console.log('Fields found:', {
+            firstName: !!firstNameField,
+            lastName: !!lastNameField,
+            email: !!emailField,
+            role: !!roleField,
+            password: !!passwordField,
+            username: !!usernameField
+        });
+        
+        // Validate required fields
+        if (!firstNameField?.value || !lastNameField?.value || !emailField?.value || !roleField?.value || !passwordField?.value) {
+            showNotification('Please fill in all required fields', 'error');
             return;
+        }
+        
+        // Generate username if not already generated
+        if (!usernameField?.value) {
+            const firstName = firstNameField.value.trim().toLowerCase();
+            const lastName = lastNameField.value.trim().toLowerCase();
+            const baseUsername = `${firstName}.${lastName}`.replace(/[^a-z0-9.]/g, '');
+            const timestamp = Date.now().toString().slice(-4);
+            const username = `${baseUsername}${timestamp}`;
+            
+            if (usernameField) {
+                usernameField.value = username;
+            }
         }
         
         try {
             const userData = {
-                full_name: formData.get('full_name'),
-                username: formData.get('username'),
-                email: formData.get('email'),
-                role: formData.get('role'),
-                password: formData.get('password'),  // Changed from temp_password to password
-                send_email: formData.get('send_email') === 'true'
+                first_name: firstNameField.value.trim(),
+                last_name: lastNameField.value.trim(),
+                full_name: `${firstNameField.value.trim()} ${lastNameField.value.trim()}`,
+                username: usernameField?.value || `${firstNameField.value.trim().toLowerCase()}.${lastNameField.value.trim().toLowerCase()}${Date.now().toString().slice(-4)}`,
+                email: emailField.value.trim(),
+                role: roleField.value,
+                password: passwordField.value,
+                send_email: sendEmailField?.checked || false
             };
             
             // Add customer_id if selected
-            if (formData.get('customer_id')) {
-                userData.customer_id = formData.get('customer_id');
+            if (customerField?.value) {
+                userData.customer_id = customerField.value;
             }
             
             // Add department_id if selected
-            if (formData.get('department_id')) {
-                userData.department_id = formData.get('department_id');
+            if (departmentField?.value) {
+                userData.department_id = departmentField.value;
             }
+            
+            console.log('Submitting user data:', userData);
             
             const response = await apiCall('/users', {
                 method: 'POST',
@@ -922,6 +1125,8 @@
                 },
                 body: JSON.stringify(userData)
             });
+            
+            console.log('API response:', response);
             
             if (response.success) {
                 showNotification('User created successfully!', 'success');
@@ -932,7 +1137,7 @@
             }
         } catch (error) {
             console.error('Error creating user:', error);
-            showNotification('Failed to create user', 'error');
+            showNotification('Failed to create user: ' + error.message, 'error');
         }
     }
     

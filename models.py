@@ -62,6 +62,8 @@ class User(BaseModel):
         self.email = email
         self.password_hash = password_hash
         self.role = role  # vendor_superadmin, vendor_admin, vendor_normal, customer_hr_admin, customer_dept_head, customer_employee
+        self.first_name = None  # NEW FIELD
+        self.last_name = None   # NEW FIELD
         self.full_name = None
         self.is_active = True
         self.last_login = None
