@@ -22,12 +22,26 @@ class BaseModel:
         return result
     
     @classmethod
+    # Replace the from_dict method in User class in models.py
+
+    @classmethod
     def from_dict(cls, data):
-        """Create model instance from dictionary"""
-        instance = cls()
+        """Create user instance from dictionary - FIXED VERSION"""
+        user = cls()
         for key, value in data.items():
-            setattr(instance, key, value)
-        return instance
+            setattr(user, key, value)
+        
+        # Ensure required fields have default values if missing
+        if not hasattr(user, 'username') or user.username is None:
+            user.username = ''
+        if not hasattr(user, 'role') or user.role is None:
+            user.role = ''
+        if not hasattr(user, 'full_name') or user.full_name is None:
+            user.full_name = ''
+        if not hasattr(user, 'is_active'):
+            user.is_active = True
+            
+        return user
     
     def save(self):
         """Save model to database - to be implemented by subclasses"""
@@ -150,17 +164,27 @@ class User(BaseModel):
     
     @classmethod
     def get_by_customer_id(cls, customer_id):
-        """Get departments by customer ID - UPDATED VERSION"""
+        """Get users by customer ID - DEBUG VERSION"""
         try:
             db = config.get_db()
-            # Get all departments (active and inactive) for management purposes
-            docs = db.collection('departments').where('customer_id', '==', customer_id).get()
-            departments = []
+            docs = db.collection('users').where('customer_id', '==', customer_id).get()
+            users = []
+            print(f"DEBUG: Raw docs count: {len(list(docs))}")
+            
+            # Re-query since docs iterator is consumed
+            docs = db.collection('users').where('customer_id', '==', customer_id).get()
+            
             for doc in docs:
-                departments.append(cls.from_dict(doc.to_dict()))
-            return departments
+                user_data = doc.to_dict()
+                print(f"DEBUG: Raw user data: {user_data}")
+                user = cls.from_dict(user_data)
+                print(f"DEBUG: Created user: username={user.username}, role={user.role}")
+                users.append(user)
+            return users
         except Exception as e:
-            print(f"Error getting departments by customer ID: {e}")
+            print(f"Error getting users by customer ID: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     @classmethod

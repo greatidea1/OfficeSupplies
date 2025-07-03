@@ -12,7 +12,7 @@ class UserController:
         self.auth = auth_controller
     
     def get_users(self):
-        """Get users list based on current user's permissions"""
+        """Get users list based on current user's permissions - FIXED VERSION"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -43,7 +43,12 @@ class UserController:
                         search in u.email.lower()]
             
             if role:
-                users = [u for u in users if u.role == role]
+                # Handle multiple roles (comma-separated)
+                if ',' in role:
+                    role_list = [r.strip() for r in role.split(',')]
+                    users = [u for u in users if u.role in role_list]
+                else:
+                    users = [u for u in users if u.role == role]
             
             if status:
                 if status == 'active':
@@ -55,7 +60,7 @@ class UserController:
                 users = [u for u in users if u.customer_id == customer_id]
             
             # Sort users
-            users.sort(key=lambda u: u.full_name or u.username)
+            users.sort(key=lambda u: (u.full_name or u.username or '').lower())
             
             # Convert to dict and add additional info
             user_list = []
@@ -91,6 +96,8 @@ class UserController:
             
         except Exception as e:
             print(f"Get users error: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': 'Failed to retrieve users'}
     
     def get_user(self, user_id):
@@ -555,8 +562,17 @@ class UserController:
             return []
     
     def get_customer_users(self, customer_id):
-        """Get users for specific customer (Customer HR Admin)"""
-        return User.get_by_customer_id(customer_id)
+        """Get users for specific customer (Customer HR Admin) - DEBUG VERSION"""
+        try:
+            print(f"DEBUG: Getting users for customer_id: {customer_id}")
+            users = User.get_by_customer_id(customer_id)
+            print(f"DEBUG: Found {len(users)} users for customer {customer_id}")
+            for user in users:
+                print(f"  - {user.username} ({user.role}) - active: {user.is_active}")
+            return users
+        except Exception as e:
+            print(f"Error getting customer users: {e}")
+            return []
     
     def can_view_user(self, current_user, target_user):
         """Check if current user can view target user"""

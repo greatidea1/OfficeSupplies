@@ -449,19 +449,27 @@
     
     async function loadOrganizationUsers() {
         try {
-            // Load all users from the current customer organization
+            console.log('DEBUG: Loading organization users...');
             const response = await apiCall('/users');
+            console.log('DEBUG: Users API response:', response);
             
             if (response.success) {
-                // Filter to only get employees and department heads from current organization
-                organizationUsers = response.users.filter(user => 
-                    (user.role === 'customer_employee' || user.role === 'customer_dept_head') && 
-                    user.is_active
-                );
-                console.log('Loaded organization users:', organizationUsers);
+                console.log('DEBUG: Total users returned:', response.users.length);
+                
+                organizationUsers = response.users.filter(user => {
+                    console.log(`DEBUG: Checking user ${user.username} - role: ${user.role}, active: ${user.is_active}`);
+                    return (user.role === 'customer_employee' || user.role === 'customer_dept_head') && user.is_active;
+                });
+                
+                console.log('DEBUG: Filtered organization users:', organizationUsers.length);
+                organizationUsers.forEach(user => {
+                    console.log(`  - ${user.username} (${user.role})`);
+                });
+            } else {
+                console.error('DEBUG: Failed to load users:', response.message);
             }
         } catch (error) {
-            console.error('Error loading organization users:', error);
+            console.error('DEBUG: Error loading organization users:', error);
         }
     }
     
