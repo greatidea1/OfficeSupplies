@@ -482,6 +482,18 @@ def create_app():
     def api_reset_user_password(user_id):
         """API: Reset user password"""
         return jsonify(user_controller.reset_user_password(user_id))
+    
+    @app.route('/api/users/<user_id>')
+    @login_required
+    def api_user_details(user_id):
+        """API: Get user details"""
+        return jsonify(user_controller.get_user(user_id))
+
+    @app.route('/api/users/<user_id>', methods=['DELETE'])
+    @login_required
+    def api_delete_user(user_id):
+        """API: Delete user (deactivate)"""
+        return jsonify(user_controller.delete_user(user_id))
 
     @app.route('/api/user-controller/departments')
     @login_required

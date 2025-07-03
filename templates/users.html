@@ -169,7 +169,7 @@
         background: white;
         border-radius: 16px;
         box-shadow: var(--shadow-xl);
-        max-width: 600px;
+        max-width: 800px;
         width: 90%;
         max-height: 90vh;
         overflow-y: auto;
@@ -230,7 +230,7 @@
         padding: 0 24px 24px;
         display: flex;
         gap: 12px;
-        justify-content: flex-end;
+        justify-content: center;
     }
     
     .form-row {
@@ -488,6 +488,20 @@
             <button class="btn btn-warning" onclick="resetUserPassword()">Reset Password</button>
             <button class="btn btn-primary" onclick="submitEditUser()">Update User</button>
         </div>
+    </div>
+</div>
+
+<!-- User Details Modal -->
+<div class="modal" id="userDetailsModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title" id="userDetailsTitle">User Details</h3>
+            <button class="modal-close" onclick="closeUserDetailsModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="userDetailsBody">
+            <!-- User details will be loaded here -->
+        </div>
+
     </div>
 </div>
 {% endblock %}
@@ -777,14 +791,14 @@
                             <td>${user.department_name || '-'}</td>
                             <td>
                                 <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-sm btn-primary" onclick="viewUser('${user.user_id}')" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
                                     ${user.can_edit ? `
-                                        <button class="btn btn-sm btn-secondary" onclick="editUser('${user.user_id}')">
+                                        <button class="btn btn-sm btn-secondary" onclick="editUser('${user.user_id}')" title="Edit User">
                                             <i class="fas fa-edit"></i>
                                         </button>
                                     ` : ''}
-                                    <button class="btn btn-sm btn-primary" onclick="viewUser('${user.user_id}')">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -914,69 +928,6 @@
             customerSelection.innerHTML = '<option value="">Select Customer</option>' + customerOptions;
         }
     }
-    
-    function handleRoleChange(role, formType) {
-        const isCustomerRole = role.startsWith('customer_');
-        const needsDepartment = role === 'customer_employee' || role === 'customer_dept_head';
-        
-        if (formType === 'add') {
-            const customerGroup = document.getElementById('customerSelectionGroup');
-            const departmentField = document.getElementById('userDepartment');
-            
-            // Show customer selection for customer roles (if user is vendor)
-            {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
-            if (isCustomerRole) {
-                customerGroup.style.display = 'block';
-                customerGroup.querySelector('select').required = true;
-            } else {
-                customerGroup.style.display = 'none';
-                customerGroup.querySelector('select').required = false;
-            }
-            {% endif %}
-            
-            // Handle department requirement
-            if (needsDepartment) {
-                departmentField.required = true;
-                departmentField.parentNode.querySelector('.form-help').style.color = 'var(--secondary-red)';
-                departmentField.parentNode.querySelector('.form-help').textContent = 'Department is required for this role';
-            } else {
-                departmentField.required = false;
-                departmentField.value = '';
-                departmentField.parentNode.querySelector('.form-help').style.color = 'var(--gray-500)';
-                departmentField.parentNode.querySelector('.form-help').textContent = 'Optional for this role';
-            }
-        } else if (formType === 'edit') {
-            const editDepartmentGroup = document.getElementById('editDepartmentGroup');
-            
-            if (needsDepartment) {
-                editDepartmentGroup.style.display = 'block';
-                {% if current_user.role == 'customer_hr_admin' %}
-                loadDepartments('{{ current_user.customer_id }}', 'editDepartment');
-                {% endif %}
-            } else {
-                editDepartmentGroup.style.display = 'none';
-            }
-        }
-    }
-    
-    // Updated customer selection change handler
-    document.addEventListener('DOMContentLoaded', function() {
-        // ... existing code ...
-        
-        // Customer change handler for department loading
-        const customerSelect = document.getElementById('customerSelection');
-        if (customerSelect) {
-            customerSelect.addEventListener('change', function() {
-                const customerId = this.value;
-                const roleSelect = document.getElementById('userRole');
-                
-                // Only load departments if employee role is selected
-                if (roleSelect.value === 'customer_employee' && customerId) {
-                    loadDepartments(customerId, 'departmentSelection');
-                }
-            });
-        }
-    });
     
     function formatRole(role) {
         const roleMap = {
@@ -1132,6 +1083,7 @@
         }
     }
     
+    // FIXED: editUser function with proper API call
     async function editUser(userId) {
         try {
             const response = await apiCall(`/users/${userId}`);
@@ -1155,6 +1107,8 @@
                 handleRoleChange(user.role, 'edit');
                 
                 document.getElementById('editUserModal').classList.add('show');
+            } else {
+                showNotification(response.message || 'Failed to load user details', 'error');
             }
         } catch (error) {
             console.error('Error loading user details:', error);
@@ -1228,7 +1182,15 @@
             });
             
             if (response.success) {
-                showNotification('Password reset successfully! Temporary password: ' + response.temp_password, 'success');
+                const tempPassword = response.temp_password;
+    
+                // Copy to clipboard
+                await navigator.clipboard.writeText(tempPassword);
+    
+                showNotification(
+                    'Password reset successfully! Temporary password copied to clipboard.',
+                    'success'
+                );
             } else {
                 showNotification(response.message || 'Failed to reset password', 'error');
             }
@@ -1238,9 +1200,92 @@
         }
     }
     
-    function viewUser(userId) {
-        // Navigate to user detail page or show user details modal
-        showNotification('User details view coming soon!', 'info');
+    
+    // FIXED: viewUser function with proper implementation
+    async function viewUser(userId) {
+        try {
+            const response = await apiCall(`/users/${userId}`);
+            
+            if (response.success) {
+                const user = response.user;
+                
+                document.getElementById('userDetailsTitle').textContent = `${user.full_name || user.username} - Details`;
+                document.getElementById('userDetailsBody').innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 16px;">User Information</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div><strong>Full Name:</strong> ${user.full_name || 'Not set'}</div>
+                            <div><strong>Username:</strong> ${user.username}</div>
+                            <div><strong>Email:</strong> ${user.email}</div>
+                            <div><strong>Role:</strong> 
+                                <span class="badge badge-primary">${formatRole(user.role)}</span>
+                            </div>
+                            <div><strong>Status:</strong> 
+                                <span class="badge ${user.is_active ? 'badge-success' : 'badge-danger'}">
+                                    ${user.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                            </div>
+                            <div><strong>Organization:</strong> ${user.customer_name || 'Vendor'}</div>
+                            <div><strong>Department:</strong> ${user.department_name || 'Not assigned'}</div>
+                            <div><strong>Last Login:</strong> ${user.last_login ? formatDateTime(user.last_login) : 'Never'}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 16px;">Account Status</h4>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                            <div style="text-align: center; padding: 12px; background: var(--gray-50); border-radius: 8px;">
+                            <div style="font-size: 0.9rem; color: var(--gray-600);">Login Status</div>
+                                <div style="font-size: 1rem; font-weight: 300; color: ${user.is_first_login ? 'var(--secondary-orange)' : 'var(--secondary-green)'};">
+                                    ${user.is_first_login ? 'First Login' : 'Logged In Before'}
+                                </div>
+                                
+                            </div>
+                            <div style="text-align: center; padding: 12px; background: var(--gray-50); border-radius: 8px;">
+                            <div style="font-size: 0.9rem; color: var(--gray-600);">Password Reset</div>
+                                <div style="font-size: 1rem; font-weight: 300; color: ${user.password_reset_required ? 'var(--secondary-red)' : 'var(--secondary-green)'};">
+                                    ${user.password_reset_required ? 'Required' : 'Not Required'}
+                                </div>
+                                
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 16px;">Timestamps</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div><strong>Created:</strong> ${formatDateTime(user.created_at)}</div>
+                            <div><strong>Last Updated:</strong> ${formatDateTime(user.updated_at)}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        ${user.can_edit ? `
+                            <button class="btn btn-primary" onclick="closeUserDetailsModal(); editUser('${user.user_id}')">
+                                <i class="fas fa-edit"></i>
+                                Edit User
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-secondary" onclick="closeUserDetailsModal()">
+                            <i class="fas fa-times"></i>
+                            Close
+                        </button>
+                    </div>
+
+                `;
+                
+                document.getElementById('userDetailsModal').classList.add('show');
+            } else {
+                showNotification(response.message || 'Failed to load user details', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading user details:', error);
+            showNotification('Failed to load user details', 'error');
+        }
+    }
+    
+    function closeUserDetailsModal() {
+        document.getElementById('userDetailsModal').classList.remove('show');
     }
     
     function validateForm(form) {
@@ -1267,6 +1312,19 @@
         });
         
         return isValid;
+    }
+    
+    // Helper function to format datetime
+    function formatDateTime(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleString('en-IN', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     }
 </script>
 {% endblock %}

@@ -142,6 +142,47 @@
         font-weight: 600;
     }
     
+    /* FIXED: Department head styling to match team members */
+    .dept-head-section {
+        margin-bottom: 16px;
+        padding: 12px;
+        background: rgba(37, 99, 235, 0.05);
+        border-radius: 8px;
+        border: 1px solid rgba(37, 99, 235, 0.1);
+    }
+    
+    .dept-head-label {
+        font-weight: 500;
+        color: var(--gray-700);
+        font-size: 0.875rem;
+    }
+    
+    .dept-head-card {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    
+    .dept-head-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--primary-blue);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .dept-head-name {
+        font-weight: 500;
+        color: var(--primary-blue);
+        font-size: 0.875rem;
+    }
+    
     .department-footer {
         padding: 16px 24px;
         border-top: 1px solid var(--gray-200);
@@ -194,6 +235,7 @@
         opacity: 0.3;
     }
     
+    /* FIXED: Modal styling to match users.html */
     .modal {
         position: fixed;
         top: 0;
@@ -220,6 +262,18 @@
         width: 90%;
         max-height: 90vh;
         overflow-y: auto;
+        animation: modalSlideIn 0.3s ease;
+    }
+    
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     .modal-header {
@@ -268,6 +322,13 @@
         justify-content: flex-end;
     }
     
+    /* FIXED: Form styling to match users.html */
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    
     .users-assignment {
         margin-top: 20px;
     }
@@ -300,6 +361,65 @@
         margin: 0;
     }
     
+    /* Unassigned users styling */
+    .section-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+    }
+    
+    .section-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .section-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .section-body {
+        padding: 24px;
+    }
+    
+    .unassigned-users-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+    }
+    
+    .unassigned-user-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: var(--gray-50);
+        border-radius: 8px;
+        border: 1px solid var(--gray-200);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .unassigned-user-card:hover {
+        background: var(--primary-blue);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .unassigned-user-card:hover .user-avatar-small {
+        background: white;
+        color: var(--primary-blue);
+    }
+    
     @media (max-width: 768px) {
         .departments-grid {
             grid-template-columns: 1fr;
@@ -311,6 +431,14 @@
         }
         
         .users-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+        
+        .unassigned-users-grid {
             grid-template-columns: 1fr;
         }
     }
@@ -451,6 +579,8 @@
         </div>
     </div>
 </div>
+
+<!-- Department Details Modal -->
 <div class="modal" id="departmentDetailsModal">
     <div class="modal-content">
         <div class="modal-header">
@@ -465,6 +595,81 @@
         </div>
     </div>
 </div>
+
+<!-- FIXED: Add User Modal with consistent styling -->
+<div class="modal" id="addUserModalDept">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Add New User</h3>
+            <button class="modal-close" onclick="closeAddUserModalDept()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="addUserFormDept">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">First Name</label>
+                        <input type="text" class="form-control" name="first_name" required>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" class="form-control" name="last_name" required>
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" class="form-control" name="email" required>
+                    <span class="form-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" name="password" required minlength="8">
+                    <span class="form-help">Set a secure password for the user</span>
+                    <span class="form-error"></span>
+                </div>
+                
+                <!-- Hidden username field -->
+                <input type="hidden" name="username" id="generatedUsernameDept">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Role</label>
+                        <select class="form-control" name="role" id="userRoleDept" required>
+                            <option value="">Select Role</option>
+                            <option value="customer_dept_head">Department Head</option>
+                            <option value="customer_employee">Employee</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Department</label>
+                        <select class="form-control" name="department_id" id="userDepartmentDept" required>
+                            <option value="">Select Department</option>
+                        </select>
+                        <span class="form-help">Required for employees and department heads</span>
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="send_email" value="true">
+                        Send welcome email to user
+                    </label>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeAddUserModalDept()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddUserDept()">Create User</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -476,7 +681,42 @@
     document.addEventListener('DOMContentLoaded', function() {
         loadDepartments();
         loadOrganizationUsers();
+        setupEventListeners();
     });
+    
+    function setupEventListeners() {
+        // Username generation from first and last name
+        const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
+        const lastNameField = document.querySelector('#addUserModalDept [name="last_name"]');
+        
+        if (firstNameField && lastNameField) {
+            firstNameField.addEventListener('input', generateUsernameDept);
+            lastNameField.addEventListener('input', generateUsernameDept);
+        }
+    }
+    
+    function generateUsernameDept() {
+        const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
+        const lastNameField = document.querySelector('#addUserModalDept [name="last_name"]');
+        const usernameField = document.getElementById('generatedUsernameDept');
+        
+        if (!firstNameField || !lastNameField || !usernameField) {
+            return;
+        }
+        
+        const firstName = firstNameField.value.trim().toLowerCase();
+        const lastName = lastNameField.value.trim().toLowerCase();
+        
+        if (firstName && lastName) {
+            let baseUsername = `${firstName}.${lastName}`;
+            baseUsername = baseUsername.replace(/[^a-z0-9.]/g, '');
+            const timestamp = Date.now().toString().slice(-4);
+            const username = `${baseUsername}${timestamp}`;
+            usernameField.value = username;
+        } else {
+            usernameField.value = '';
+        }
+    }
     
     async function loadDepartments() {
         try {
@@ -552,6 +792,7 @@
         grid.className = unassignedUsers.length === 0 ? 'users-grid' : 'unassigned-users-grid';
     }
     
+    // FIXED: Department head section with proper avatar rendering
     function getDepartmentHeadSection(dept) {
         const deptHead = dept.users ? dept.users.find(user => user.role === 'customer_dept_head') : null;
         
@@ -665,264 +906,6 @@
         ` : '');
     }
     
-    async function deleteDepartment() {
-        const departmentId = document.getElementById('editDepartmentId').value;
-        const departmentName = document.getElementById('editDepartmentName').value;
-        
-        if (!confirm(`Are you sure you want to delete the "${departmentName}" department? All users in this department will become unassigned.`)) {
-            return;
-        }
-        
-        try {
-            const response = await apiCall(`/departments/${departmentId}`, {
-                method: 'DELETE'
-            });
-            
-            if (response.success) {
-                showNotification('Department deleted successfully!', 'success');
-                closeEditDepartmentModal();
-                loadDepartments(); // This will also reload unassigned users
-            } else {
-                showNotification(response.message || 'Failed to delete department', 'error');
-            }
-        } catch (error) {
-            console.error('Error deleting department:', error);
-            showNotification('Failed to delete department', 'error');
-        }
-    }
-    
-    function assignUserToDepartment(userId) {
-        // Show modal or dropdown to select department for this user
-        showNotification('Click on "Edit & Assign" for a department to assign this user', 'info');
-    }
-    
-    function showAddUserModal() {
-        // Create and show the Add User modal directly on departments page
-        if (!document.getElementById('addUserModalDept')) {
-            createAddUserModal();
-        }
-        
-        const modal = document.getElementById('addUserModalDept');
-        modal.classList.add('show');
-        
-        // Load departments for the form
-        loadDepartmentsForUserForm();
-        
-        // Focus first field
-        setTimeout(() => {
-            const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
-            if (firstNameField) {
-                firstNameField.focus();
-            }
-        }, 100);
-    }
-    
-    function createAddUserModal() {
-        const modalHTML = `
-            <div class="modal" id="addUserModalDept">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 class="modal-title">Add New User</h3>
-                        <button class="modal-close" onclick="closeAddUserModalDept()">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="addUserFormDept">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">First Name</label>
-                                    <input type="text" class="form-control" name="first_name" required>
-                                    <span class="form-error"></span>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" name="last_name" required>
-                                    <span class="form-error"></span>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Email Address</label>
-                                <input type="email" class="form-control" name="email" required>
-                                <span class="form-error"></span>
-                            </div>
-                            
-                            <input type="hidden" name="username" id="generatedUsernameDept">
-                            
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Role</label>
-                                    <select class="form-control" name="role" id="userRoleDept" required>
-                                        <option value="">Select Role</option>
-                                        <option value="customer_dept_head">Department Head</option>
-                                        <option value="customer_employee">Employee</option>
-                                    </select>
-                                    <span class="form-error"></span>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label">Department</label>
-                                    <select class="form-control" name="department_id" id="userDepartmentDept" required>
-                                        <option value="">Select Department</option>
-                                    </select>
-                                    <span class="form-help">Required for employees and department heads</span>
-                                    <span class="form-error"></span>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Password</label>
-                                <input type="password" class="form-control" name="password" required minlength="8">
-                                <span class="form-help">Set a secure password for the user</span>
-                                <span class="form-error"></span>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" name="send_email" value="true">
-                                    Send welcome email to user
-                                </label>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="closeAddUserModalDept()">Cancel</button>
-                        <button class="btn btn-primary" onclick="submitAddUserDept()">Create User</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-        setupUserModalEventListeners();
-    }
-    
-    function setupUserModalEventListeners() {
-        // Username generation from first and last name
-        const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
-        const lastNameField = document.querySelector('#addUserModalDept [name="last_name"]');
-        
-        if (firstNameField && lastNameField) {
-            firstNameField.addEventListener('input', generateUsernameDept);
-            lastNameField.addEventListener('input', generateUsernameDept);
-        }
-    }
-    
-    function generateUsernameDept() {
-        const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
-        const lastNameField = document.querySelector('#addUserModalDept [name="last_name"]');
-        const usernameField = document.getElementById('generatedUsernameDept');
-        
-        if (!firstNameField || !lastNameField || !usernameField) {
-            return;
-        }
-        
-        const firstName = firstNameField.value.trim().toLowerCase();
-        const lastName = lastNameField.value.trim().toLowerCase();
-        
-        if (firstName && lastName) {
-            let baseUsername = `${firstName}.${lastName}`;
-            baseUsername = baseUsername.replace(/[^a-z0-9.]/g, '');
-            const timestamp = Date.now().toString().slice(-4);
-            const username = `${baseUsername}${timestamp}`;
-            usernameField.value = username;
-        } else {
-            usernameField.value = '';
-        }
-    }
-    
-    async function loadDepartmentsForUserForm() {
-        try {
-            const departmentSelect = document.getElementById('userDepartmentDept');
-            
-            if (departments && departments.length > 0) {
-                departmentSelect.innerHTML = '<option value="">Select Department</option>' +
-                    departments.map(dept => 
-                        `<option value="${dept.department_id}">${dept.name}</option>`
-                    ).join('');
-            } else {
-                departmentSelect.innerHTML = '<option value="">No departments available</option>';
-            }
-        } catch (error) {
-            console.error('Error loading departments for form:', error);
-        }
-    }
-    
-    function closeAddUserModalDept() {
-        const modal = document.getElementById('addUserModalDept');
-        if (modal) {
-            modal.classList.remove('show');
-            
-            // Reset form
-            const form = document.getElementById('addUserFormDept');
-            if (form) {
-                form.reset();
-            }
-            
-            // Clear generated username
-            const usernameField = document.getElementById('generatedUsernameDept');
-            if (usernameField) {
-                usernameField.value = '';
-            }
-        }
-    }
-    
-    async function submitAddUserDept() {
-        const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
-        const lastNameField = document.querySelector('#addUserModalDept [name="last_name"]');
-        const emailField = document.querySelector('#addUserModalDept [name="email"]');
-        const roleField = document.querySelector('#addUserModalDept [name="role"]');
-        const passwordField = document.querySelector('#addUserModalDept [name="password"]');
-        const departmentField = document.querySelector('#addUserModalDept [name="department_id"]');
-        const usernameField = document.getElementById('generatedUsernameDept');
-        const sendEmailField = document.querySelector('#addUserModalDept [name="send_email"]');
-        
-        // Validate required fields
-        if (!firstNameField?.value || !lastNameField?.value || !emailField?.value || !roleField?.value || !passwordField?.value || !departmentField?.value) {
-            showNotification('Please fill in all required fields', 'error');
-            return;
-        }
-        
-        // Generate username if not already generated
-        if (!usernameField?.value) {
-            generateUsernameDept();
-        }
-        
-        try {
-            const userData = {
-                first_name: firstNameField.value.trim(),
-                last_name: lastNameField.value.trim(),
-                full_name: `${firstNameField.value.trim()} ${lastNameField.value.trim()}`,
-                username: usernameField.value,
-                email: emailField.value.trim(),
-                role: roleField.value,
-                department_id: departmentField.value,
-                password: passwordField.value,
-                send_email: sendEmailField?.checked || false
-            };
-            
-            const response = await apiCall('/users', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(userData)
-            });
-            
-            if (response.success) {
-                showNotification('User created successfully!', 'success');
-                closeAddUserModalDept();
-                // Reload departments and unassigned users
-                loadDepartments();
-            } else {
-                showNotification(response.message || 'Failed to create user', 'error');
-            }
-        } catch (error) {
-            console.error('Error creating user:', error);
-            showNotification('Failed to create user: ' + error.message, 'error');
-        }
-    }
-    
     async function loadOrganizationUsers() {
         try {
             const response = await apiCall('/users?role=customer_employee,customer_dept_head');
@@ -935,67 +918,6 @@
         } catch (error) {
             console.error('Error loading organization users:', error);
         }
-    }
-    
-    function displayDepartments() {
-        const grid = document.getElementById('departmentsGrid');
-        
-        if (departments.length === 0) {
-            showEmptyState('No departments found');
-            return;
-        }
-        
-        grid.innerHTML = departments.map(dept => `
-            <div class="department-card" onclick="viewDepartment('${dept.department_id}')">
-                <div class="department-header">
-                    <div class="department-name">${dept.name}</div>
-                    <div class="department-description">${dept.description || 'No description'}</div>
-                </div>
-                <div class="department-body">
-                    <div class="department-stats">
-                        <div class="department-stat">
-                            <div class="stat-number">${dept.user_count || 0}</div>
-                            <div class="stat-text">Total Users</div>
-                        </div>
-                        <div class="department-stat">
-                            <div class="stat-number">${dept.active_users || 0}</div>
-                            <div class="stat-text">Active Users</div>
-                        </div>
-                    </div>
-                    
-                    ${getDepartmentHeadSection(dept)}
-                    
-                    <div class="department-users">
-                        <div style="font-weight: 500; color: var(--gray-700); font-size: 0.875rem; margin-bottom: 8px;">
-                            Team Members:
-                        </div>
-                        <div class="users-list">
-                            ${(dept.users || []).slice(0, 3).map(user => `
-                                <div class="user-badge">
-                                    <div class="user-avatar-small">
-                                        ${(user.full_name || user.username).charAt(0).toUpperCase()}
-                                    </div>
-                                    ${user.full_name || user.username}
-                                </div>
-                            `).join('')}
-                            ${dept.users && dept.users.length > 3 ? `
-                                <div class="user-badge">
-                                    +${dept.users.length - 3} more
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                </div>
-                <div class="department-footer">
-                    <button class="action-btn btn-view" onclick="event.stopPropagation(); viewDepartment('${dept.department_id}')">
-                        View Details
-                    </button>
-                    <button class="action-btn btn-edit" onclick="event.stopPropagation(); editDepartment('${dept.department_id}')">
-                        Edit & Assign
-                    </button>
-                </div>
-            </div>
-        `).join('');
     }
     
     function showEmptyState(message) {
@@ -1152,6 +1074,32 @@
         }
     }
     
+    async function deleteDepartment() {
+        const departmentId = document.getElementById('editDepartmentId').value;
+        const departmentName = document.getElementById('editDepartmentName').value;
+        
+        if (!confirm(`Are you sure you want to delete the "${departmentName}" department? All users in this department will become unassigned.`)) {
+            return;
+        }
+        
+        try {
+            const response = await apiCall(`/departments/${departmentId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.success) {
+                showNotification('Department deleted successfully!', 'success');
+                closeEditDepartmentModal();
+                loadDepartments(); // This will also reload unassigned users
+            } else {
+                showNotification(response.message || 'Failed to delete department', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting department:', error);
+            showNotification('Failed to delete department', 'error');
+        }
+    }
+    
     async function viewDepartment(departmentId) {
         try {
             const response = await apiCall(`/departments/${departmentId}`);
@@ -1239,6 +1187,10 @@
         } catch (error) {
             console.error('Error loading department details:', error);
         }
+    }
+    
+    function closeDepartmentDetailsModal() {
+        document.getElementById('departmentDetailsModal').classList.remove('show');
     }
     
     async function editDepartmentHead(departmentId) {
@@ -1336,8 +1288,117 @@
         }
     }
     
-    function closeDepartmentDetailsModal() {
-        document.getElementById('departmentDetailsModal').classList.remove('show');
+    function assignUserToDepartment(userId) {
+        // Show modal or dropdown to select department for this user
+        showNotification('Click on "Edit & Assign" for a department to assign this user', 'info');
+    }
+    
+    function showAddUserModal() {
+        const modal = document.getElementById('addUserModalDept');
+        modal.classList.add('show');
+        
+        // Load departments for the form
+        loadDepartmentsForUserForm();
+        
+        // Focus first field
+        setTimeout(() => {
+            const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
+            if (firstNameField) {
+                firstNameField.focus();
+            }
+        }, 100);
+    }
+    
+    async function loadDepartmentsForUserForm() {
+        try {
+            const departmentSelect = document.getElementById('userDepartmentDept');
+            
+            if (departments && departments.length > 0) {
+                departmentSelect.innerHTML = '<option value="">Select Department</option>' +
+                    departments.map(dept => 
+                        `<option value="${dept.department_id}">${dept.name}</option>`
+                    ).join('');
+            } else {
+                departmentSelect.innerHTML = '<option value="">No departments available</option>';
+            }
+        } catch (error) {
+            console.error('Error loading departments for form:', error);
+        }
+    }
+    
+    function closeAddUserModalDept() {
+        const modal = document.getElementById('addUserModalDept');
+        if (modal) {
+            modal.classList.remove('show');
+            
+            // Reset form
+            const form = document.getElementById('addUserFormDept');
+            if (form) {
+                form.reset();
+            }
+            
+            // Clear generated username
+            const usernameField = document.getElementById('generatedUsernameDept');
+            if (usernameField) {
+                usernameField.value = '';
+            }
+        }
+    }
+    
+    async function submitAddUserDept() {
+        const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
+        const lastNameField = document.querySelector('#addUserModalDept [name="last_name"]');
+        const emailField = document.querySelector('#addUserModalDept [name="email"]');
+        const roleField = document.querySelector('#addUserModalDept [name="role"]');
+        const passwordField = document.querySelector('#addUserModalDept [name="password"]');
+        const departmentField = document.querySelector('#addUserModalDept [name="department_id"]');
+        const usernameField = document.getElementById('generatedUsernameDept');
+        const sendEmailField = document.querySelector('#addUserModalDept [name="send_email"]');
+        
+        // Validate required fields
+        if (!firstNameField?.value || !lastNameField?.value || !emailField?.value || !roleField?.value || !passwordField?.value || !departmentField?.value) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        // Generate username if not already generated
+        if (!usernameField?.value) {
+            generateUsernameDept();
+        }
+        
+        try {
+            const userData = {
+                first_name: firstNameField.value.trim(),
+                last_name: lastNameField.value.trim(),
+                full_name: `${firstNameField.value.trim()} ${lastNameField.value.trim()}`,
+                username: usernameField.value,
+                email: emailField.value.trim(),
+                role: roleField.value,
+                department_id: departmentField.value,
+                password: passwordField.value,
+                send_email: sendEmailField?.checked || false
+            };
+            
+            const response = await apiCall('/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(userData)
+            });
+            
+            if (response.success) {
+                showNotification('User created successfully!', 'success');
+                closeAddUserModalDept();
+                // Reload departments and unassigned users
+                loadDepartments();
+            } else {
+                showNotification(response.message || 'Failed to create user', 'error');
+            }
+        } catch (error) {
+            console.error('Error creating user:', error);
+            showNotification('Failed to create user: ' + error.message, 'error');
+        }
     }
     
     function formatRole(role) {
