@@ -91,6 +91,48 @@ class DepartmentController:
         except Exception as e:
             print(f"Get department error: {e}")
             return {'success': False, 'message': 'Failed to retrieve department'}
+        
+    def get_departments(self):
+        """Get departments for current customer (HR Admin only) - FIXED VERSION"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user or current_user.role != 'customer_hr_admin':
+                return {'success': False, 'message': 'Only HR admins can manage departments'}
+            
+            departments = Department.get_by_customer_id(current_user.customer_id)
+            
+            dept_list = []
+            for dept in departments:
+                dept_dict = dept.to_dict()
+                
+                # Add user information - FIXED: Use the correct method
+                users = User.get_by_department_id(dept.department_id)
+                dept_dict['users'] = [
+                    {
+                        'user_id': u.user_id,
+                        'username': u.username,
+                        'full_name': u.full_name,
+                        'email': u.email,
+                        'role': u.role,
+                        'is_active': u.is_active
+                    } for u in users if u.is_active
+                ]
+                
+                dept_dict['user_count'] = len(dept_dict['users'])
+                dept_dict['active_users'] = len([u for u in dept_dict['users'] if u['is_active']])
+                
+                dept_list.append(dept_dict)
+            
+            return {
+                'success': True,
+                'departments': dept_list
+            }
+            
+        except Exception as e:
+            print(f"Get departments error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'message': 'Failed to retrieve departments'}
     
     def create_department(self):
         """Create new department (HR Admin only)"""

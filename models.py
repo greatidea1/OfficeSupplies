@@ -102,6 +102,38 @@ class User(BaseModel):
         except Exception as e:
             print(f"Error getting user by username: {e}")
             return None
+
+    @classmethod
+    def get_by_department_id(cls, department_id):
+        """Get users by department ID"""
+        try:
+            db = config.get_db()
+            docs = db.collection('users').where('department_id', '==', department_id).get()
+            users = []
+            for doc in docs:
+                users.append(cls.from_dict(doc.to_dict()))
+            return users
+        except Exception as e:
+            print(f"Error getting users by department ID: {e}")
+            return []
+
+    @classmethod
+    def get_by_customer_and_roles(cls, customer_id, roles):
+        """Get users by customer ID and specific roles"""
+        try:
+            db = config.get_db()
+            users = []
+            
+            # Query for each role separately since Firestore doesn't support 'in' with arrays
+            for role in roles:
+                docs = db.collection('users').where('customer_id', '==', customer_id).where('role', '==', role).get()
+                for doc in docs:
+                    users.append(cls.from_dict(doc.to_dict()))
+            
+            return users
+        except Exception as e:
+            print(f"Error getting users by customer and roles: {e}")
+            return []
     
     @classmethod
     def get_by_email(cls, email):
@@ -615,6 +647,33 @@ class Department(BaseModel):
         except Exception as e:
             print(f"Error saving department: {e}")
             return False
+
+    @classmethod
+    def get_by_id(cls, department_id):
+        """Get department by ID"""
+        try:
+            db = config.get_db()
+            doc = db.collection('departments').document(department_id).get()
+            if doc.exists:
+                return cls.from_dict(doc.to_dict())
+            return None
+        except Exception as e:
+            print(f"Error getting department by ID: {e}")
+            return None
+
+    @classmethod
+    def get_by_customer_id(cls, customer_id):
+        """Get departments by customer ID"""
+        try:
+            db = config.get_db()
+            docs = db.collection('departments').where('customer_id', '==', customer_id).where('is_active', '==', True).get()
+            departments = []
+            for doc in docs:
+                departments.append(cls.from_dict(doc.to_dict()))
+            return departments
+        except Exception as e:
+            print(f"Error getting departments by customer ID: {e}")
+            return []
     
     @classmethod
     def get_by_customer_id(cls, customer_id):
