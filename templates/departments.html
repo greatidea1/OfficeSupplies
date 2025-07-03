@@ -33,7 +33,7 @@
     
     .department-card {
         background: white;
-        border: 1px solid var(--gray-300);
+        border: 1px solid var(--gray-200);
         border-radius: 16px;
         overflow: hidden;
         transition: all 0.3s ease;
@@ -151,20 +151,18 @@
     }
     
     .action-btn {
-        flex: none; /* override flex: 1 if present */
-        margin: 0 auto;
+        flex: 1;
         padding: 8px 16px;
         border: none;
         border-radius: 6px;
-        font-size: 0.95rem;
+        font-size: 0.875rem;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.3s ease;
     }
     
-    
     .btn-view {
-        background: var(--primary-aqua);
+        background: var(--primary-blue);
         color: white;
     }
     
@@ -173,9 +171,8 @@
     }
     
     .btn-edit {
-        background: var(--primary-aqua);
+        background: var(--secondary-orange);
         color: white;
-        padding: 13px;
     }
     
     .btn-edit:hover {
@@ -328,10 +325,29 @@
                 <h1 class="page-title">Department Management</h1>
                 <p style="color: var(--gray-600); margin: 8px 0 0 0;">Manage departments and assign users to departments</p>
             </div>
-            <button class="btn btn-primary" onclick="showAddDepartmentModal()">
-                <i class="fas fa-plus"></i>
-                Add Department
-            </button>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-secondary" onclick="showAddUserModal()">
+                    <i class="fas fa-user-plus"></i>
+                    Add Users
+                </button>
+                <button class="btn btn-primary" onclick="showAddDepartmentModal()">
+                    <i class="fas fa-plus"></i>
+                    Add Department
+                </button>
+            </div>
+        </div>
+        
+        <!-- Unassigned Users Section -->
+        <div class="section-card" style="margin-bottom: 32px;">
+            <div class="section-header">
+                <h3 class="section-title">Unassigned Users</h3>
+                <span class="badge badge-warning" id="unassignedCount">0</span>
+            </div>
+            <div class="section-body">
+                <div id="unassignedUsersGrid" class="users-grid">
+                    <!-- Unassigned users will be loaded here -->
+                </div>
+            </div>
         </div>
         
         <div class="departments-grid" id="departmentsGrid">
@@ -401,6 +417,7 @@
             </form>
         </div>
         <div class="modal-footer">
+            <button class="btn btn-danger" onclick="deleteDepartment()">Delete Department</button>
             <button class="btn btn-secondary" onclick="closeEditDepartmentModal()">Cancel</button>
             <button class="btn btn-primary" onclick="submitEditDepartment()">Update Department</button>
         </div>
@@ -428,6 +445,7 @@
 <script>
     let departments = [];
     let organizationUsers = [];
+    let unassignedUsers = [];
     
     document.addEventListener('DOMContentLoaded', function() {
         loadDepartments();
@@ -441,6 +459,7 @@
             if (response.success) {
                 departments = response.departments;
                 displayDepartments();
+                loadUnassignedUsers(); // Load unassigned users after departments are loaded
             } else {
                 showEmptyState('Failed to load departments');
             }
@@ -450,29 +469,359 @@
         }
     }
     
-    async function loadOrganizationUsers() {
+    async function loadUnassignedUsers() {
         try {
-            console.log('DEBUG: Loading organization users...');
             const response = await apiCall('/users');
-            console.log('DEBUG: Users API response:', response);
             
             if (response.success) {
-                console.log('DEBUG: Total users returned:', response.users.length);
-                
-                organizationUsers = response.users.filter(user => {
-                    console.log(`DEBUG: Checking user ${user.username} - role: ${user.role}, active: ${user.is_active}`);
-                    return (user.role === 'customer_employee' || user.role === 'customer_dept_head') && user.is_active;
+                // Get all department user IDs
+                const assignedUserIds = new Set();
+                departments.forEach(dept => {
+                    if (dept.users) {
+                        dept.users.forEach(user => assignedUserIds.add(user.user_id));
+                    }
                 });
                 
-                console.log('DEBUG: Filtered organization users:', organizationUsers.length);
-                organizationUsers.forEach(user => {
-                    console.log(`  - ${user.username} (${user.role})`);
-                });
-            } else {
-                console.error('DEBUG: Failed to load users:', response.message);
+                // Filter unassigned users
+                unassignedUsers = response.users.filter(user => 
+                    (user.role === 'customer_employee' || user.role === 'customer_dept_head') && 
+                    user.is_active && 
+                    !assignedUserIds.has(user.user_id)
+                );
+                
+                displayUnassignedUsers();
             }
         } catch (error) {
-            console.error('DEBUG: Error loading organization users:', error);
+            console.error('Error loading unassigned users:', error);
+        }
+    }
+    
+    function displayUnassignedUsers() {
+        const grid = document.getElementById('unassignedUsersGrid');
+        const countBadge = document.getElementById('unassignedCount');
+        
+        countBadge.textContent = unassignedUsers.length;
+        
+        if (unassignedUsers.length === 0) {
+            grid.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: var(--gray-500); grid-column: 1 / -1;">
+                    <i class="fas fa-users-slash" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                    <div>All users are assigned to departments</div>
+                </div>
+            `;
+        } else {
+            grid.innerHTML = unassignedUsers.map(user => `
+                <div class="unassigned-user-card" onclick="assignUserToDepartment('${user.user_id}')">
+                    <div class="user-avatar-small">
+                        ${(user.full_name || user.username).charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div style="font-weight: 500; font-size: 0.875rem;">${user.full_name || user.username}</div>
+                        <div style="font-size: 0.75rem; color: var(--gray-600);">${formatRole(user.role)}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        grid.className = unassignedUsers.length === 0 ? 'users-grid' : 'unassigned-users-grid';
+    }
+    
+    function getDepartmentHeadSection(dept) {
+        const deptHead = dept.users ? dept.users.find(user => user.role === 'customer_dept_head') : null;
+        
+        if (deptHead) {
+            return `
+                <div class="dept-head-section">
+                    <div class="dept-head-label">Department Head:</div>
+                    <div class="dept-head-card">
+                        <div class="dept-head-avatar">
+                            ${(deptHead.full_name || deptHead.username).charAt(0).toUpperCase()}
+                        </div>
+                        <div class="dept-head-name">${deptHead.full_name || deptHead.username}</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="dept-head-section">
+                    <div class="dept-head-label">Department Head:</div>
+                    <div style="color: var(--gray-500); font-size: 0.875rem; font-style: italic;">
+                        No department head assigned
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    async function deleteDepartment() {
+        const departmentId = document.getElementById('editDepartmentId').value;
+        const departmentName = document.getElementById('editDepartmentName').value;
+        
+        if (!confirm(`Are you sure you want to delete the "${departmentName}" department? All users in this department will become unassigned.`)) {
+            return;
+        }
+        
+        try {
+            const response = await apiCall(`/departments/${departmentId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.success) {
+                showNotification('Department deleted successfully!', 'success');
+                closeEditDepartmentModal();
+                loadDepartments(); // This will also reload unassigned users
+            } else {
+                showNotification(response.message || 'Failed to delete department', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting department:', error);
+            showNotification('Failed to delete department', 'error');
+        }
+    }
+    
+    function assignUserToDepartment(userId) {
+        // Show modal or dropdown to select department for this user
+        showNotification('Click on "Edit & Assign" for a department to assign this user', 'info');
+    }
+    
+    function showAddUserModal() {
+        // Create and show the Add User modal directly on departments page
+        if (!document.getElementById('addUserModalDept')) {
+            createAddUserModal();
+        }
+        
+        const modal = document.getElementById('addUserModalDept');
+        modal.classList.add('show');
+        
+        // Load departments for the form
+        loadDepartmentsForUserForm();
+        
+        // Focus first field
+        setTimeout(() => {
+            const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
+            if (firstNameField) {
+                firstNameField.focus();
+            }
+        }, 100);
+    }
+    
+    function createAddUserModal() {
+        const modalHTML = `
+            <div class="modal" id="addUserModalDept">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Add New User</h3>
+                        <button class="modal-close" onclick="closeAddUserModalDept()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="addUserFormDept">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">First Name</label>
+                                    <input type="text" class="form-control" name="first_name" required>
+                                    <span class="form-error"></span>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Last Name</label>
+                                    <input type="text" class="form-control" name="last_name" required>
+                                    <span class="form-error"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Email Address</label>
+                                <input type="email" class="form-control" name="email" required>
+                                <span class="form-error"></span>
+                            </div>
+                            
+                            <input type="hidden" name="username" id="generatedUsernameDept">
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Role</label>
+                                    <select class="form-control" name="role" id="userRoleDept" required>
+                                        <option value="">Select Role</option>
+                                        <option value="customer_dept_head">Department Head</option>
+                                        <option value="customer_employee">Employee</option>
+                                    </select>
+                                    <span class="form-error"></span>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Department</label>
+                                    <select class="form-control" name="department_id" id="userDepartmentDept" required>
+                                        <option value="">Select Department</option>
+                                    </select>
+                                    <span class="form-help">Required for employees and department heads</span>
+                                    <span class="form-error"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Password</label>
+                                <input type="password" class="form-control" name="password" required minlength="8">
+                                <span class="form-help">Set a secure password for the user</span>
+                                <span class="form-error"></span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" name="send_email" value="true">
+                                    Send welcome email to user
+                                </label>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeAddUserModalDept()">Cancel</button>
+                        <button class="btn btn-primary" onclick="submitAddUserDept()">Create User</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        setupUserModalEventListeners();
+    }
+    
+    function setupUserModalEventListeners() {
+        // Username generation from first and last name
+        const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
+        const lastNameField = document.querySelector('#addUserModalDept [name="last_name"]');
+        
+        if (firstNameField && lastNameField) {
+            firstNameField.addEventListener('input', generateUsernameDept);
+            lastNameField.addEventListener('input', generateUsernameDept);
+        }
+    }
+    
+    function generateUsernameDept() {
+        const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
+        const lastNameField = document.querySelector('#addUserModalDept [name="last_name"]');
+        const usernameField = document.getElementById('generatedUsernameDept');
+        
+        if (!firstNameField || !lastNameField || !usernameField) {
+            return;
+        }
+        
+        const firstName = firstNameField.value.trim().toLowerCase();
+        const lastName = lastNameField.value.trim().toLowerCase();
+        
+        if (firstName && lastName) {
+            let baseUsername = `${firstName}.${lastName}`;
+            baseUsername = baseUsername.replace(/[^a-z0-9.]/g, '');
+            const timestamp = Date.now().toString().slice(-4);
+            const username = `${baseUsername}${timestamp}`;
+            usernameField.value = username;
+        } else {
+            usernameField.value = '';
+        }
+    }
+    
+    async function loadDepartmentsForUserForm() {
+        try {
+            const departmentSelect = document.getElementById('userDepartmentDept');
+            
+            if (departments && departments.length > 0) {
+                departmentSelect.innerHTML = '<option value="">Select Department</option>' +
+                    departments.map(dept => 
+                        `<option value="${dept.department_id}">${dept.name}</option>`
+                    ).join('');
+            } else {
+                departmentSelect.innerHTML = '<option value="">No departments available</option>';
+            }
+        } catch (error) {
+            console.error('Error loading departments for form:', error);
+        }
+    }
+    
+    function closeAddUserModalDept() {
+        const modal = document.getElementById('addUserModalDept');
+        if (modal) {
+            modal.classList.remove('show');
+            
+            // Reset form
+            const form = document.getElementById('addUserFormDept');
+            if (form) {
+                form.reset();
+            }
+            
+            // Clear generated username
+            const usernameField = document.getElementById('generatedUsernameDept');
+            if (usernameField) {
+                usernameField.value = '';
+            }
+        }
+    }
+    
+    async function submitAddUserDept() {
+        const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
+        const lastNameField = document.querySelector('#addUserModalDept [name="last_name"]');
+        const emailField = document.querySelector('#addUserModalDept [name="email"]');
+        const roleField = document.querySelector('#addUserModalDept [name="role"]');
+        const passwordField = document.querySelector('#addUserModalDept [name="password"]');
+        const departmentField = document.querySelector('#addUserModalDept [name="department_id"]');
+        const usernameField = document.getElementById('generatedUsernameDept');
+        const sendEmailField = document.querySelector('#addUserModalDept [name="send_email"]');
+        
+        // Validate required fields
+        if (!firstNameField?.value || !lastNameField?.value || !emailField?.value || !roleField?.value || !passwordField?.value || !departmentField?.value) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        // Generate username if not already generated
+        if (!usernameField?.value) {
+            generateUsernameDept();
+        }
+        
+        try {
+            const userData = {
+                first_name: firstNameField.value.trim(),
+                last_name: lastNameField.value.trim(),
+                full_name: `${firstNameField.value.trim()} ${lastNameField.value.trim()}`,
+                username: usernameField.value,
+                email: emailField.value.trim(),
+                role: roleField.value,
+                department_id: departmentField.value,
+                password: passwordField.value,
+                send_email: sendEmailField?.checked || false
+            };
+            
+            const response = await apiCall('/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(userData)
+            });
+            
+            if (response.success) {
+                showNotification('User created successfully!', 'success');
+                closeAddUserModalDept();
+                // Reload departments and unassigned users
+                loadDepartments();
+            } else {
+                showNotification(response.message || 'Failed to create user', 'error');
+            }
+        } catch (error) {
+            console.error('Error creating user:', error);
+            showNotification('Failed to create user: ' + error.message, 'error');
+        }
+    }
+    
+    async function loadOrganizationUsers() {
+        try {
+            const response = await apiCall('/users?role=customer_employee,customer_dept_head');
+            
+            if (response.success) {
+                organizationUsers = response.users.filter(user => 
+                    user.role === 'customer_employee' || user.role === 'customer_dept_head'
+                );
+            }
+        } catch (error) {
+            console.error('Error loading organization users:', error);
         }
     }
     
@@ -502,6 +851,8 @@
                         </div>
                     </div>
                     
+                    ${getDepartmentHeadSection(dept)}
+                    
                     <div class="department-users">
                         <div style="font-weight: 500; color: var(--gray-700); font-size: 0.875rem; margin-bottom: 8px;">
                             Team Members:
@@ -524,6 +875,9 @@
                     </div>
                 </div>
                 <div class="department-footer">
+                    <button class="action-btn btn-view" onclick="event.stopPropagation(); viewDepartment('${dept.department_id}')">
+                        View Details
+                    </button>
                     <button class="action-btn btn-edit" onclick="event.stopPropagation(); editDepartment('${dept.department_id}')">
                         Edit & Assign
                     </button>
@@ -616,15 +970,6 @@
     
     async function loadUsersAssignmentGrid(departmentId) {
         const grid = document.getElementById('usersAssignmentGrid');
-        
-        if (organizationUsers.length === 0) {
-            grid.innerHTML = `
-                <div style="text-align: center; padding: 20px; color: var(--gray-500);">
-                    No users available for assignment
-                </div>
-            `;
-            return;
-        }
         
         // Get current department users
         const dept = departments.find(d => d.department_id === departmentId);

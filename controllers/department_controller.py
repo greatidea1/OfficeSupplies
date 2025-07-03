@@ -228,7 +228,7 @@ class DepartmentController:
             return False
     
     def delete_department(self, department_id):
-        """Deactivate department (HR Admin only)"""
+        """Delete department and unassign users (HR Admin only) - UPDATED VERSION"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or current_user.role != 'customer_hr_admin':
@@ -238,24 +238,30 @@ class DepartmentController:
             if not department or department.customer_id != current_user.customer_id:
                 return {'success': False, 'message': 'Department not found'}
             
-            # Check if department has users
-            users = User.get_by_department_id(department_id)
-            if users:
-                return {'success': False, 'message': 'Cannot delete department with assigned users. Please reassign users first.'}
+            # Get users in this department and unassign them
+            users_in_dept = User.get_by_department_id(department_id)
+            for user in users_in_dept:
+                user.department_id = None
+                user.save()
             
-            # Soft delete by deactivating
-            department.is_active = False
-            
-            if department.save():
+            # Delete the department (hard delete from database)
+            try:
+                from config import config
+                db = config.get_db()
+                db.collection('departments').document(department_id).delete()
+                
                 return {
                     'success': True,
-                    'message': 'Department deactivated successfully'
+                    'message': f'Department deleted successfully. {len(users_in_dept)} users have been unassigned.'
                 }
-            else:
+            except Exception as e:
+                print(f"Error deleting department from database: {e}")
                 return {'success': False, 'message': 'Failed to delete department'}
                 
         except Exception as e:
             print(f"Delete department error: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': 'Failed to delete department'}
 
 # Global department controller instance
