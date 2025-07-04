@@ -133,17 +133,112 @@
         color: var(--gray-900);
     }
     
+    /* Updated pricing styles for editable rates */
+    .product-price-section {
+        margin-bottom: 16px;
+        padding: 12px;
+        background: var(--gray-50);
+        border-radius: 8px;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+    }
+    
+    .product-price-section.editable {
+        border-color: var(--primary-blue);
+        background: rgba(37, 99, 235, 0.05);
+    }
+    
     .product-price {
         font-size: 1.5rem;
         font-weight: 700;
         color: var(--primary-blue);
         margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .price-input {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-blue);
+        background: none;
+        border: none;
+        outline: none;
+        width: 120px;
+        padding: 2px;
+        border-bottom: 2px solid var(--primary-blue);
+    }
+    
+    .price-actions {
+        display: none;
+        gap: 4px;
+        margin-left: auto;
+    }
+    
+    .product-price-section.editing .price-actions {
+        display: flex;
+    }
+    
+    .price-btn {
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .price-btn.save {
+        background: var(--secondary-green);
+        color: white;
+    }
+    
+    .price-btn.cancel {
+        background: var(--gray-400);
+        color: white;
+    }
+    
+    .price-btn:hover {
+        transform: scale(1.1);
+    }
+    
+    .base-price-indicator {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        font-weight: normal;
+        margin-top: 2px;
+    }
+    
+    .custom-price-indicator {
+        font-size: 0.75rem;
+        color: var(--secondary-green);
+        font-weight: 500;
+        margin-top: 2px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
     }
     
     .product-gst {
         font-size: 0.75rem;
         color: var(--gray-500);
-        margin-bottom: 16px;
+        margin-bottom: 8px;
+    }
+    
+    .no-customer-message {
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 24px;
+        color: var(--secondary-orange);
+        text-align: center;
+        font-weight: 500;
     }
     
     .product-stock {
@@ -339,7 +434,7 @@
                 </h1>
                 <p style="color: var(--gray-600); margin: 8px 0 0 0;">
                     {% if current_user.role.startswith('vendor_') %}
-                        Manage your product inventory and pricing
+                        Manage your product inventory and customer-specific pricing
                     {% else %}
                         Browse and order office supplies
                     {% endif %}
@@ -361,9 +456,26 @@
             </div>
         </div>
         
+        <!-- Customer Selection Message for Vendors -->
+        {% if current_user.role.startswith('vendor_') %}
+        <div class="no-customer-message" id="noCustomerMessage">
+            <i class="fas fa-info-circle"></i>
+            Select a customer from the dropdown below to view and edit customer-specific pricing
+        </div>
+        {% endif %}
+        
         <!-- Filters Section -->
         <div class="filters-section">
             <div class="filters-grid">
+                {% if current_user.role.startswith('vendor_') %}
+                <div class="filter-group">
+                    <label class="filter-label">Customer</label>
+                    <select class="form-control" id="customerFilterProducts">
+                        <option value="">Select Customer for Pricing</option>
+                    </select>
+                </div>
+                {% endif %}
+                
                 <div class="filter-group">
                     <label class="filter-label">Category</label>
                     <select class="form-control" id="categoryFilter">
@@ -449,7 +561,7 @@
 </div>
 {% endif %}
 
-<!-- Add Product Modal (for vendors) -->
+<!-- Add Product Modal (for vendors) - UPDATED WITHOUT RATE FIELD -->
 {% if current_user.role.startswith('vendor_') %}
 <div class="modal" id="addProductModal">
     <div class="modal-content" style="max-width: 700px;">
@@ -513,7 +625,7 @@
                     <span class="form-error"></span>
                 </div>
                 
-                <!-- Pricing and Stock Information -->
+                <!-- Stock Information -->
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Quantity <span style="color: var(--secondary-red);">*</span></label>
@@ -530,25 +642,24 @@
                     </div>
                 </div>
                 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Rate (₹) <span style="color: var(--secondary-red);">*</span></label>
-                        <input type="number" class="form-control" name="price" step="0.01" min="0" required>
-                        <span class="form-help">Price per unit (excluding GST)</span>
-                        <span class="form-error"></span>
+                <!-- Note about pricing -->
+                <div class="form-group">
+                    <div style="background: rgba(37, 99, 235, 0.1); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 8px; padding: 16px; color: var(--primary-blue);">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Pricing:</strong> After creating the product, set customer-specific pricing using the pricing editor on the products page.
                     </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">GST Rate (%)</label>
-                        <select class="form-control" name="gst_rate">
-                            <option value="0">0% (Exempt)</option>
-                            <option value="5">5%</option>
-                            <option value="12">12%</option>
-                            <option value="18" selected>18%</option>
-                            <option value="28">28%</option>
-                        </select>
-                        <span class="form-error"></span>
-                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">GST Rate (%)</label>
+                    <select class="form-control" name="gst_rate">
+                        <option value="0">0% (Exempt)</option>
+                        <option value="5">5%</option>
+                        <option value="12">12%</option>
+                        <option value="18" selected>18%</option>
+                        <option value="28">28%</option>
+                    </select>
+                    <span class="form-error"></span>
                 </div>
                 
                 <div class="form-group">
@@ -590,6 +701,8 @@
     let filteredProducts = [];
     let categories = [];
     let cart = [];
+    let selectedCustomerId = null;
+    let customerPricing = {};
     
     document.addEventListener('DOMContentLoaded', function() {
         loadProducts();
@@ -597,6 +710,8 @@
         
         {% if current_user.role == 'customer_employee' %}
         loadCart();
+        {% elif current_user.role.startswith('vendor_') %}
+        setupCustomerPricingSystem();
         {% endif %}
     });
     
@@ -617,6 +732,184 @@
         });
     }
     
+    {% if current_user.role.startswith('vendor_') %}
+    function setupCustomerPricingSystem() {
+        // Load customers for the pricing filter
+        loadCustomersForPricing();
+        
+        // Listen for customer selection changes
+        const customerFilter = document.getElementById('customerFilterProducts');
+        if (customerFilter) {
+            customerFilter.addEventListener('change', function(e) {
+                selectedCustomerId = e.target.value;
+                loadCustomerPricing();
+                updateCustomerMessage();
+                displayProducts(); // Refresh product display
+            });
+        }
+    }
+    
+    async function loadCustomersForPricing() {
+        try {
+            const response = await apiCall('/vendor/customers-dropdown');
+            if (response.success) {
+                const customerFilter = document.getElementById('customerFilterProducts');
+                customerFilter.innerHTML = '<option value="">Select Customer for Pricing</option>';
+                
+                response.customers.forEach(customer => {
+                    const option = document.createElement('option');
+                    option.value = customer.customer_id;
+                    option.textContent = customer.company_name;
+                    customerFilter.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading customers:', error);
+        }
+    }
+    
+    function updateCustomerMessage() {
+        const messageEl = document.getElementById('noCustomerMessage');
+        if (selectedCustomerId) {
+            messageEl.style.display = 'none';
+        } else {
+            messageEl.style.display = 'block';
+        }
+    }
+    
+    async function loadCustomerPricing() {
+        if (!selectedCustomerId) {
+            customerPricing = {};
+            return;
+        }
+        
+        try {
+            const response = await apiCall(`/customer-pricing/${selectedCustomerId}`);
+            if (response.success) {
+                customerPricing = {};
+                response.pricing.forEach(item => {
+                    customerPricing[item.product_id] = item.custom_price;
+                });
+            }
+        } catch (error) {
+            console.error('Error loading customer pricing:', error);
+            customerPricing = {};
+        }
+    }
+    
+    function getProductPrice(product) {
+        if (selectedCustomerId && customerPricing[product.product_id]) {
+            return customerPricing[product.product_id];
+        }
+        return product.price;
+    }
+    
+    function hasCustomPrice(productId) {
+        return selectedCustomerId && customerPricing[productId] !== undefined;
+    }
+    
+    async function updateCustomerPrice(productId, newPrice) {
+        if (!selectedCustomerId) {
+            showNotification('Please select a customer first', 'error');
+            return false;
+        }
+        
+        try {
+            const response = await apiCall('/customer-pricing', {
+                method: 'POST',
+                body: JSON.stringify({
+                    customer_id: selectedCustomerId,
+                    product_id: productId,
+                    custom_price: parseFloat(newPrice)
+                })
+            });
+            
+            if (response.success) {
+                customerPricing[productId] = parseFloat(newPrice);
+                showNotification('Price updated successfully!', 'success');
+                return true;
+            } else {
+                showNotification(response.message || 'Failed to update price', 'error');
+                return false;
+            }
+        } catch (error) {
+            console.error('Error updating customer price:', error);
+            showNotification('Failed to update price', 'error');
+            return false;
+        }
+    }
+    
+    function startPriceEdit(productId) {
+        const priceSection = document.getElementById(`price-section-${productId}`);
+        const priceDisplay = document.getElementById(`price-display-${productId}`);
+        const priceInput = document.getElementById(`price-input-${productId}`);
+        
+        const currentPrice = getProductPrice(currentProducts.find(p => p.product_id === productId));
+        
+        priceSection.classList.add('editing');
+        priceDisplay.style.display = 'none';
+        priceInput.style.display = 'inline';
+        priceInput.value = currentPrice;
+        priceInput.focus();
+        priceInput.select();
+    }
+    
+    async function savePriceEdit(productId) {
+        const priceSection = document.getElementById(`price-section-${productId}`);
+        const priceDisplay = document.getElementById(`price-display-${productId}`);
+        const priceInput = document.getElementById(`price-input-${productId}`);
+        
+        const newPrice = parseFloat(priceInput.value);
+        
+        if (isNaN(newPrice) || newPrice < 0) {
+            showNotification('Please enter a valid price', 'error');
+            return;
+        }
+        
+        const success = await updateCustomerPrice(productId, newPrice);
+        
+        if (success) {
+            priceDisplay.textContent = `₹${newPrice.toLocaleString('en-IN')}`;
+            updatePriceIndicator(productId);
+            updateGSTDisplay(productId);
+        }
+        
+        cancelPriceEdit(productId);
+    }
+    
+    function cancelPriceEdit(productId) {
+        const priceSection = document.getElementById(`price-section-${productId}`);
+        const priceDisplay = document.getElementById(`price-display-${productId}`);
+        const priceInput = document.getElementById(`price-input-${productId}`);
+        
+        priceSection.classList.remove('editing');
+        priceDisplay.style.display = 'inline';
+        priceInput.style.display = 'none';
+    }
+    
+    function updatePriceIndicator(productId) {
+        const indicator = document.getElementById(`price-indicator-${productId}`);
+        if (hasCustomPrice(productId)) {
+            indicator.className = 'custom-price-indicator';
+            indicator.innerHTML = '<i class="fas fa-tag"></i> Custom Price';
+        } else {
+            indicator.className = 'base-price-indicator';
+            indicator.textContent = 'Base Price';
+        }
+    }
+    
+    function updateGSTDisplay(productId) {
+        const product = currentProducts.find(p => p.product_id === productId);
+        const currentPrice = getProductPrice(product);
+        const gstAmount = (currentPrice * product.gst_rate) / 100;
+        
+        const gstDisplay = document.getElementById(`gst-display-${productId}`);
+        if (gstDisplay) {
+            gstDisplay.textContent = `+ ₹${gstAmount.toFixed(2)} GST (${product.gst_rate}%)`;
+        }
+    }
+    {% endif %}
+    
     async function loadProducts() {
         try {
             const response = await apiCall('/products');
@@ -628,6 +921,11 @@
                 categories = response.categories || [];
                 
                 populateCategoryFilter();
+                
+                {% if current_user.role.startswith('vendor_') %}
+                await loadCustomerPricing();
+                {% endif %}
+                
                 displayProducts();
             } else {
                 showEmptyState('No products available');
@@ -691,12 +989,63 @@
                     {% endif %}
                 </div>
                 
-                <div class="product-price">₹${product.price.toLocaleString('en-IN')}</div>
-                <div class="product-gst">+ ₹${((product.price * product.gst_rate) / 100).toFixed(2)} GST (${product.gst_rate}%)</div>
-                
+                ${getPriceSection(product)}
                 ${getProductActions(product)}
             </div>
         `).join('');
+        
+        {% if current_user.role.startswith('vendor_') %}
+        // Update all price indicators after display
+        filteredProducts.forEach(product => {
+            updatePriceIndicator(product.product_id);
+        });
+        {% endif %}
+    }
+    
+    function getPriceSection(product) {
+        {% if current_user.role.startswith('vendor_') %}
+        const currentPrice = getProductPrice(product);
+        const gstAmount = (currentPrice * product.gst_rate) / 100;
+        const isEditable = selectedCustomerId ? 'editable' : '';
+        const clickHandler = selectedCustomerId ? `onclick="startPriceEdit('${product.product_id}')"` : '';
+        
+        return `
+            <div class="product-price-section ${isEditable}" id="price-section-${product.product_id}">
+                <div class="product-price" ${clickHandler}>
+                    <span id="price-display-${product.product_id}">₹${currentPrice.toLocaleString('en-IN')}</span>
+                    <input type="number" 
+                           class="price-input" 
+                           id="price-input-${product.product_id}" 
+                           style="display: none;"
+                           step="0.01"
+                           min="0"
+                           onkeypress="if(event.key==='Enter') savePriceEdit('${product.product_id}'); if(event.key==='Escape') cancelPriceEdit('${product.product_id}');">
+                    <div class="price-actions">
+                        <button class="price-btn save" onclick="savePriceEdit('${product.product_id}')" title="Save">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="price-btn cancel" onclick="cancelPriceEdit('${product.product_id}')" title="Cancel">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    ${selectedCustomerId ? '<i class="fas fa-edit" style="font-size: 14px; margin-left: auto; opacity: 0.7;"></i>' : ''}
+                </div>
+                <div id="price-indicator-${product.product_id}" class="base-price-indicator">Base Price</div>
+                <div class="product-gst" id="gst-display-${product.product_id}">+ ₹${gstAmount.toFixed(2)} GST (${product.gst_rate}%)</div>
+            </div>
+        `;
+        {% else %}
+        // For customer users, show their custom price or base price
+        const price = product.custom_price || product.price;
+        const gstAmount = (price * product.gst_rate) / 100;
+        
+        return `
+            <div class="product-price-section">
+                <div class="product-price">₹${price.toLocaleString('en-IN')}</div>
+                <div class="product-gst">+ ₹${gstAmount.toFixed(2)} GST (${product.gst_rate}%)</div>
+            </div>
+        `;
+        {% endif %}
     }
     
     function getStockIndicator(product) {
@@ -729,6 +1078,7 @@
     function getProductActions(product) {
         {% if current_user.role == 'customer_employee' %}
         const isOutOfStock = product.quantity === 0;
+        const effectivePrice = product.custom_price || product.price;
         
         return `
             <div class="quantity-selector">
@@ -741,7 +1091,7 @@
                 </button>
             </div>
             <div class="product-actions">
-                <button class="btn-add-cart" onclick="addToCart('${product.product_id}')" ${isOutOfStock ? 'disabled' : ''}>
+                <button class="btn-add-cart" onclick="addToCart('${product.product_id}')" ${isOutOfStock ? 'disabled' : ''} data-price="${effectivePrice}">
                     <i class="fas fa-shopping-cart"></i>
                     ${isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
                 </button>
@@ -783,10 +1133,15 @@
             // Category filter
             const matchesCategory = !category || product.category === category;
             
-            // Price filter
+            // Price filter - use current price (base or custom)
             let matchesPrice = true;
             if (priceRange) {
-                const price = product.price;
+                {% if current_user.role.startswith('vendor_') %}
+                const price = getProductPrice(product);
+                {% else %}
+                const price = product.custom_price || product.price;
+                {% endif %}
+                
                 switch (priceRange) {
                     case '0-100':
                         matchesPrice = price <= 100;
@@ -835,9 +1190,17 @@
                 case 'name_desc':
                     return b.product_name.localeCompare(a.product_name);
                 case 'price_asc':
-                    return a.price - b.price;
+                    {% if current_user.role.startswith('vendor_') %}
+                    return getProductPrice(a) - getProductPrice(b);
+                    {% else %}
+                    return (a.custom_price || a.price) - (b.custom_price || b.price);
+                    {% endif %}
                 case 'price_desc':
-                    return b.price - a.price;
+                    {% if current_user.role.startswith('vendor_') %}
+                    return getProductPrice(b) - getProductPrice(a);
+                    {% else %}
+                    return (b.custom_price || b.price) - (a.custom_price || a.price);
+                    {% endif %}
                 {% if current_user.role.startswith('vendor_') %}
                 case 'stock_asc':
                     return a.quantity - b.quantity;
@@ -904,18 +1267,22 @@
             return;
         }
         
+        // Use custom price if available, otherwise use base price
+        const price = product.custom_price || product.price;
+        
         // Check if product already in cart
         const existingItemIndex = cart.findIndex(item => item.product_id === productId);
         
         if (existingItemIndex >= 0) {
             cart[existingItemIndex].quantity += quantity;
+            cart[existingItemIndex].total = cart[existingItemIndex].quantity * price;
         } else {
             cart.push({
                 product_id: productId,
                 product_name: product.product_name,
-                price: product.price,
+                price: price,
                 quantity: quantity,
-                total: product.price * quantity
+                total: price * quantity
             });
         }
         
@@ -961,7 +1328,7 @@
     
     function viewCart() {
         // Navigate to cart/checkout page
-        window.location.href = '/cart';
+        window.location.href = '/orders?action=cart';
     }
     {% endif %}
     
@@ -1045,8 +1412,8 @@
         const form = document.getElementById('addProductForm');
         const formData = new FormData(form);
         
-        // Validate required fields
-        const requiredFields = ['item_no', 'product_name', 'category', 'price', 'quantity'];
+        // Validate required fields (price removed from validation)
+        const requiredFields = ['item_no', 'product_name', 'category', 'quantity'];
         let isValid = true;
         
         for (const field of requiredFields) {
@@ -1088,7 +1455,7 @@
             const result = await response.json();
             
             if (result.success) {
-                showNotification('Product created successfully!', 'success');
+                showNotification('Product created successfully! Set customer pricing using the dropdown above.', 'success');
                 closeAddProductModal();
                 loadProducts(); // Reload products list
             } else {

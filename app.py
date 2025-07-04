@@ -300,6 +300,786 @@ def create_app():
         """API: Get customer statistics"""
         return jsonify(customer_controller.get_customer_statistics(customer_id))
     
+
+    # Routes for differential pricing per customer
+    
+    @app.route('/api/customer-pricing/<customer_id>')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_get_customer_pricing(customer_id):
+        """API: Get customer-specific pricing"""
+        try:
+            from config import config
+            db = config.get_db()
+            
+            # Get all custom pricing for this customer
+            docs = db.collection('customer_pricing').where('customer_id', '==', customer_id).get()
+            
+            pricing = []
+            for doc in docs:
+                pricing_data = doc.to_dict()
+                pricing.append({
+                    'product_id': pricing_data['product_id'],
+                    'custom_price': pricing_data['custom_price'],
+                    'created_at': pricing_data.get('created_at'),
+                    'updated_at': pricing_data.get('updated_at')
+                })
+            
+            return jsonify({
+                'success': True,
+                'report': {
+                    'total_customers_with_custom_pricing': len(report_data),
+                    'customers': sorted(report_data, key=lambda x: x['total_potential_savings'], reverse=True)
+                }
+            })
+            
+        except Exception as e:
+            print(f"Pricing summary report error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to generate pricing summary report'})
+        
+        
+    @app.route('/api/customer-pricing', methods=['POST'])
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_set_customer_pricing():
+        """API: Set customer-specific pricing"""
+        try:
+            data = request.get_json()
+            customer_id = data.get('customer_id')
+            product_id = data.get('product_id')
+            custom_price = data.get('custom_price')
+            
+            if not customer_id or not product_id or custom_price is None:
+                return jsonify({'success': False, 'message': 'Customer ID, Product ID, and custom price are required'})
+            
+            # Validate that customer and product exist
+            from models import Customer, Product
+            customer = Customer.get_by_id(customer_id)
+            product = Product.get_by_id(product_id)
+            
+            if not customer:
+                return jsonify({'success': False, 'message': 'Customer not found'})
+            
+            if not product:
+                return jsonify({'success': False, 'message': 'Product not found'})
+            
+            # Validate price
+            try:
+                custom_price = float(custom_price)
+                if custom_price < 0:
+                    return jsonify({'success': False, 'message': 'Price cannot be negative'})
+            except (ValueError, TypeError):
+                return jsonify({'success': False, 'message': 'Invalid price format'})
+            
+            # Save custom pricing
+            from config import config
+            from datetime import datetime
+            
+            db = config.get_db()
+            current_user = auth_controller.get_current_user()
+            
+            pricing_doc = {
+                'customer_id': customer_id,
+                'product_id': product_id,
+                'custom_price': custom_price,
+                'created_by': current_user.user_id,
+                'created_at': datetime.now(),
+                'updated_at': datetime.now()
+            }
+            
+            # Use combination of customer_id and product_id as document ID
+            doc_id = f"{customer_id}_{product_id}"
+            db.collection('customer_pricing').document(doc_id).set(pricing_doc)
+            
+            return jsonify({
+                'success': True,
+                'message': 'Customer pricing updated successfully'
+            })
+            
+        except Exception as e:
+            print(f"Set customer pricing error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to update customer pricing'})
+        
+    @app.route('/api/customer-catalog/<customer_id>')
+    @login_required
+    def api_customer_catalog(customer_id):
+        """API: Get product catalog with customer-specific pricing"""
+        try:
+            current_user = auth_controller.get_current_user()
+            
+            # Check permissions
+            if current_user.role.startswith('vendor_'):
+                # Vendor users can view any customer's catalog
+                pass
+            elif current_user.role.startswith('customer_') and current_user.customer_id == customer_id:
+                # Customer users can only view their own catalog
+                pass
+            else:
+                return jsonify({'success': False, 'message': 'Access denied'})
+            
+            # Get all active products
+            products = Product.get_all_active()
+            
+            # Get customer-specific pricing
+            from config import config
+            db = config.get_db()
+            pricing_docs = db.collection('customer_pricing').where('customer_id', '==', customer_id).get()
+            
+            customer_pricing = {}
+            for doc in pricing_docs:
+                pricing_data = doc.to_dict()
+                customer_pricing[pricing_data['product_id']] = pricing_data['custom_price']
+            
+            # Build catalog with customer pricing
+            catalog = []
+            for product in products:
+                product_dict = product.to_dict()
+                
+                # Set effective price
+                if product.product_id in customer_pricing:
+                    product_dict['effective_price'] = customer_pricing[product.product_id]
+                    product_dict['has_custom_price'] = True
+                    product_dict['savings'] = product.price - customer_pricing[product.product_id]
+                else:
+                    product_dict['effective_price'] = product.price
+                    product_dict['has_custom_price'] = False
+                    product_dict['savings'] = 0
+                
+                # Calculate GST on effective price
+                product_dict['gst_amount'] = (product_dict['effective_price'] * product.gst_rate) / 100
+                product_dict['price_including_gst'] = product_dict['effective_price'] + product_dict['gst_amount']
+                
+                catalog.append(product_dict)
+            
+            return jsonify({
+                'success': True,
+                'catalog': catalog,
+                'customer_id': customer_id,
+                'total_products': len(catalog),
+                'products_with_custom_pricing': len([p for p in catalog if p['has_custom_price']])
+            })
+            
+        except Exception as e:
+            print(f"Customer catalog error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve customer catalog'})
+        
+
+    # ================== PRICING IMPORT/EXPORT UTILITIES ==================
+
+    @app.route('/api/pricing-analytics/<customer_id>')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_pricing_analytics(customer_id):
+        """API: Get pricing analytics for a customer"""
+        try:
+            from config import config
+            db = config.get_db()
+            
+            # Get all custom pricing for this customer
+            pricing_docs = db.collection('customer_pricing').where('customer_id', '==', customer_id).get()
+            
+            total_products_with_custom_pricing = len(list(pricing_docs))
+            total_savings = 0
+            products_with_savings = []
+            
+            # Re-query since docs iterator is consumed
+            pricing_docs = db.collection('customer_pricing').where('customer_id', '==', customer_id).get()
+            
+            for doc in pricing_docs:
+                pricing_data = doc.to_dict()
+                product = Product.get_by_id(pricing_data['product_id'])
+                
+                if product:
+                    savings = product.price - pricing_data['custom_price']
+                    total_savings += savings
+                    
+                    if savings > 0:
+                        products_with_savings.append({
+                            'product_name': product.product_name,
+                            'base_price': product.price,
+                            'custom_price': pricing_data['custom_price'],
+                            'savings': savings
+                        })
+            
+            # Get customer orders to calculate actual realized savings
+            orders = Order.get_by_customer_id(customer_id)
+            realized_savings = 0
+            
+            for order in orders:
+                if order.status == 'dispatched':  # Only completed orders
+                    order_summary = order_controller.get_order_pricing_summary(order)
+                    realized_savings += order_summary.get('total_savings', 0)
+            
+            return jsonify({
+                'success': True,
+                'analytics': {
+                    'total_products_with_custom_pricing': total_products_with_custom_pricing,
+                    'potential_total_savings': total_savings,
+                    'realized_savings': realized_savings,
+                    'top_savings_products': sorted(products_with_savings, key=lambda x: x['savings'], reverse=True)[:10]
+                }
+            })
+            
+        except Exception as e:
+            print(f"Pricing analytics error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve pricing analytics'})
+        
+    @app.route('/api/pricing-summary-report')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_pricing_summary_report():
+        """API: Get overall pricing summary report - FIXED VERSION"""
+        try:
+            from config import config
+            from models import Customer, Product
+            
+            db = config.get_db()
+            
+            # Initialize variables
+            customers_with_pricing = {}
+            report_data = []
+            
+            print("Starting pricing summary report generation...")
+            
+            # Get all customer pricing documents
+            pricing_docs = db.collection('customer_pricing').get()
+            pricing_docs_list = list(pricing_docs)  # Convert to list to avoid iterator issues
+            
+            print(f"Found {len(pricing_docs_list)} pricing documents")
+            
+            # Process each pricing document
+            for doc in pricing_docs_list:
+                try:
+                    pricing_data = doc.to_dict()
+                    customer_id = pricing_data.get('customer_id')
+                    product_id = pricing_data.get('product_id')
+                    custom_price = pricing_data.get('custom_price', 0)
+                    
+                    if not customer_id or not product_id:
+                        print(f"Skipping document with missing customer_id or product_id: {doc.id}")
+                        continue
+                    
+                    # Initialize customer data if not exists
+                    if customer_id not in customers_with_pricing:
+                        customers_with_pricing[customer_id] = {
+                            'total_custom_products': 0,
+                            'total_potential_savings': 0
+                        }
+                    
+                    customers_with_pricing[customer_id]['total_custom_products'] += 1
+                    
+                    # Calculate savings
+                    product = Product.get_by_id(product_id)
+                    if product and product.price > 0:
+                        savings = product.price - custom_price
+                        if savings > 0:  # Only count positive savings
+                            customers_with_pricing[customer_id]['total_potential_savings'] += savings
+                            print(f"Customer {customer_id}: Product {product_id}, Savings: {savings}")
+                    
+                except Exception as doc_error:
+                    print(f"Error processing document {doc.id}: {doc_error}")
+                    continue
+            
+            print(f"Processed pricing data for {len(customers_with_pricing)} customers")
+            
+            # Build report data with customer names
+            for customer_id, data in customers_with_pricing.items():
+                try:
+                    customer = Customer.get_by_id(customer_id)
+                    if customer:
+                        report_data.append({
+                            'customer_id': customer_id,
+                            'customer_name': customer.company_name,
+                            'total_custom_products': data['total_custom_products'],
+                            'total_potential_savings': round(data['total_potential_savings'], 2)
+                        })
+                        print(f"Added customer {customer.company_name} to report")
+                    else:
+                        print(f"Customer {customer_id} not found, skipping")
+                except Exception as customer_error:
+                    print(f"Error processing customer {customer_id}: {customer_error}")
+                    continue
+            
+            print(f"Final report contains {len(report_data)} customers")
+            
+            # Sort by total potential savings (highest first)
+            report_data.sort(key=lambda x: x['total_potential_savings'], reverse=True)
+            
+            return jsonify({
+                'success': True,
+                'report': {
+                    'total_customers_with_custom_pricing': len(report_data),
+                    'customers': report_data
+                }
+            })
+            
+        except Exception as e:
+            print(f"Pricing summary report error: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            return jsonify({
+                'success': False, 
+                'message': f'Failed to generate pricing summary report: {str(e)}'
+            })  
+        
+
+    # ================== PRICING VALIDATION AND UTILITIES ==================
+
+    @app.route('/api/validate-pricing/<customer_id>/<product_id>')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_validate_pricing(customer_id, product_id):
+        """API: Validate pricing before setting"""
+        try:
+            # Check if customer and product exist
+            customer = Customer.get_by_id(customer_id)
+            product = Product.get_by_id(product_id)
+            
+            if not customer:
+                return jsonify({'success': False, 'message': 'Customer not found'})
+            
+            if not product:
+                return jsonify({'success': False, 'message': 'Product not found'})
+            
+            # Get current pricing if exists
+            from config import config
+            db = config.get_db()
+            doc_id = f"{customer_id}_{product_id}"
+            doc = db.collection('customer_pricing').document(doc_id).get()
+            
+            current_custom_price = None
+            if doc.exists:
+                current_custom_price = doc.to_dict().get('custom_price')
+            
+            return jsonify({
+                'success': True,
+                'validation_data': {
+                    'customer_name': customer.company_name,
+                    'product_name': product.product_name,
+                    'base_price': product.price,
+                    'current_custom_price': current_custom_price,
+                    'has_custom_price': current_custom_price is not None,
+                    'suggested_max_discount': product.price * 0.3,  # 30% max discount suggestion
+                    'minimum_price': product.price * 0.1  # 10% of base price as minimum
+                }
+            })
+            
+        except Exception as e:
+            print(f"Pricing validation error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to validate pricing'})
+        
+    # ================== PRICING COMPARISON AND ANALYSIS ==================
+
+
+
+    @app.route('/api/pricing-suggestions/<customer_id>')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_pricing_suggestions(customer_id):
+        """API: Get pricing suggestions based on order history"""
+        try:
+            customer = Customer.get_by_id(customer_id)
+            if not customer:
+                return jsonify({'success': False, 'message': 'Customer not found'})
+            
+            # Get customer order history
+            orders = Order.get_by_customer_id(customer_id)
+            completed_orders = [o for o in orders if o.status == 'dispatched']
+            
+            # Analyze ordering patterns
+            product_frequency = {}
+            for order in completed_orders:
+                for item in order.items:
+                    product_id = item['product_id']
+                    if product_id not in product_frequency:
+                        product_frequency[product_id] = {
+                            'count': 0,
+                            'total_quantity': 0,
+                            'total_value': 0
+                        }
+                    product_frequency[product_id]['count'] += 1
+                    product_frequency[product_id]['total_quantity'] += item['quantity']
+                    product_frequency[product_id]['total_value'] += item['total']
+            
+            # Generate suggestions
+            suggestions = []
+            for product_id, stats in product_frequency.items():
+                if stats['count'] >= 3:  # Products ordered 3+ times
+                    product = Product.get_by_id(product_id)
+                    if product:
+                        avg_order_value = stats['total_value'] / stats['count']
+                        suggested_discount = min(0.15, stats['count'] * 0.02)  # Up to 15% discount
+                        suggested_price = product.price * (1 - suggested_discount)
+                        
+                        suggestions.append({
+                            'product_id': product_id,
+                            'product_name': product.product_name,
+                            'base_price': product.price,
+                            'suggested_price': suggested_price,
+                            'discount_percentage': suggested_discount * 100,
+                            'order_frequency': stats['count'],
+                            'avg_order_value': avg_order_value,
+                            'reason': f"Frequently ordered ({stats['count']} times)"
+                        })
+            
+            # Sort by order frequency
+            suggestions.sort(key=lambda x: x['order_frequency'], reverse=True)
+            
+            return jsonify({
+                'success': True,
+                'suggestions': suggestions[:10],  # Top 10 suggestions
+                'customer_name': customer.company_name,
+                'total_completed_orders': len(completed_orders)
+            })
+            
+        except Exception as e:
+            print(f"Pricing suggestions error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to generate pricing suggestions'})
+
+    @app.route('/api/pricing-comparison/<product_id>')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_pricing_comparison(product_id):
+        """API: Compare pricing across all customers for a product"""
+        try:
+            product = Product.get_by_id(product_id)
+            if not product:
+                return jsonify({'success': False, 'message': 'Product not found'})
+            
+            from config import config
+            db = config.get_db()
+            
+            # Get all custom pricing for this product
+            pricing_docs = db.collection('customer_pricing').where('product_id', '==', product_id).get()
+            
+            pricing_comparison = []
+            for doc in pricing_docs:
+                pricing_data = doc.to_dict()
+                customer = Customer.get_by_id(pricing_data['customer_id'])
+                
+                if customer:
+                    savings = product.price - pricing_data['custom_price']
+                    discount_percentage = (savings / product.price) * 100 if product.price > 0 else 0
+                    
+                    pricing_comparison.append({
+                        'customer_id': customer.customer_id,
+                        'customer_name': customer.company_name,
+                        'custom_price': pricing_data['custom_price'],
+                        'savings': savings,
+                        'discount_percentage': discount_percentage,
+                        'updated_at': pricing_data.get('updated_at')
+                    })
+            
+            # Sort by discount percentage (highest first)
+            pricing_comparison.sort(key=lambda x: x['discount_percentage'], reverse=True)
+            
+            # Calculate statistics
+            if pricing_comparison:
+                custom_prices = [p['custom_price'] for p in pricing_comparison]
+                avg_custom_price = sum(custom_prices) / len(custom_prices)
+                min_custom_price = min(custom_prices)
+                max_custom_price = max(custom_prices)
+                avg_discount = sum(p['discount_percentage'] for p in pricing_comparison) / len(pricing_comparison)
+            else:
+                avg_custom_price = min_custom_price = max_custom_price = avg_discount = 0
+            
+            return jsonify({
+                'success': True,
+                'product_name': product.product_name,
+                'base_price': product.price,
+                'pricing_comparison': pricing_comparison,
+                'statistics': {
+                    'total_customers_with_custom_pricing': len(pricing_comparison),
+                    'avg_custom_price': avg_custom_price,
+                    'min_custom_price': min_custom_price,
+                    'max_custom_price': max_custom_price,
+                    'avg_discount_percentage': avg_discount
+                }
+            })
+            
+        except Exception as e:
+            print(f"Pricing comparison error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to generate pricing comparison'})
+
+    @app.route('/api/pricing-template/<customer_id>')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_pricing_template(customer_id):
+        """API: Generate pricing template CSV for bulk upload"""
+        try:
+            import csv
+            import tempfile
+            from datetime import datetime
+            
+            # Get all active products
+            products = Product.get_all_active()
+            
+            # Get customer info
+            customer = Customer.get_by_id(customer_id)
+            if not customer:
+                return jsonify({'success': False, 'message': 'Customer not found'}), 404
+            
+            # Create CSV template
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, newline='') as f:
+                writer = csv.writer(f)
+                
+                # Write header
+                writer.writerow([
+                    'Product ID',
+                    'Product Name',
+                    'Current Base Price',
+                    'Custom Price (Enter your price)',
+                    'Category',
+                    'Make',
+                    'Model'
+                ])
+                
+                # Write product data
+                for product in products:
+                    writer.writerow([
+                        product.product_id,
+                        product.product_name,
+                        f"{product.price:.2f}",
+                        "",  # Empty for user to fill
+                        product.category,
+                        product.product_make or "",
+                        product.product_model or ""
+                    ])
+                
+                temp_path = f.name
+            
+            # Generate filename
+            filename = f"pricing_template_{customer.company_name}_{datetime.now().strftime('%Y%m%d')}.csv"
+            
+            return send_file(
+                temp_path,
+                as_attachment=True,
+                download_name=filename,
+                mimetype='text/csv'
+            )
+            
+        except Exception as e:
+            print(f"Pricing template error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to generate pricing template'}), 500
+        
+    @app.route('/api/pricing-import/<customer_id>', methods=['POST'])
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_pricing_import(customer_id):
+        """API: Import customer pricing from CSV"""
+        try:
+            if 'file' not in request.files:
+                return jsonify({'success': False, 'message': 'No file uploaded'})
+            
+            file = request.files['file']
+            if file.filename == '':
+                return jsonify({'success': False, 'message': 'No file selected'})
+            
+            if not file.filename.endswith('.csv'):
+                return jsonify({'success': False, 'message': 'File must be a CSV'})
+            
+            # Validate customer exists
+            customer = Customer.get_by_id(customer_id)
+            if not customer:
+                return jsonify({'success': False, 'message': 'Customer not found'})
+            
+            import csv
+            import io
+            
+            # Read CSV
+            stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+            csv_reader = csv.DictReader(stream)
+            
+            successful_imports = 0
+            errors = []
+            
+            for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 because row 1 is header
+                try:
+                    product_id = row.get('Product ID', '').strip()
+                    custom_price_str = row.get('Custom Price (Enter your price)', '').strip()
+                    
+                    if not product_id:
+                        continue  # Skip empty rows
+                    
+                    if not custom_price_str:
+                        continue  # Skip rows without custom price
+                    
+                    # Validate product exists
+                    product = Product.get_by_id(product_id)
+                    if not product:
+                        errors.append(f"Row {row_num}: Product {product_id} not found")
+                        continue
+                    
+                    # Validate price
+                    try:
+                        custom_price = float(custom_price_str)
+                        if custom_price < 0:
+                            errors.append(f"Row {row_num}: Price cannot be negative")
+                            continue
+                    except ValueError:
+                        errors.append(f"Row {row_num}: Invalid price format '{custom_price_str}'")
+                        continue
+                    
+                    # Set customer pricing
+                    result = product_controller.set_customer_pricing(product_id, customer_id, custom_price)
+                    if result['success']:
+                        successful_imports += 1
+                    else:
+                        errors.append(f"Row {row_num}: {result['message']}")
+                        
+                except Exception as e:
+                    errors.append(f"Row {row_num}: {str(e)}")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully imported pricing for {successful_imports} products',
+                'successful_imports': successful_imports,
+                'errors': errors[:10],  # Limit errors to first 10
+                'total_errors': len(errors)
+            })
+            
+        except Exception as e:
+            print(f"Pricing import error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to import pricing'}), 500
+        
+    @app.route('/api/pricing-history/<customer_id>/<product_id>')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_pricing_history(customer_id, product_id):
+        """API: Get pricing history for a customer-product combination"""
+        try:
+            from config import config
+            db = config.get_db()
+            
+            # Get pricing history (if you implement versioning)
+            # For now, just return current pricing
+            doc_id = f"{customer_id}_{product_id}"
+            doc = db.collection('customer_pricing').document(doc_id).get()
+            
+            if not doc.exists:
+                return jsonify({
+                    'success': True,
+                    'history': [],
+                    'message': 'No custom pricing history found'
+                })
+            
+            pricing_data = doc.to_dict()
+            product = Product.get_by_id(product_id)
+            customer = Customer.get_by_id(customer_id)
+            
+            if not product or not customer:
+                return jsonify({'success': False, 'message': 'Product or customer not found'})
+            
+            history = [{
+                'date': pricing_data.get('updated_at', pricing_data.get('created_at')),
+                'price': pricing_data['custom_price'],
+                'base_price': product.price,
+                'savings': product.price - pricing_data['custom_price'],
+                'updated_by': pricing_data.get('created_by')
+            }]
+            
+            return jsonify({
+                'success': True,
+                'history': history,
+                'product_name': product.product_name,
+                'customer_name': customer.company_name
+            })
+            
+        except Exception as e:
+            print(f"Pricing history error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve pricing history'})
+        
+    @app.route('/api/customer-pricing-list/<customer_id>')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_get_customer_pricing_list(customer_id):
+        """API: Get detailed customer pricing list with product information"""
+        return jsonify(product_controller.get_customer_pricing_list(customer_id))
+    
+    @app.route('/api/customer-pricing-widget/<customer_id>')
+    @login_required
+    def api_customer_pricing_widget(customer_id):
+        """API: Get pricing widget data for customer dashboard"""
+        try:
+            current_user = auth_controller.get_current_user()
+            
+            # Check permissions
+            if current_user.role.startswith('vendor_'):
+                pass  # Vendor can view any customer
+            elif current_user.role.startswith('customer_') and current_user.customer_id == customer_id:
+                pass  # Customer can view own data
+            else:
+                return jsonify({'success': False, 'message': 'Access denied'})
+            
+            from config import config
+            from datetime import timedelta
+            db = config.get_db()
+            
+            # Get pricing statistics
+            pricing_docs = db.collection('customer_pricing').where('customer_id', '==', customer_id).get()
+            
+            total_custom_products = 0
+            total_potential_savings = 0
+            
+            for doc in pricing_docs:
+                pricing_data = doc.to_dict()
+                product = Product.get_by_id(pricing_data['product_id'])
+                
+                if product:
+                    total_custom_products += 1
+                    savings = product.price - pricing_data['custom_price']
+                    if savings > 0:
+                        total_potential_savings += savings
+            
+            # Get recent orders to calculate realized savings
+            orders = Order.get_by_customer_id(customer_id)
+            recent_orders = [o for o in orders if o.created_at >= datetime.now() - timedelta(days=30)]
+            
+            recent_realized_savings = 0
+            for order in recent_orders:
+                if order.status == 'dispatched':
+                    order_summary = order_controller.get_order_pricing_summary(order)
+                    recent_realized_savings += order_summary.get('total_savings', 0)
+            
+            return jsonify({
+                'success': True,
+                'widget_data': {
+                    'total_custom_products': total_custom_products,
+                    'total_potential_savings': total_potential_savings,
+                    'recent_realized_savings': recent_realized_savings,
+                    'savings_rate': (total_potential_savings / (total_custom_products * 100)) * 100 if total_custom_products > 0 else 0
+                }
+            })
+            
+        except Exception as e:
+            print(f"Customer pricing widget error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve pricing widget data'})
+
+        
+
+    @app.route('/api/customer-pricing/<customer_id>/<product_id>', methods=['DELETE'])
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_delete_customer_pricing(customer_id, product_id):
+        """API: Delete customer-specific pricing (revert to base price)"""
+        try:
+            from config import config
+            db = config.get_db()
+            
+            # Delete the custom pricing document
+            doc_id = f"{customer_id}_{product_id}"
+            db.collection('customer_pricing').document(doc_id).delete()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Customer pricing removed successfully'
+            })
+            
+        except Exception as e:
+            print(f"Delete customer pricing error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to remove customer pricing'})
+    
     # ================== PRODUCT ROUTES ==================
     
     @app.route('/products')
@@ -313,28 +1093,150 @@ def create_app():
     @app.route('/api/products')
     @login_required
     def api_products():
-        """API: Get products list"""
+        """API: Get products list with customer-specific pricing"""
         return jsonify(product_controller.get_products())
     
     @app.route('/api/products', methods=['POST'])
     @login_required
     @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
     def api_create_product():
-        """API: Create new product"""
+        """API: Create new product without base pricing (pricing set per customer)"""
         return jsonify(product_controller.create_product())
     
     @app.route('/api/products/<product_id>')
     @login_required
     def api_product_details(product_id):
-        """API: Get product details"""
+        """API: Get product details with customer-specific pricing"""
         return jsonify(product_controller.get_product(product_id))
     
     @app.route('/api/products/<product_id>', methods=['PUT'])
     @login_required
     @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
     def api_update_product(product_id):
-        """API: Update product"""
+        """API: Update product base information (without pricing)"""
         return jsonify(product_controller.update_product(product_id))
+    
+    @app.route('/api/products/<product_id>', methods=['DELETE'])
+    @login_required
+    @role_required('vendor_superadmin')
+    def api_delete_product(product_id):
+        """API: Delete product (soft delete)"""
+        return jsonify(product_controller.delete_product(product_id))
+    
+    # ================== BULK PRICING OPERATIONS ==================
+
+    @app.route('/api/bulk-customer-pricing', methods=['POST'])
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_bulk_set_customer_pricing():
+        """API: Set multiple customer-specific prices at once"""
+        try:
+            data = request.get_json()
+            customer_id = data.get('customer_id')
+            pricing_updates = data.get('pricing_updates', [])
+            
+            if not customer_id or not pricing_updates:
+                return jsonify({'success': False, 'message': 'Customer ID and pricing updates are required'})
+            
+            # Validate customer exists
+            from models import Customer
+            customer = Customer.get_by_id(customer_id)
+            if not customer:
+                return jsonify({'success': False, 'message': 'Customer not found'})
+            
+            successful_updates = 0
+            errors = []
+            
+            for update in pricing_updates:
+                try:
+                    product_id = update.get('product_id')
+                    custom_price = float(update.get('custom_price'))
+                    
+                    # Use the existing set_customer_pricing method
+                    result = product_controller.set_customer_pricing(product_id, customer_id, custom_price)
+                    
+                    if result['success']:
+                        successful_updates += 1
+                    else:
+                        errors.append(f"Product {product_id}: {result['message']}")
+                        
+                except Exception as e:
+                    errors.append(f"Product {update.get('product_id', 'unknown')}: {str(e)}")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Updated pricing for {successful_updates} products',
+                'successful_updates': successful_updates,
+                'errors': errors
+            })
+            
+        except Exception as e:
+            print(f"Bulk set customer pricing error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to update bulk pricing'})
+
+    @app.route('/api/customer-pricing-export/<customer_id>')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_export_customer_pricing(customer_id):
+        """API: Export customer pricing to CSV"""
+        try:
+            import csv
+            import tempfile
+            from datetime import datetime
+            
+            # Get customer pricing list
+            result = product_controller.get_customer_pricing_list(customer_id)
+            
+            if not result['success']:
+                return jsonify(result), 400
+            
+            # Get customer info
+            from models import Customer
+            customer = Customer.get_by_id(customer_id)
+            customer_name = customer.company_name if customer else customer_id
+            
+            # Create CSV file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, newline='') as f:
+                writer = csv.writer(f)
+                
+                # Write header
+                writer.writerow([
+                    'Product ID',
+                    'Product Name',
+                    'Product Make',
+                    'Base Price',
+                    'Custom Price',
+                    'Savings',
+                    'Last Updated'
+                ])
+                
+                # Write data
+                for item in result['pricing']:
+                    writer.writerow([
+                        item['product_id'],
+                        item['product_name'],
+                        item.get('product_make', ''),
+                        f"₹{item['base_price']:.2f}",
+                        f"₹{item['custom_price']:.2f}",
+                        f"₹{item['savings']:.2f}",
+                        item.get('updated_at', '').strftime('%Y-%m-%d %H:%M:%S') if item.get('updated_at') else ''
+                    ])
+                
+                temp_path = f.name
+            
+            # Generate filename
+            filename = f"customer_pricing_{customer_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            
+            return send_file(
+                temp_path,
+                as_attachment=True,
+                download_name=filename,
+                mimetype='text/csv'
+            )
+            
+        except Exception as e:
+            print(f"Export customer pricing error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to export pricing'}), 500
     
     # ================== DEPARTMENT ROUTES ==================
 
@@ -403,13 +1305,13 @@ def create_app():
     @login_required
     @role_required('customer_employee')
     def api_create_order():
-        """API: Create new order"""
+        """API: Create new order with customer-specific pricing"""
         return jsonify(order_controller.create_order())
     
     @app.route('/api/orders/<order_id>')
     @login_required
     def api_order_details(order_id):
-        """API: Get order details"""
+        """API: Get order details with pricing information"""
         return jsonify(order_controller.get_order(order_id))
     
     @app.route('/api/orders/<order_id>/dept-approval', methods=['PUT'])

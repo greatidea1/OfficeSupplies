@@ -1,17 +1,17 @@
-# Product Controller - Handle product management and catalog
+# Product Controller - Handle product management and catalog with differential pricing
 from flask import request, session
 from models import Product, User
 from controllers.auth_controller import auth_controller
 from config import config
 
 class ProductController:
-    """Handle product management operations"""
+    """Handle product management operations with customer-specific pricing"""
     
     def __init__(self):
         self.auth = auth_controller
     
     def get_products(self):
-        """Get products list with filtering and search"""
+        """Get products list with customer-specific pricing"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -60,10 +60,10 @@ class ProductController:
                 product_dict['gst_amount'] = (product.price * product.gst_rate) / 100
                 product_dict['price_including_gst'] = product.price + product_dict['gst_amount']
                 
-                # For customer users, check custom pricing (if implemented)
-                if current_user.role.startswith('customer_'):
+                # For customer users, get their custom pricing
+                if current_user.role.startswith('customer_') and current_user.customer_id:
                     custom_price = self.get_customer_pricing(product.product_id, current_user.customer_id)
-                    if custom_price:
+                    if custom_price is not None:
                         product_dict['custom_price'] = custom_price
                         product_dict['gst_amount'] = (custom_price * product.gst_rate) / 100
                         product_dict['price_including_gst'] = custom_price + product_dict['gst_amount']
@@ -93,8 +93,6 @@ class ProductController:
         except Exception as e:
             print(f"Get products error: {e}")
             return {'success': False, 'message': 'Failed to retrieve products'}
-        
-    # Add this method to the ProductController class in product_controller.py
 
     def upload_product_image(self, file, product_id):
         """Upload and resize product image"""
@@ -174,9 +172,8 @@ class ProductController:
             print(f"Upload product image error: {e}")
             return None
 
-    # Update the create_product method to handle image upload
     def create_product(self):
-        """Create new product (Vendor only) - UPDATED WITH IMAGE UPLOAD"""
+        """Create new product (Vendor only) - FIXED VERSION WITHOUT PRICE REQUIREMENT"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or not current_user.role.startswith('vendor_'):
@@ -188,8 +185,8 @@ class ProductController:
             else:
                 data = request.get_json()
             
-            # Validate required fields
-            required_fields = ['item_no', 'product_name', 'category', 'price', 'quantity']
+            # Validate required fields (price removed from requirements)
+            required_fields = ['item_no', 'product_name', 'category', 'quantity']
             for field in required_fields:
                 if field not in data or not data[field]:
                     return {'success': False, 'message': f'{field.replace("_", " ").title()} is required'}
@@ -207,7 +204,7 @@ class ProductController:
             product.product_make = data.get('product_make', '')
             product.product_model = data.get('product_model', '')
             product.description = data.get('description', '')
-            product.price = float(data['price'])
+            product.price = 0.0  # Set default price to 0, pricing will be set per customer
             product.quantity = int(data['quantity'])
             product.gst_rate = float(data.get('gst_rate', 18.0))
             product.hsn_code = data.get('hsn_code', '')
@@ -263,7 +260,7 @@ class ProductController:
             # For customer users, check custom pricing
             if current_user.role.startswith('customer_'):
                 custom_price = self.get_customer_pricing(product.product_id, current_user.customer_id)
-                if custom_price:
+                if custom_price is not None:
                     product_dict['custom_price'] = custom_price
                     product_dict['gst_amount'] = (custom_price * product.gst_rate) / 100
                     product_dict['price_including_gst'] = custom_price + product_dict['gst_amount']
@@ -276,57 +273,6 @@ class ProductController:
         except Exception as e:
             print(f"Get product error: {e}")
             return {'success': False, 'message': 'Failed to retrieve product'}
-    
-    def create_product(self):
-        """Create new product (Vendor only)"""
-        try:
-            current_user = self.auth.get_current_user()
-            if not current_user or not current_user.role.startswith('vendor_'):
-                return {'success': False, 'message': 'Only vendor users can create products'}
-            
-            data = request.get_json() if request.is_json else request.form.to_dict()
-            
-            # Validate required fields
-            required_fields = ['item_no', 'product_name', 'category', 'price', 'quantity']
-            for field in required_fields:
-                if field not in data or not data[field]:
-                    return {'success': False, 'message': f'{field} is required'}
-            
-            # Check if item number already exists
-            existing_product = Product.get_by_item_no(data['item_no'])
-            if existing_product:
-                return {'success': False, 'message': 'Item number already exists'}
-            
-            # Create new product
-            product = Product()
-            product.item_no = data['item_no']
-            product.category = data['category']
-            product.product_name = data['product_name']
-            product.product_make = data.get('product_make', '')
-            product.product_model = data.get('product_model', '')
-            product.description = data.get('description', '')
-            product.price = float(data['price'])
-            product.quantity = int(data['quantity'])
-            product.gst_rate = float(data.get('gst_rate', 18.0))
-            product.hsn_code = data.get('hsn_code', '')
-            product.low_stock_threshold = int(data.get('low_stock_threshold', 10))
-            
-            # Handle product specifications
-            if 'specifications' in data:
-                product.product_specifications = data['specifications']
-            
-            if product.save():
-                return {
-                    'success': True,
-                    'message': 'Product created successfully',
-                    'product_id': product.product_id
-                }
-            else:
-                return {'success': False, 'message': 'Failed to create product'}
-                
-        except Exception as e:
-            print(f"Create product error: {e}")
-            return {'success': False, 'message': 'Failed to create product'}
     
     def update_product(self, product_id):
         """Update existing product (Vendor only)"""
@@ -452,16 +398,13 @@ class ProductController:
             return {'success': False, 'message': 'Failed to update categories'}
     
     def get_customer_pricing(self, product_id, customer_id):
-        """Get custom pricing for customer (if implemented)"""
+        """Get custom pricing for customer"""
         try:
-            # This is a placeholder for customer-specific pricing
-            # In a real implementation, you would have a customer_pricing collection
-            # that stores custom prices for different customers
-            
             db = config.get_db()
-            docs = db.collection('customer_pricing').where('customer_id', '==', customer_id).where('product_id', '==', product_id).limit(1).get()
+            doc_id = f"{customer_id}_{product_id}"
+            doc = db.collection('customer_pricing').document(doc_id).get()
             
-            for doc in docs:
+            if doc.exists:
                 pricing_data = doc.to_dict()
                 return pricing_data.get('custom_price')
             
@@ -511,6 +454,65 @@ class ProductController:
         except Exception as e:
             print(f"Set customer pricing error: {e}")
             return {'success': False, 'message': 'Failed to set custom pricing'}
+    
+    def remove_customer_pricing(self, product_id, customer_id):
+        """Remove custom pricing for customer (revert to base price)"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user or current_user.role not in ['vendor_superadmin', 'vendor_admin']:
+                return {'success': False, 'message': 'Insufficient permissions'}
+            
+            # Delete the custom pricing document
+            db = config.get_db()
+            doc_id = f"{customer_id}_{product_id}"
+            db.collection('customer_pricing').document(doc_id).delete()
+            
+            return {
+                'success': True,
+                'message': 'Custom pricing removed successfully'
+            }
+            
+        except Exception as e:
+            print(f"Remove customer pricing error: {e}")
+            return {'success': False, 'message': 'Failed to remove custom pricing'}
+    
+    def get_customer_pricing_list(self, customer_id):
+        """Get all custom pricing for a specific customer"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user or current_user.role not in ['vendor_superadmin', 'vendor_admin']:
+                return {'success': False, 'message': 'Insufficient permissions'}
+            
+            db = config.get_db()
+            docs = db.collection('customer_pricing').where('customer_id', '==', customer_id).get()
+            
+            pricing_list = []
+            for doc in docs:
+                pricing_data = doc.to_dict()
+                
+                # Get product details
+                product = Product.get_by_id(pricing_data['product_id'])
+                if product:
+                    pricing_item = {
+                        'product_id': pricing_data['product_id'],
+                        'product_name': product.product_name,
+                        'product_make': product.product_make,
+                        'base_price': product.price,
+                        'custom_price': pricing_data['custom_price'],
+                        'savings': product.price - pricing_data['custom_price'],
+                        'created_at': pricing_data.get('created_at'),
+                        'updated_at': pricing_data.get('updated_at')
+                    }
+                    pricing_list.append(pricing_item)
+            
+            return {
+                'success': True,
+                'pricing': pricing_list
+            }
+            
+        except Exception as e:
+            print(f"Get customer pricing list error: {e}")
+            return {'success': False, 'message': 'Failed to retrieve customer pricing'}
     
     def get_low_stock_products(self):
         """Get products with low stock (Vendor only)"""

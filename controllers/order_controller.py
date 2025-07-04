@@ -1,4 +1,4 @@
-# Order Controller - Handle order management and workflow
+# Order Controller - Handle order management and workflow with customer pricing
 from flask import request, session
 from datetime import datetime
 from models import Order, Product, User, Customer
@@ -6,7 +6,7 @@ from controllers.auth_controller import auth_controller
 from config import config
 
 class OrderController:
-    """Handle order management operations and approval workflow"""
+    """Handle order management operations and approval workflow with customer pricing"""
     
     def __init__(self):
         self.auth = auth_controller
@@ -61,7 +61,7 @@ class OrderController:
                 order_dict['can_edit'] = self.can_user_edit_order(current_user, order)
                 order_dict['customer_name'] = self.get_customer_name(order.customer_id)
                 
-                # Add product details for items
+                # Add product details for items with pricing information
                 order_dict['items_with_details'] = []
                 for item in order.items:
                     product = Product.get_by_id(item['product_id'])
@@ -70,7 +70,19 @@ class OrderController:
                         item_detail['product_name'] = product.product_name
                         item_detail['product_make'] = product.product_make
                         item_detail['category'] = product.category
+                        
+                        # Add pricing information
+                        item_detail['base_price'] = product.price
+                        item_detail['used_price'] = item['price']
+                        item_detail['is_custom_price'] = item['price'] != product.price
+                        item_detail['savings_per_unit'] = product.price - item['price'] if item['price'] != product.price else 0
+                        item_detail['total_savings'] = item_detail['savings_per_unit'] * item['quantity']
+                        
                         order_dict['items_with_details'].append(item_detail)
+                
+                # Calculate total savings for the order
+                total_savings = sum(item.get('total_savings', 0) for item in order_dict['items_with_details'])
+                order_dict['total_savings'] = total_savings
                 
                 order_list.append(order_dict)
             
@@ -95,7 +107,7 @@ class OrderController:
             return {'success': False, 'message': 'Failed to retrieve orders'}
     
     def get_order(self, order_id):
-        """Get single order details"""
+        """Get single order details - UPDATED WITH PRICING INFO"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -117,7 +129,7 @@ class OrderController:
             order_dict['can_edit'] = self.can_user_edit_order(current_user, order)
             order_dict['customer_name'] = self.get_customer_name(order.customer_id)
             
-            # Add detailed product information
+            # Add detailed product information with pricing details
             order_dict['items_with_details'] = []
             for item in order.items:
                 product = Product.get_by_id(item['product_id'])
@@ -129,7 +141,19 @@ class OrderController:
                     item_detail['category'] = product.category
                     item_detail['hsn_code'] = product.hsn_code
                     item_detail['gst_rate'] = product.gst_rate
+                    
+                    # Add pricing information
+                    item_detail['base_price'] = product.price
+                    item_detail['used_price'] = item['price']
+                    item_detail['is_custom_price'] = item['price'] != product.price
+                    item_detail['savings_per_unit'] = product.price - item['price'] if item['price'] != product.price else 0
+                    item_detail['total_savings'] = item_detail['savings_per_unit'] * item['quantity']
+                    
                     order_dict['items_with_details'].append(item_detail)
+            
+            # Calculate total savings for the order
+            total_savings = sum(item.get('total_savings', 0) for item in order_dict['items_with_details'])
+            order_dict['total_savings'] = total_savings
             
             # Add user information for comments
             for comment in order_dict.get('comments', []):
@@ -146,9 +170,48 @@ class OrderController:
         except Exception as e:
             print(f"Get order error: {e}")
             return {'success': False, 'message': 'Failed to retrieve order'}
+        
+    def get_order_pricing_summary(self, order):
+        """Get pricing summary for an order showing base vs custom pricing"""
+        try:
+            summary = {
+                'total_base_price': 0,
+                'total_custom_price': 0,
+                'total_savings': 0,
+                'items_with_custom_pricing': 0,
+                'total_items': len(order.items)
+            }
+            
+            for item in order.items:
+                product = Product.get_by_id(item['product_id'])
+                if product:
+                    base_total = product.price * item['quantity']
+                    custom_total = item['price'] * item['quantity']
+                    
+                    summary['total_base_price'] += base_total
+                    summary['total_custom_price'] += custom_total
+                    
+                    if item['price'] != product.price:
+                        summary['items_with_custom_pricing'] += 1
+            
+            summary['total_savings'] = summary['total_base_price'] - summary['total_custom_price']
+            summary['savings_percentage'] = (summary['total_savings'] / summary['total_base_price'] * 100) if summary['total_base_price'] > 0 else 0
+            
+            return summary
+            
+        except Exception as e:
+            print(f"Error calculating pricing summary: {e}")
+            return {
+                'total_base_price': 0,
+                'total_custom_price': 0,
+                'total_savings': 0,
+                'items_with_custom_pricing': 0,
+                'total_items': 0,
+                'savings_percentage': 0
+            }
     
     def create_order(self):
-        """Create new order (Customer employees only)"""
+        """Create new order (Customer employees only) - UPDATED FOR CUSTOMER PRICING"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or current_user.role != 'customer_employee':
@@ -160,7 +223,7 @@ class OrderController:
             if not items:
                 return {'success': False, 'message': 'Order must contain at least one item'}
             
-            # Validate items and check stock
+            # Validate items and check stock with customer pricing
             validated_items = []
             for item in items:
                 product_id = item.get('product_id')
@@ -176,15 +239,16 @@ class OrderController:
                 if product.quantity < quantity:
                     return {'success': False, 'message': f'Insufficient stock for {product.product_name}'}
                 
-                # Get price (check for customer-specific pricing)
+                # Get customer-specific price or base price
                 from controllers.product_controller import product_controller
                 custom_price = product_controller.get_customer_pricing(product_id, current_user.customer_id)
-                price = custom_price if custom_price else product.price
+                price = custom_price if custom_price is not None else product.price
                 
                 validated_items.append({
                     'product_id': product_id,
                     'quantity': quantity,
-                    'price': price
+                    'price': price,
+                    'is_custom_price': custom_price is not None
                 })
             
             # Create order
@@ -194,16 +258,24 @@ class OrderController:
             order.department_id = current_user.department_id
             order.status = 'pending_dept_approval'  # Skip draft, go directly to approval
             
-            # Add items
+            # Add items with customer-specific pricing
             for item in validated_items:
                 order.add_item(item['product_id'], item['quantity'], item['price'])
             
+            # Add metadata about pricing
+            order.pricing_metadata = {
+                'customer_id': current_user.customer_id,
+                'has_custom_pricing': any(item['is_custom_price'] for item in validated_items),
+                'created_with_custom_rates': True
+            }
+            
             # Add initial comment
+            pricing_note = " (with custom pricing)" if order.pricing_metadata['has_custom_pricing'] else ""
             order.add_comment(
                 current_user.user_id,
                 current_user.role,
                 'created',
-                'Order created and submitted for department approval'
+                f'Order created and submitted for department approval{pricing_note}'
             )
             
             if order.save():
@@ -218,7 +290,11 @@ class OrderController:
                 return {
                     'success': True,
                     'message': 'Order created successfully',
-                    'order_id': order.order_id
+                    'order_id': order.order_id,
+                    'pricing_info': {
+                        'has_custom_pricing': order.pricing_metadata['has_custom_pricing'],
+                        'total_amount': order.total_amount
+                    }
                 }
             else:
                 return {'success': False, 'message': 'Failed to create order'}
