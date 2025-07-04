@@ -148,82 +148,162 @@ class ProductController:
             return {'success': False, 'message': f'Failed to retrieve products: {str(e)}'}
 
     def upload_product_image(self, file, product_id):
-        """Upload and resize product image - FIXED VERSION"""
+        """Upload and resize product image - COMPLETE FIX with all image types"""
         try:
+            print(f"Starting image upload for product {product_id}")
+            print(f"File: {file.filename}, Content Type: {file.content_type}")
+            
             # Validate file
             if not file or not file.filename:
+                print("No file or filename provided")
                 return None
             
-            # Check file type
-            allowed_extensions = {'jpg', 'jpeg', 'png', 'gif'}
+            # Support all modern browser image formats
+            allowed_extensions = {
+                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif', 
+                'svg', 'ico', 'avif', 'jfif', 'pjpeg', 'pjp'
+            }
+            
             file_extension = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+            print(f"File extension: {file_extension}")
             
             if file_extension not in allowed_extensions:
+                print(f"File extension {file_extension} not allowed")
                 return None
             
             # Generate unique filename
             import uuid
+            import os
             filename = f"product_{product_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
+            print(f"Generated filename: {filename}")
             
-            # Resize image to 800x800
-            from PIL import Image
-            import io
+            # Handle SVG files differently (no resizing needed)
+            if file_extension == 'svg':
+                # For SVG files, just save directly
+                if config.use_local_storage:
+                    file_path = f"products/{filename}"
+                    full_path = os.path.join('uploads', file_path)
+                    
+                    print(f"Saving SVG to: {full_path}")
+                    
+                    # Ensure directory exists
+                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                    
+                    # Reset file stream position
+                    file.stream.seek(0)
+                    
+                    # Save file directly
+                    with open(full_path, 'wb') as f:
+                        f.write(file.stream.read())
+                    
+                    print(f"SVG saved successfully to {full_path}")
+                    return f"/uploads/{file_path}"
+                else:
+                    # Firebase Storage for SVG
+                    storage_handler = config.get_storage()
+                    blob = storage_handler.blob(f"products/{filename}")
+                    file.stream.seek(0)
+                    blob.upload_from_file(file.stream, content_type='image/svg+xml')
+                    blob.make_public()
+                    return blob.public_url
             
-            # Open and process image
-            image = Image.open(file.stream)
+            # For other image formats, resize and process
+            try:
+                from PIL import Image
+                import io
+                
+                print("Processing image with PIL")
+                
+                # Reset file stream position
+                file.stream.seek(0)
+                
+                # Open and process image
+                image = Image.open(file.stream)
+                print(f"Original image size: {image.size}, mode: {image.mode}")
+                
+                # Convert to RGB if needed (for PNG with transparency, etc.)
+                if image.mode in ('RGBA', 'LA', 'P'):
+                    background = Image.new('RGB', image.size, (255, 255, 255))
+                    if image.mode == 'P':
+                        image = image.convert('RGBA')
+                    background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                    image = background
+                    print("Converted image to RGB")
+                
+                # Resize to 800x800 maintaining aspect ratio
+                image.thumbnail((800, 800), Image.Resampling.LANCZOS)
+                print(f"Resized image to: {image.size}")
+                
+                # Create a new 800x800 image with white background
+                new_image = Image.new('RGB', (800, 800), (255, 255, 255))
+                
+                # Calculate position to center the image
+                x = (800 - image.width) // 2
+                y = (800 - image.height) // 2
+                new_image.paste(image, (x, y))
+                print(f"Centered image at position: ({x}, {y})")
+                
+                # Save to bytes
+                img_bytes = io.BytesIO()
+                # Always save as JPEG for consistency
+                new_image.save(img_bytes, format='JPEG', quality=85, optimize=True)
+                img_bytes.seek(0)
+                
+                # Force JPEG extension for processed images
+                filename = f"product_{product_id}_{uuid.uuid4().hex[:8]}.jpg"
+                
+            except Exception as e:
+                print(f"PIL processing failed: {e}, saving original file")
+                # If PIL fails, save the original file
+                file.stream.seek(0)
+                img_bytes = io.BytesIO(file.stream.read())
             
-            # Convert to RGB if needed (for PNG with transparency)
-            if image.mode in ('RGBA', 'LA', 'P'):
-                background = Image.new('RGB', image.size, (255, 255, 255))
-                if image.mode == 'P':
-                    image = image.convert('RGBA')
-                background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
-                image = background
-            
-            # Resize to 800x800 maintaining aspect ratio
-            image.thumbnail((800, 800), Image.Resampling.LANCZOS)
-            
-            # Create a new 800x800 image with white background
-            new_image = Image.new('RGB', (800, 800), (255, 255, 255))
-            
-            # Calculate position to center the image
-            x = (800 - image.width) // 2
-            y = (800 - image.height) // 2
-            new_image.paste(image, (x, y))
-            
-            # Save to bytes
-            img_bytes = io.BytesIO()
-            new_image.save(img_bytes, format='JPEG', quality=85, optimize=True)
-            img_bytes.seek(0)
-            
-            # Get storage handler
-            storage_handler = config.get_storage()
-            
+            # Save the file
             if config.use_local_storage:
-                # Local storage - FIXED PATH
-                import os
+                # Local storage
                 file_path = f"products/{filename}"
                 full_path = os.path.join('uploads', file_path)
+                
+                print(f"Saving to local path: {full_path}")
                 
                 # Ensure directory exists
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
                 
                 # Save file
                 with open(full_path, 'wb') as f:
-                    f.write(img_bytes.getvalue())
+                    if hasattr(img_bytes, 'getvalue'):
+                        f.write(img_bytes.getvalue())
+                    else:
+                        f.write(img_bytes)
                 
-                # Return URL path that matches the served route
-                return f"/uploads/{file_path}"
+                print(f"File saved successfully to {full_path}")
+                
+                # Verify file was created
+                if os.path.exists(full_path):
+                    file_size = os.path.getsize(full_path)
+                    print(f"File verified: {full_path} ({file_size} bytes)")
+                    return f"/uploads/{file_path}"
+                else:
+                    print(f"ERROR: File not found after saving: {full_path}")
+                    return None
             else:
                 # Firebase Storage
+                storage_handler = config.get_storage()
                 blob = storage_handler.blob(f"products/{filename}")
-                blob.upload_from_file(img_bytes, content_type='image/jpeg')
-                blob.make_public()
                 
+                if hasattr(img_bytes, 'getvalue'):
+                    blob.upload_from_string(img_bytes.getvalue(), content_type='image/jpeg')
+                else:
+                    blob.upload_from_file(img_bytes, content_type='image/jpeg')
+                
+                blob.make_public()
+                print(f"Uploaded to Firebase: {blob.public_url}")
                 return blob.public_url
             
         except Exception as e:
             print(f"Upload product image error: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def create_product(self):

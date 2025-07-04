@@ -750,11 +750,15 @@
                     <span class="form-error"></span>
                 </div>
                 
-                <!-- Product Image Upload -->
+                <!-- Update the file input in the Add Product Modal -->
                 <div class="form-group">
                     <label class="form-label">Product Image</label>
-                    <input type="file" class="form-control" name="product_image" accept="image/jpeg,image/jpg,image/png,image/gif" onchange="handleImageUpload(event)">
-                    <span class="form-help">Upload product image (JPG, PNG, GIF - max 10MB). Images will be automatically resized to 800x800 pixels.</span>
+                    <input type="file" 
+                        class="form-control" 
+                        name="product_image" 
+                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/tiff,image/svg+xml,image/x-icon,image/avif,image/jfif" 
+                        onchange="handleImageUpload(event)">
+                    <span class="form-help">Upload product image (All image formats supported - JPEG, PNG, GIF, WebP, BMP, TIFF, SVG, ICO, AVIF - max 16MB). Images will be automatically resized to 800x800 pixels.</span>
                     <span class="form-error" id="imageError"></span>
                     
                     <!-- Image Preview -->
@@ -1039,20 +1043,22 @@
             return;
         }
         
-        {% if current_user.role == 'customer_employee' or current_user.role == 'customer_hr_admin' or current_user.role == 'customer_dept_head' %}
+        {% if current_user.role.startswith('customer_') %}
         // Customer view with images and modal
         console.log('Displaying products for customer user');
         const currentUserRole = '{{ current_user.role }}';
+        console.log('Current user role:', currentUserRole);
         
         grid.innerHTML = filteredProducts.map(product => {
             const isOutOfStock = product.quantity === 0;
             const effectivePrice = product.custom_price || product.price || 0;
             const gstAmount = (effectivePrice * (product.gst_rate || 18)) / 100;
             
-            // Handle product image with better fallback
+            // Handle product image with better fallback and debugging
             let productImage = '';
             if (product.image_urls && product.image_urls.length > 0) {
                 productImage = product.image_urls[0];
+                console.log('Product image URL:', productImage);
                 // Ensure the URL is properly formatted
                 if (productImage && !productImage.startsWith('http') && !productImage.startsWith('/uploads/')) {
                     productImage = `/uploads/products/${productImage}`;
@@ -1063,6 +1069,10 @@
             if (effectivePrice === 0 && !product.custom_price) {
                 return '';
             }
+            
+            // Show cart controls for customer_employee only, but show products for all customer roles
+            const showCartControls = currentUserRole === 'customer_employee';
+            console.log('Show cart controls:', showCartControls, 'for role:', currentUserRole);
             
             return `
                 <div class="product-card" onclick="viewProductDetails('${product.product_id}')" style="cursor: pointer;">
@@ -1077,8 +1087,8 @@
                             <img src="${productImage}" 
                                  alt="${product.product_name}" 
                                  style="max-width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid var(--gray-200);"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                                 onload="console.log('Image loaded:', '${productImage}');">
+                                 onerror="console.error('Failed to load image:', '${productImage}'); this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 onload="console.log('Successfully loaded image:', '${productImage}');">
                             <div class="product-image-placeholder" style="display: none; width: 100%; height: 200px; background: linear-gradient(135deg, var(--gray-100), var(--gray-200)); border-radius: 8px; align-items: center; justify-content: center; color: var(--gray-500); font-size: 48px; border: 1px solid var(--gray-200);">
                                 <i class="fas fa-box"></i>
                             </div>
@@ -1127,18 +1137,17 @@
                         </div>
                     </div>
                     
-                    <!-- Action Section - Only for employees -->
-                    ${currentUserRole === 'customer_employee' ? `
+                    <!-- Action Section - Show for all customer users, but only employees can interact -->
                     <div onclick="event.stopPropagation()" style="display: flex; gap: 12px;">
                         <!-- Qty Section -->
-                        <div style="flex: 1; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; align-items: center;">
+                        <div style="flex: 1; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; align-items: center; ${!showCartControls ? 'opacity: 0.6;' : ''}">
                             <div style="font-size: 0.75rem; font-weight: 600; color: var(--gray-600); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Qty</div>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <button class="quantity-btn" onclick="changeQuantity('${product.product_id}', -1)" ${isOutOfStock ? 'disabled' : ''} style="width: 28px; height: 28px; border: 1px solid var(--gray-300); background: white; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">
+                                <button class="quantity-btn" onclick="changeQuantity('${product.product_id}', -1)" ${!showCartControls || isOutOfStock ? 'disabled' : ''} style="width: 28px; height: 28px; border: 1px solid var(--gray-300); background: white; border-radius: 4px; cursor: ${showCartControls ? 'pointer' : 'not-allowed'}; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">
                                     <i class="fas fa-minus"></i>
                                 </button>
-                                <input type="number" class="quantity-input" id="qty_${product.product_id}" value="1" min="1" max="${product.quantity}" ${isOutOfStock ? 'disabled' : ''} style="width: 50px; padding: 6px; border: 1px solid var(--gray-300); border-radius: 4px; text-align: center; font-size: 0.875rem; font-weight: 600;">
-                                <button class="quantity-btn" onclick="changeQuantity('${product.product_id}', 1)" ${isOutOfStock ? 'disabled' : ''} style="width: 28px; height: 28px; border: 1px solid var(--gray-300); background: white; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">
+                                <input type="number" class="quantity-input" id="qty_${product.product_id}" value="1" min="1" max="${product.quantity}" ${!showCartControls || isOutOfStock ? 'disabled' : ''} style="width: 50px; padding: 6px; border: 1px solid var(--gray-300); border-radius: 4px; text-align: center; font-size: 0.875rem; font-weight: 600;">
+                                <button class="quantity-btn" onclick="changeQuantity('${product.product_id}', 1)" ${!showCartControls || isOutOfStock ? 'disabled' : ''} style="width: 28px; height: 28px; border: 1px solid var(--gray-300); background: white; border-radius: 4px; cursor: ${showCartControls ? 'pointer' : 'not-allowed'}; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">
                                     <i class="fas fa-plus"></i>
                                 </button>
                             </div>
@@ -1146,15 +1155,14 @@
                         
                         <!-- +Cart Section -->
                         <div style="flex: 1;">
-                            <button class="btn-add-cart" onclick="addToCart('${product.product_id}')" ${isOutOfStock ? 'disabled' : ''} data-price="${effectivePrice}" style="width: 100%; height: 100%; background: var(--primary-blue); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: all 0.3s ease;">
+                            <button class="btn-add-cart" onclick="addToCart('${product.product_id}')" ${!showCartControls || isOutOfStock ? 'disabled' : ''} data-price="${effectivePrice}" style="width: 100%; height: 100%; background: ${showCartControls ? 'var(--primary-blue)' : 'var(--gray-400)'}; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: ${showCartControls ? 'pointer' : 'not-allowed'}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: all 0.3s ease;">
                                 <i class="fas fa-cart-plus" style="font-size: 1.25rem;"></i>
                                 <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
-                                    ${isOutOfStock ? 'Out of Stock' : '+Cart'}
+                                    ${isOutOfStock ? 'Out of Stock' : (showCartControls ? '+Cart' : 'View Only')}
                                 </span>
                             </button>
                         </div>
                     </div>
-                    ` : ''}
                 </div>
             `;
         }).filter(card => card !== '').join('');
@@ -1757,18 +1765,23 @@
         
         if (!file) return;
         
-        // Validate file type
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+        // Support all modern browser image formats
+        const allowedTypes = [
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+            'image/bmp', 'image/tiff', 'image/svg+xml', 'image/x-icon',
+            'image/avif', 'image/jfif'
+        ];
+        
         if (!allowedTypes.includes(file.type)) {
-            imageError.textContent = 'Please select a valid image file (JPG, PNG, GIF)';
+            imageError.textContent = 'Please select a valid image file (JPEG, PNG, GIF, WebP, BMP, TIFF, SVG, ICO, AVIF)';
             imageError.style.display = 'block';
             event.target.value = '';
             return;
         }
         
-        // Validate file size (max 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-            imageError.textContent = 'Image file size should be less than 10MB';
+        // Validate file size (max 16MB to match Flask config)
+        if (file.size > 16 * 1024 * 1024) {
+            imageError.textContent = 'Image file size should be less than 16MB';
             imageError.style.display = 'block';
             event.target.value = '';
             return;
@@ -1780,12 +1793,20 @@
             imagePreview.innerHTML = `
                 <img src="${e.target.result}" style="max-width: 100%; max-height: 200px; border-radius: 8px; object-fit: cover;">
                 <div style="margin-top: 8px; font-size: 0.875rem; color: var(--gray-600);">
-                    ${file.name} (${(file.size / 1024).toFixed(1)} KB)
+                    ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)
                 </div>
             `;
             imagePreview.style.display = 'block';
         };
         reader.readAsDataURL(file);
+    }
+    
+    // Update the file input in the Add Product Modal to accept all image types
+    function updateProductFormFileInput() {
+        const fileInput = document.querySelector('#addProductModal input[name="product_image"]');
+        if (fileInput) {
+            fileInput.accept = 'image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/tiff,image/svg+xml,image/x-icon,image/avif,image/jfif';
+        }
     }
     
     function generateItemNumber() {
