@@ -414,16 +414,33 @@ class Product(BaseModel):
     
     @classmethod
     def get_all_active(cls):
-        """Get all active products"""
+        """Get all active products - DEBUG VERSION"""
         try:
+            print("Getting all active products from database...")
             db = config.get_db()
             docs = db.collection('products').where('is_active', '==', True).get()
+            
             products = []
+            doc_count = 0
+            
             for doc in docs:
-                products.append(cls.from_dict(doc.to_dict()))
+                doc_count += 1
+                try:
+                    product_data = doc.to_dict()
+                    print(f"Processing product {doc_count}: {product_data.get('product_name', 'Unknown')}")
+                    product = cls.from_dict(product_data)
+                    products.append(product)
+                except Exception as e:
+                    print(f"Error processing product document {doc.id}: {e}")
+                    continue
+            
+            print(f"Successfully loaded {len(products)} active products")
             return products
+            
         except Exception as e:
             print(f"Error getting active products: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     @classmethod

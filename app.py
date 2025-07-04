@@ -307,7 +307,7 @@ def create_app():
     @login_required
     @role_required('vendor_superadmin', 'vendor_admin')
     def api_get_customer_pricing(customer_id):
-        """API: Get customer-specific pricing"""
+        """API: Get customer-specific pricing - FIXED VERSION"""
         try:
             from config import config
             db = config.get_db()
@@ -327,15 +327,12 @@ def create_app():
             
             return jsonify({
                 'success': True,
-                'report': {
-                    'total_customers_with_custom_pricing': len(report_data),
-                    'customers': sorted(report_data, key=lambda x: x['total_potential_savings'], reverse=True)
-                }
+                'pricing': pricing
             })
             
         except Exception as e:
-            print(f"Pricing summary report error: {e}")
-            return jsonify({'success': False, 'message': 'Failed to generate pricing summary report'})
+            print(f"Get customer pricing error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve customer pricing'})
         
         
     @app.route('/api/customer-pricing', methods=['POST'])
@@ -537,7 +534,7 @@ def create_app():
             
             # Initialize variables
             customers_with_pricing = {}
-            report_data = []
+            report_data = []  # Initialize report_data here
             
             print("Starting pricing summary report generation...")
             
@@ -621,7 +618,7 @@ def create_app():
             return jsonify({
                 'success': False, 
                 'message': f'Failed to generate pricing summary report: {str(e)}'
-            })  
+            })
         
 
     # ================== PRICING VALIDATION AND UTILITIES ==================
@@ -1093,7 +1090,7 @@ def create_app():
     @app.route('/api/products')
     @login_required
     def api_products():
-        """API: Get products list with customer-specific pricing"""
+        """API: Get products list with customer-specific pricing - FIXED FOR ALL USERS"""
         return jsonify(product_controller.get_products())
     
     @app.route('/api/products', methods=['POST'])
@@ -1572,6 +1569,22 @@ def create_app():
         return jsonify({
             'success': True,
             'notifications': []  # Placeholder
+        })
+    
+    # Add this test endpoint to app.py
+    @app.route('/api/test')
+    @login_required
+    def api_test():
+        """Test endpoint to check if API is working"""
+        current_user = auth_controller.get_current_user()
+        return jsonify({
+            'success': True,
+            'message': 'API is working',
+            'user': {
+                'username': current_user.username if current_user else None,
+                'role': current_user.role if current_user else None,
+                'customer_id': current_user.customer_id if current_user else None
+            }
         })
     
     return app

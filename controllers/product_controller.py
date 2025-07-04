@@ -11,38 +11,65 @@ class ProductController:
         self.auth = auth_controller
     
     def get_products(self):
-        """Get products list with customer-specific pricing"""
+        """Get products list with customer-specific pricing - COMPLETE FIX"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
                 return {'success': False, 'message': 'Authentication required'}
             
-            # Get query parameters
-            search = request.args.get('search', '')
-            category = request.args.get('category', '')
-            sort_by = request.args.get('sort', 'name_asc')
-            page = int(request.args.get('page', 1))
-            per_page = int(request.args.get('per_page', 20))
+            print(f"User {current_user.username} with role {current_user.role} requesting products")
+            
+            # Get query parameters with defaults
+            search = request.args.get('search', '') if request.args else ''
+            category = request.args.get('category', '') if request.args else ''
+            sort_by = request.args.get('sort', 'name_asc') if request.args else 'name_asc'
+            
+            try:
+                page = int(request.args.get('page', 1)) if request.args else 1
+                per_page = int(request.args.get('per_page', 50)) if request.args else 50
+            except (ValueError, TypeError):
+                page = 1
+                per_page = 50
             
             # Get all active products
-            if search or category:
-                products = Product.search_products(search, category)
-            else:
-                products = Product.get_all_active()
+            try:
+                if search or category:
+                    products = Product.search_products(search, category)
+                else:
+                    products = Product.get_all_active()
+                
+                print(f"Found {len(products)} active products")
+                
+            except Exception as e:
+                print(f"Error fetching products: {e}")
+                return {'success': False, 'message': 'Failed to fetch products from database'}
+            
+            if not products:
+                return {
+                    'success': True,
+                    'products': [],
+                    'categories': [],
+                    'pagination': {'page': 1, 'per_page': per_page, 'total': 0, 'pages': 0},
+                    'filters': {'search': search, 'category': category, 'sort_by': sort_by}
+                }
             
             # Apply sorting
-            if sort_by == 'name_asc':
-                products.sort(key=lambda p: p.product_name.lower())
-            elif sort_by == 'name_desc':
-                products.sort(key=lambda p: p.product_name.lower(), reverse=True)
-            elif sort_by == 'price_asc':
-                products.sort(key=lambda p: p.price)
-            elif sort_by == 'price_desc':
-                products.sort(key=lambda p: p.price, reverse=True)
-            elif sort_by == 'stock_asc':
-                products.sort(key=lambda p: p.quantity)
-            elif sort_by == 'stock_desc':
-                products.sort(key=lambda p: p.quantity, reverse=True)
+            try:
+                if sort_by == 'name_asc':
+                    products.sort(key=lambda p: (p.product_name or '').lower())
+                elif sort_by == 'name_desc':
+                    products.sort(key=lambda p: (p.product_name or '').lower(), reverse=True)
+                elif sort_by == 'price_asc':
+                    products.sort(key=lambda p: p.price or 0)
+                elif sort_by == 'price_desc':
+                    products.sort(key=lambda p: p.price or 0, reverse=True)
+                elif sort_by == 'stock_asc':
+                    products.sort(key=lambda p: p.quantity or 0)
+                elif sort_by == 'stock_desc':
+                    products.sort(key=lambda p: p.quantity or 0, reverse=True)
+            except Exception as e:
+                print(f"Error sorting products: {e}")
+                # Continue without sorting
             
             # Apply pagination
             total_products = len(products)
@@ -53,27 +80,48 @@ class ProductController:
             # Convert to dict and add additional info
             product_list = []
             for product in paginated_products:
-                product_dict = product.to_dict()
-                
-                # Add computed fields
-                product_dict['is_low_stock'] = product.is_low_stock()
-                product_dict['gst_amount'] = (product.price * product.gst_rate) / 100
-                product_dict['price_including_gst'] = product.price + product_dict['gst_amount']
-                
-                # For customer users, get their custom pricing
-                if current_user.role.startswith('customer_') and current_user.customer_id:
-                    custom_price = self.get_customer_pricing(product.product_id, current_user.customer_id)
-                    if custom_price is not None:
-                        product_dict['custom_price'] = custom_price
-                        product_dict['gst_amount'] = (custom_price * product.gst_rate) / 100
-                        product_dict['price_including_gst'] = custom_price + product_dict['gst_amount']
-                
-                product_list.append(product_dict)
+                try:
+                    product_dict = product.to_dict()
+                    
+                    # Ensure required fields exist
+                    product_dict['price'] = product_dict.get('price', 0)
+                    product_dict['gst_rate'] = product_dict.get('gst_rate', 18.0)
+                    
+                    # Add computed fields
+                    product_dict['is_low_stock'] = product.is_low_stock() if hasattr(product, 'is_low_stock') else False
+                    
+                    base_price = product_dict['price']
+                    gst_rate = product_dict['gst_rate']
+                    
+                    product_dict['gst_amount'] = (base_price * gst_rate) / 100
+                    product_dict['price_including_gst'] = base_price + product_dict['gst_amount']
+                    
+                    # For customer users, get their custom pricing
+                    if current_user.role.startswith('customer_') and current_user.customer_id:
+                        try:
+                            custom_price = self.get_customer_pricing(product.product_id, current_user.customer_id)
+                            if custom_price is not None and custom_price > 0:
+                                product_dict['custom_price'] = custom_price
+                                product_dict['gst_amount'] = (custom_price * gst_rate) / 100
+                                product_dict['price_including_gst'] = custom_price + product_dict['gst_amount']
+                                print(f"Applied custom price {custom_price} for product {product.product_id}")
+                        except Exception as e:
+                            print(f"Error getting custom pricing for product {product.product_id}: {e}")
+                    
+                    product_list.append(product_dict)
+                    
+                except Exception as e:
+                    print(f"Error processing product {getattr(product, 'product_id', 'unknown')}: {e}")
+                    continue
             
             # Get categories for filtering
-            categories = self.get_product_categories()
+            try:
+                categories = self.get_product_categories()
+            except Exception as e:
+                print(f"Error getting categories: {e}")
+                categories = []
             
-            return {
+            result = {
                 'success': True,
                 'products': product_list,
                 'categories': categories,
@@ -90,9 +138,14 @@ class ProductController:
                 }
             }
             
+            print(f"Returning {len(product_list)} products to user")
+            return result
+            
         except Exception as e:
             print(f"Get products error: {e}")
-            return {'success': False, 'message': 'Failed to retrieve products'}
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'message': f'Failed to retrieve products: {str(e)}'}
 
     def upload_product_image(self, file, product_id):
         """Upload and resize product image"""
@@ -398,7 +451,7 @@ class ProductController:
             return {'success': False, 'message': 'Failed to update categories'}
     
     def get_customer_pricing(self, product_id, customer_id):
-        """Get custom pricing for customer"""
+        """Get custom pricing for customer - FIXED VERSION"""
         try:
             db = config.get_db()
             doc_id = f"{customer_id}_{product_id}"
