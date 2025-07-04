@@ -148,160 +148,59 @@ class ProductController:
             return {'success': False, 'message': f'Failed to retrieve products: {str(e)}'}
 
     def upload_product_image(self, file, product_id):
-        """Upload and resize product image - COMPLETE FIX with all image types"""
+        """Upload product image - SIMPLIFIED VERSION"""
         try:
-            print(f"Starting image upload for product {product_id}")
-            print(f"File: {file.filename}, Content Type: {file.content_type}")
+            print(f"=== SIMPLIFIED IMAGE UPLOAD ===")
+            print(f"Product ID: {product_id}")
+            print(f"File: {file.filename}")
             
-            # Validate file
             if not file or not file.filename:
-                print("No file or filename provided")
+                print("No file provided")
                 return None
             
-            # Support all modern browser image formats
-            allowed_extensions = {
-                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif', 
-                'svg', 'ico', 'avif', 'jfif', 'pjpeg', 'pjp'
-            }
+            # Reset file stream
+            file.stream.seek(0)
             
-            file_extension = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
-            print(f"File extension: {file_extension}")
+            # Read the file content
+            file_content = file.stream.read()
+            file_size = len(file_content)
+            print(f"File size: {file_size} bytes")
             
-            if file_extension not in allowed_extensions:
-                print(f"File extension {file_extension} not allowed")
+            if file_size == 0:
+                print("File is empty")
                 return None
             
-            # Generate unique filename
-            import uuid
-            import os
+            # Generate simple filename
+            import uuid, os
+            file_extension = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'jpg'
             filename = f"product_{product_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
-            print(f"Generated filename: {filename}")
             
-            # Handle SVG files differently (no resizing needed)
-            if file_extension == 'svg':
-                # For SVG files, just save directly
-                if config.use_local_storage:
-                    file_path = f"products/{filename}"
-                    full_path = os.path.join('uploads', file_path)
-                    
-                    print(f"Saving SVG to: {full_path}")
-                    
-                    # Ensure directory exists
-                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                    
-                    # Reset file stream position
-                    file.stream.seek(0)
-                    
-                    # Save file directly
-                    with open(full_path, 'wb') as f:
-                        f.write(file.stream.read())
-                    
-                    print(f"SVG saved successfully to {full_path}")
-                    return f"/uploads/{file_path}"
-                else:
-                    # Firebase Storage for SVG
-                    storage_handler = config.get_storage()
-                    blob = storage_handler.blob(f"products/{filename}")
-                    file.stream.seek(0)
-                    blob.upload_from_file(file.stream, content_type='image/svg+xml')
-                    blob.make_public()
-                    return blob.public_url
+            # Create directory path
+            upload_dir = os.path.join('uploads', 'products')
+            os.makedirs(upload_dir, exist_ok=True)
+            print(f"Upload directory: {upload_dir}")
             
-            # For other image formats, resize and process
-            try:
-                from PIL import Image
-                import io
-                
-                print("Processing image with PIL")
-                
-                # Reset file stream position
-                file.stream.seek(0)
-                
-                # Open and process image
-                image = Image.open(file.stream)
-                print(f"Original image size: {image.size}, mode: {image.mode}")
-                
-                # Convert to RGB if needed (for PNG with transparency, etc.)
-                if image.mode in ('RGBA', 'LA', 'P'):
-                    background = Image.new('RGB', image.size, (255, 255, 255))
-                    if image.mode == 'P':
-                        image = image.convert('RGBA')
-                    background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
-                    image = background
-                    print("Converted image to RGB")
-                
-                # Resize to 800x800 maintaining aspect ratio
-                image.thumbnail((800, 800), Image.Resampling.LANCZOS)
-                print(f"Resized image to: {image.size}")
-                
-                # Create a new 800x800 image with white background
-                new_image = Image.new('RGB', (800, 800), (255, 255, 255))
-                
-                # Calculate position to center the image
-                x = (800 - image.width) // 2
-                y = (800 - image.height) // 2
-                new_image.paste(image, (x, y))
-                print(f"Centered image at position: ({x}, {y})")
-                
-                # Save to bytes
-                img_bytes = io.BytesIO()
-                # Always save as JPEG for consistency
-                new_image.save(img_bytes, format='JPEG', quality=85, optimize=True)
-                img_bytes.seek(0)
-                
-                # Force JPEG extension for processed images
-                filename = f"product_{product_id}_{uuid.uuid4().hex[:8]}.jpg"
-                
-            except Exception as e:
-                print(f"PIL processing failed: {e}, saving original file")
-                # If PIL fails, save the original file
-                file.stream.seek(0)
-                img_bytes = io.BytesIO(file.stream.read())
+            # Full file path
+            full_path = os.path.join(upload_dir, filename)
+            print(f"Saving to: {full_path}")
             
-            # Save the file
-            if config.use_local_storage:
-                # Local storage
-                file_path = f"products/{filename}"
-                full_path = os.path.join('uploads', file_path)
+            # Save file
+            with open(full_path, 'wb') as f:
+                f.write(file_content)
+            
+            # Verify file was saved
+            if os.path.exists(full_path):
+                saved_size = os.path.getsize(full_path)
+                print(f"✅ File saved successfully: {saved_size} bytes")
                 
-                print(f"Saving to local path: {full_path}")
-                
-                # Ensure directory exists
-                os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                
-                # Save file
-                with open(full_path, 'wb') as f:
-                    if hasattr(img_bytes, 'getvalue'):
-                        f.write(img_bytes.getvalue())
-                    else:
-                        f.write(img_bytes)
-                
-                print(f"File saved successfully to {full_path}")
-                
-                # Verify file was created
-                if os.path.exists(full_path):
-                    file_size = os.path.getsize(full_path)
-                    print(f"File verified: {full_path} ({file_size} bytes)")
-                    return f"/uploads/{file_path}"
-                else:
-                    print(f"ERROR: File not found after saving: {full_path}")
-                    return None
+                # Return the URL path
+                return f"/uploads/products/{filename}"
             else:
-                # Firebase Storage
-                storage_handler = config.get_storage()
-                blob = storage_handler.blob(f"products/{filename}")
+                print("❌ File was not saved")
+                return None
                 
-                if hasattr(img_bytes, 'getvalue'):
-                    blob.upload_from_string(img_bytes.getvalue(), content_type='image/jpeg')
-                else:
-                    blob.upload_from_file(img_bytes, content_type='image/jpeg')
-                
-                blob.make_public()
-                print(f"Uploaded to Firebase: {blob.public_url}")
-                return blob.public_url
-            
         except Exception as e:
-            print(f"Upload product image error: {e}")
+            print(f"ERROR in simplified upload: {e}")
             import traceback
             traceback.print_exc()
             return None

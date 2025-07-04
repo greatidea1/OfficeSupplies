@@ -1587,6 +1587,50 @@ def create_app():
             }
         })
     
+    # TEMPORARY Add this test endpoint to app.py to debug directory issues
+    @app.route('/api/test-upload-dir')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
+    def test_upload_directory():
+        """Test endpoint to check upload directory creation"""
+        import os
+        
+        try:
+            base_dir = os.path.abspath('uploads')
+            products_dir = os.path.join(base_dir, 'products')
+            
+            # Try to create directory
+            os.makedirs(products_dir, exist_ok=True)
+            
+            # Test file creation
+            test_file = os.path.join(products_dir, 'test.txt')
+            with open(test_file, 'w') as f:
+                f.write('test')
+            
+            # Check if file exists
+            file_exists = os.path.exists(test_file)
+            
+            # Clean up
+            if file_exists:
+                os.remove(test_file)
+            
+            return jsonify({
+                'success': True,
+                'base_dir': base_dir,
+                'products_dir': products_dir,
+                'base_exists': os.path.exists(base_dir),
+                'products_exists': os.path.exists(products_dir),
+                'can_write': file_exists,
+                'cwd': os.getcwd()
+            })
+            
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'cwd': os.getcwd()
+            })
+
     return app
 
 # Create Flask app instance
