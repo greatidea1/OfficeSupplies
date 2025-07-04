@@ -139,7 +139,11 @@
     }
 
     .product-card img {
-        transition: transform 0.3s ease;
+        transition: opacity 0.3s ease;
+    }
+
+    .product-card img[src=""] {
+        display: none;
     }
     
     .product-card:hover img {
@@ -347,9 +351,15 @@
         background: var(--primary-blue-dark);
         transform: translateY(-1px);
     }
+
+    .btn-add-cart:hover:not(:disabled) {
+        background: var(--primary-blue-dark) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
     
     .btn-add-cart:disabled {
-        background: var(--gray-300) !important;
+        background: var(--gray-400) !important;
         cursor: not-allowed;
         transform: none !important;
     }
@@ -357,6 +367,12 @@
     .quantity-btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+    }
+
+    .quantity-input:focus {
+        outline: none;
+        border-color: var(--primary-blue);
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
     }
     
     .quantity-selector {
@@ -390,6 +406,11 @@
     .quantity-btn:hover {
         background: var(--gray-50);
         border-color: var(--primary-blue);
+    }
+
+    .quantity-btn:hover:not(:disabled) {
+        background: var(--gray-50) !important;
+        border-color: var(--primary-blue) !important;
     }
     
     .empty-state {
@@ -1021,18 +1042,26 @@
         {% if current_user.role == 'customer_employee' or current_user.role == 'customer_hr_admin' or current_user.role == 'customer_dept_head' %}
         // Customer view with images and modal
         console.log('Displaying products for customer user');
-        const currentUserRole = '{{ current_user.role }}'; // Get role from template
+        const currentUserRole = '{{ current_user.role }}';
         
         grid.innerHTML = filteredProducts.map(product => {
             const isOutOfStock = product.quantity === 0;
-            // Use custom_price if available, otherwise use base price, default to 0 if neither
             const effectivePrice = product.custom_price || product.price || 0;
             const gstAmount = (effectivePrice * (product.gst_rate || 18)) / 100;
-            const productImage = product.image_urls && product.image_urls.length > 0 ? product.image_urls[0] : '';
+            
+            // Handle product image with better fallback
+            let productImage = '';
+            if (product.image_urls && product.image_urls.length > 0) {
+                productImage = product.image_urls[0];
+                // Ensure the URL is properly formatted
+                if (productImage && !productImage.startsWith('http') && !productImage.startsWith('/uploads/')) {
+                    productImage = `/uploads/products/${productImage}`;
+                }
+            }
             
             // Don't show products with 0 price unless they have custom pricing
             if (effectivePrice === 0 && !product.custom_price) {
-                return ''; // Skip products without pricing
+                return '';
             }
             
             return `
@@ -1048,7 +1077,8 @@
                             <img src="${productImage}" 
                                  alt="${product.product_name}" 
                                  style="max-width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid var(--gray-200);"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 onload="console.log('Image loaded:', '${productImage}');">
                             <div class="product-image-placeholder" style="display: none; width: 100%; height: 200px; background: linear-gradient(135deg, var(--gray-100), var(--gray-200)); border-radius: 8px; align-items: center; justify-content: center; color: var(--gray-500); font-size: 48px; border: 1px solid var(--gray-200);">
                                 <i class="fas fa-box"></i>
                             </div>
@@ -1099,31 +1129,38 @@
                     
                     <!-- Action Section - Only for employees -->
                     ${currentUserRole === 'customer_employee' ? `
-                    <div onclick="event.stopPropagation()" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-                        <!-- Quantity Controls -->
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <button class="quantity-btn" onclick="changeQuantity('${product.product_id}', -1)" ${isOutOfStock ? 'disabled' : ''} style="width: 32px; height: 32px; border: 1px solid var(--gray-300); background: white; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-minus"></i>
-                            </button>
-                            <input type="number" class="quantity-input" id="qty_${product.product_id}" value="1" min="1" max="${product.quantity}" ${isOutOfStock ? 'disabled' : ''} style="width: 60px; padding: 8px; border: 1px solid var(--gray-300); border-radius: 6px; text-align: center;">
-                            <button class="quantity-btn" onclick="changeQuantity('${product.product_id}', 1)" ${isOutOfStock ? 'disabled' : ''} style="width: 32px; height: 32px; border: 1px solid var(--gray-300); background: white; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-plus"></i>
-                            </button>
+                    <div onclick="event.stopPropagation()" style="display: flex; gap: 12px;">
+                        <!-- Qty Section -->
+                        <div style="flex: 1; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; align-items: center;">
+                            <div style="font-size: 0.75rem; font-weight: 600; color: var(--gray-600); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Qty</div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button class="quantity-btn" onclick="changeQuantity('${product.product_id}', -1)" ${isOutOfStock ? 'disabled' : ''} style="width: 28px; height: 28px; border: 1px solid var(--gray-300); background: white; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <input type="number" class="quantity-input" id="qty_${product.product_id}" value="1" min="1" max="${product.quantity}" ${isOutOfStock ? 'disabled' : ''} style="width: 50px; padding: 6px; border: 1px solid var(--gray-300); border-radius: 4px; text-align: center; font-size: 0.875rem; font-weight: 600;">
+                                <button class="quantity-btn" onclick="changeQuantity('${product.product_id}', 1)" ${isOutOfStock ? 'disabled' : ''} style="width: 28px; height: 28px; border: 1px solid var(--gray-300); background: white; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
                         </div>
                         
-                        <!-- Add to Cart Button -->
-                        <button class="btn-add-cart" onclick="addToCart('${product.product_id}')" ${isOutOfStock ? 'disabled' : ''} data-price="${effectivePrice}" style="flex: 1; background: var(--primary-blue); color: white; border: none; padding: 12px 16px; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            <i class="fas fa-shopping-cart"></i>
-                            ${isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
-                        </button>
+                        <!-- +Cart Section -->
+                        <div style="flex: 1;">
+                            <button class="btn-add-cart" onclick="addToCart('${product.product_id}')" ${isOutOfStock ? 'disabled' : ''} data-price="${effectivePrice}" style="width: 100%; height: 100%; background: var(--primary-blue); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: all 0.3s ease;">
+                                <i class="fas fa-cart-plus" style="font-size: 1.25rem;"></i>
+                                <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    ${isOutOfStock ? 'Out of Stock' : '+Cart'}
+                                </span>
+                            </button>
+                        </div>
                     </div>
                     ` : ''}
                 </div>
             `;
-        }).filter(card => card !== '').join(''); // Filter out empty cards
+        }).filter(card => card !== '').join('');
         
         {% else %}
-        // Vendor view with pricing controls
+        // Vendor view with pricing controls (keep existing)
         console.log('Displaying products for vendor user');
         grid.innerHTML = filteredProducts.map(product => `
             <div class="product-card">
@@ -1163,7 +1200,6 @@
             </div>
         `).join('');
         
-        // Update all price indicators after display for vendor users only
         if (typeof updatePriceIndicator === 'function') {
             filteredProducts.forEach(product => {
                 updatePriceIndicator(product.product_id);
@@ -1171,7 +1207,6 @@
         }
         {% endif %}
         
-        // If no products to show after filtering, show empty state
         if (grid.innerHTML.trim() === '') {
             showEmptyState('No products available with pricing');
         }

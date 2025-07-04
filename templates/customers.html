@@ -988,7 +988,7 @@
                     
                     <div class="agreement-status ${customer.agreement_file_url ? 'has-agreement' : 'no-agreement'}">
                         <i class="fas fa-${customer.agreement_file_url ? 'file-check' : 'file-exclamation'}"></i>
-                        ${customer.agreement_file_url ? 'Agreement on file' : 'No agreement'}
+                        ${customer.agreement_file_url ? 'Agreement on file ✅' : 'No agreement ❌'}
                     </div>
                 </div>
                 <div class="customer-footer">
@@ -1145,7 +1145,7 @@
                                 ${customer.alternate_phone ? `<div><strong>Alternate Phone:</strong> ${customer.alternate_phone}</div>` : ''}
                                 <div><strong>Status:</strong> 
                                     <span class="badge ${customer.is_active ? 'badge-success' : 'badge-danger'}">
-                                        ${customer.is_active ? 'Active' : 'Inactive'}
+                                        ${customer.is_active ? 'Active ✅' : 'Inactive ❌'}
                                     </span>
                                 </div>
                             </div>
@@ -1175,7 +1175,7 @@
                             <h4 style="margin-bottom: 16px;">Agreement</h4>
                             <div style="display: flex; align-items: center; gap: 12px; background: var(--gray-50); padding: 16px; border-radius: 8px;">
                                 <i class="fas fa-file-check" style="color: var(--secondary-green);"></i>
-                                <span>Agreement document on file</span>
+                                <span>Agreement document on file ✅</span>
                                 <a href="${customer.agreement_file_url}" target="_blank" class="btn btn-sm btn-primary">
                                     <i class="fas fa-download"></i> Download
                                 </a>
@@ -1186,7 +1186,7 @@
                             <h4 style="margin-bottom: 16px;">Agreement</h4>
                             <div style="display: flex; align-items: center; gap: 12px; background: rgba(245, 158, 11, 0.1); padding: 16px; border-radius: 8px; color: var(--secondary-orange);">
                                 <i class="fas fa-file-exclamation"></i>
-                                <span>No agreement document on file</span>
+                                <span>No agreement document on file ❌</span>
                             </div>
                         </div>
                     `}

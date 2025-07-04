@@ -148,7 +148,7 @@ class ProductController:
             return {'success': False, 'message': f'Failed to retrieve products: {str(e)}'}
 
     def upload_product_image(self, file, product_id):
-        """Upload and resize product image"""
+        """Upload and resize product image - FIXED VERSION"""
         try:
             # Validate file
             if not file or not file.filename:
@@ -200,7 +200,7 @@ class ProductController:
             storage_handler = config.get_storage()
             
             if config.use_local_storage:
-                # Local storage
+                # Local storage - FIXED PATH
                 import os
                 file_path = f"products/{filename}"
                 full_path = os.path.join('uploads', file_path)
@@ -212,6 +212,7 @@ class ProductController:
                 with open(full_path, 'wb') as f:
                     f.write(img_bytes.getvalue())
                 
+                # Return URL path that matches the served route
                 return f"/uploads/{file_path}"
             else:
                 # Firebase Storage
