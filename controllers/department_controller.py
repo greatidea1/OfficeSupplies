@@ -156,6 +156,10 @@ class DepartmentController:
             department.customer_id = current_user.customer_id
             department.name = data['name']
             department.description = data.get('description', '')
+
+            # Set branch_id if provided
+            if 'branch_id' in data and data['branch_id']:
+                department.branch_id = data['branch_id']
             
             if department.save():
                 return {
@@ -169,6 +173,34 @@ class DepartmentController:
         except Exception as e:
             print(f"Create department error: {e}")
             return {'success': False, 'message': 'Failed to create department'}
+        
+    def get_branches_for_customer(self):
+        """Get branches for current customer"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user or current_user.role != 'customer_hr_admin':
+                return {'success': False, 'message': 'Only HR admins can view branches'}
+            
+            from models import Branch
+            branches = Branch.get_by_customer_id(current_user.customer_id)
+            
+            branch_list = []
+            for branch in branches:
+                if branch.is_active:
+                    branch_list.append({
+                        'branch_id': branch.branch_id,
+                        'name': branch.name,
+                        'address': branch.address
+                    })
+            
+            return {
+                'success': True,
+                'branches': branch_list
+            }
+            
+        except Exception as e:
+            print(f"Get branches error: {e}")
+            return {'success': False, 'message': 'Failed to retrieve branches'}
     
     def update_department(self, department_id):
         """Update department and assign users (HR Admin only)"""

@@ -15,6 +15,7 @@ from controllers.order_controller import order_controller
 from controllers.customer_controller import customer_controller
 from controllers.user_controller import user_controller
 from controllers.department_controller import department_controller
+from controllers.branch_controller import branch_controller
 
 # Import models
 from models import User, Customer, Product, Order, VendorSettings
@@ -1284,6 +1285,62 @@ def create_app():
         """API: Assign department head"""
         return jsonify(department_controller.assign_department_head(department_id))
     
+    # ================== BRANCH ROUTES ==================
+
+    @app.route('/branches')
+    @login_required
+    @role_required('customer_hr_admin')
+    def branches():
+        """Branch management page (HR Admin only)"""
+        return render_template('branches.html')
+
+    @app.route('/api/branches')
+    @login_required
+    def api_branches():
+        """API: Get branches list"""
+        return jsonify(branch_controller.get_branches())
+
+    @app.route('/api/branches', methods=['POST'])
+    @login_required
+    @role_required('customer_hr_admin')
+    def api_create_branch():
+        """API: Create new branch"""
+        return jsonify(branch_controller.create_branch())
+
+    @app.route('/api/branches/<branch_id>')
+    @login_required
+    def api_branch_details(branch_id):
+        """API: Get branch details"""
+        return jsonify(branch_controller.get_branch(branch_id))
+
+    @app.route('/api/branches/<branch_id>', methods=['PUT'])
+    @login_required
+    @role_required('customer_hr_admin')
+    def api_update_branch(branch_id):
+        """API: Update branch"""
+        return jsonify(branch_controller.update_branch(branch_id))
+
+    @app.route('/api/branches/<branch_id>', methods=['DELETE'])
+    @login_required
+    @role_required('customer_hr_admin')
+    def api_delete_branch(branch_id):
+        """API: Delete branch"""
+        return jsonify(branch_controller.delete_branch(branch_id))
+
+    @app.route('/api/branches/company-info')
+    @login_required
+    @role_required('customer_hr_admin')
+    def api_get_company_info():
+        """API: Get company information"""
+        return jsonify(branch_controller.get_company_info())
+
+    @app.route('/api/branches/company-info', methods=['PUT'])
+    @login_required
+    @role_required('customer_hr_admin')
+    def api_update_company_info():
+        """API: Update company information"""
+        return jsonify(branch_controller.update_company_info())
+    
     # ================== ORDER ROUTES ==================
     
     @app.route('/orders')
@@ -1405,6 +1462,20 @@ def create_app():
         customer_id = request.args.get('customer_id')
         return jsonify(user_controller.get_departments_for_customer(customer_id))
     
+    @app.route('/api/user-controller/branches')
+    @login_required
+    def api_get_branches():
+        """API: Get branches for dropdown"""
+        customer_id = request.args.get('customer_id')
+        return jsonify(user_controller.get_branches_for_customer(customer_id))
+
+    @app.route('/api/department-controller/branches')
+    @login_required
+    @role_required('customer_hr_admin')
+    def api_get_branches_for_departments():
+        """API: Get branches for department management"""
+        return jsonify(department_controller.get_branches_for_customer())
+    
     # ================== PROFILE ROUTES ==================
     
     @app.route('/profile')
@@ -1413,11 +1484,99 @@ def create_app():
         """User profile page"""
         return render_template('profile.html')
     
+    @app.route('/api/profile/data')
+    @login_required
+    def api_profile_data():
+        """API: Get enhanced profile data with branch info"""
+        try:
+            current_user = auth_controller.get_current_user()
+            if not current_user:
+                return jsonify({'success': False, 'message': 'Authentication required'})
+            
+            profile_data = {
+                'user_id': current_user.user_id,
+                'username': current_user.username,
+                'full_name': current_user.full_name,
+                'email': current_user.email,
+                'role': current_user.role,
+                'is_active': current_user.is_active,
+                'last_login': current_user.last_login,
+                'customer_id': current_user.customer_id,
+                'department_id': current_user.department_id,
+                'branch_id': getattr(current_user, 'branch_id', None)
+            }
+            
+            # Add company info for customer users
+            if current_user.role.startswith('customer_') and current_user.customer_id:
+                from models import Customer, Department, Branch
+                
+                customer = Customer.get_by_id(current_user.customer_id)
+                if customer:
+                    profile_data['company_name'] = customer.company_name
+                    profile_data['company_alias'] = getattr(customer, 'company_alias', '')
+                
+                # Add department info
+                if current_user.department_id:
+                    department = Department.get_by_id(current_user.department_id)
+                    if department:
+                        profile_data['department_name'] = department.name
+                
+                # Add branch info
+                if hasattr(current_user, 'branch_id') and current_user.branch_id:
+                    branch = Branch.get_by_id(current_user.branch_id)
+                    if branch:
+                        profile_data['branch_name'] = branch.name
+                        profile_data['branch_address'] = branch.address
+            
+            return jsonify({
+                'success': True,
+                'profile': profile_data
+            })
+            
+        except Exception as e:
+            print(f"Get profile data error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve profile data'})
+    
     @app.route('/api/profile', methods=['PUT'])
     @login_required
     def api_update_profile():
-        """API: Update user profile"""
-        return jsonify(user_controller.update_profile())
+        """API: Update user profile with email support"""
+        try:
+            current_user = auth_controller.get_current_user()
+            if not current_user:
+                return jsonify({'success': False, 'message': 'Authentication required'})
+            
+            data = request.get_json()
+            
+            # Update allowed fields
+            updateable_fields = ['full_name']
+            
+            # Allow customer users to update email
+            if current_user.role.startswith('customer_'):
+                updateable_fields.append('email')
+                
+                # If email is being updated, check if it already exists
+                if 'email' in data and data['email'] != current_user.email:
+                    from models import User
+                    existing_user = User.get_by_email(data['email'])
+                    if existing_user and existing_user.user_id != current_user.user_id:
+                        return jsonify({'success': False, 'message': 'Email address already exists'})
+            
+            for field in updateable_fields:
+                if field in data:
+                    setattr(current_user, field, data[field])
+            
+            if current_user.save():
+                return jsonify({
+                    'success': True,
+                    'message': 'Profile updated successfully'
+                })
+            else:
+                return jsonify({'success': False, 'message': 'Failed to update profile'})
+                
+        except Exception as e:
+            print(f"Update profile error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to update profile'})
     
     # ================== SETTINGS ROUTES ==================
     

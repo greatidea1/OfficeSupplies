@@ -213,11 +213,21 @@
                                 <label class="form-label">Full Name</label>
                                 <input type="text" class="form-control" name="full_name" value="{{ current_user.full_name or '' }}">
                             </div>
+                            
+                            {% if current_user.role.startswith('customer_') %}
+                            <div class="form-group">
+                                <label class="form-label">Email Address</label>
+                                <input type="email" class="form-control" name="email" value="{{ current_user.email }}">
+                                <span class="form-help">You can update your email address</span>
+                            </div>
+                            {% else %}
                             <div class="form-group">
                                 <label class="form-label">Email Address</label>
                                 <input type="email" class="form-control" value="{{ current_user.email }}" disabled>
                                 <span class="form-help">Email cannot be changed</span>
                             </div>
+                            {% endif %}
+                            
                             <div class="form-group">
                                 <label class="form-label">Username</label>
                                 <input type="text" class="form-control" value="{{ current_user.username }}" disabled>

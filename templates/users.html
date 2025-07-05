@@ -396,14 +396,25 @@
                     <span class="form-error"></span>
                 </div>
                 
+                {% if current_user.role == 'customer_hr_admin' %}
                 <div class="form-group">
-                    <label class="form-label">Department</label>
-                    <select class="form-control" name="department_id" id="userDepartment">
-                        <option value="">Select Department</option>
+                    <label class="form-label">Branch</label>
+                    <select class="form-control" name="branch_id" id="userBranch">
+                        <option value="">Select Branch</option>
                     </select>
-                    <span class="form-help">Required for employees and department heads</span>
+                    <span class="form-help">Optional for all roles</span>
                     <span class="form-error"></span>
                 </div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Department</label>
+                <select class="form-control" name="department_id" id="userDepartment">
+                    <option value="">Select Department</option>
+                </select>
+                <span class="form-help">Required for employees and department heads</span>
+                <span class="form-error"></span>
             </div>
             
             <!-- Customer Selection (for vendor users) -->
@@ -462,6 +473,17 @@
                         </select>
                         <span class="form-error"></span>
                     </div>
+
+                    {% if current_user.role == 'customer_hr_admin' %}
+                    <!-- Branch Selection for editing -->
+                    <div class="form-group" id="editBranchGroup">
+                        <label class="form-label">Branch</label>
+                        <select class="form-control" name="branch_id" id="editBranch">
+                            <option value="">Select Branch</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+                    {% endif %}
                     
                     <div class="form-group">
                         <label class="form-label">Status</label>
@@ -574,7 +596,37 @@
             firstNameField.addEventListener('input', generateUsername);
             lastNameField.addEventListener('input', generateUsername);
         }
+
+        {% if current_user.role == 'customer_hr_admin' %}
+        loadBranchesForForm();
+        {% endif %}
     }
+
+    {% if current_user.role == 'customer_hr_admin' %}
+    async function loadBranchesForForm() {
+        try {
+            const response = await apiCall('/user-controller/branches?customer_id={{ current_user.customer_id }}');
+            const branchSelect = document.getElementById('userBranch');
+            const editBranchSelect = document.getElementById('editBranch');
+            
+            if (response.success && response.branches) {
+                const branchOptions = '<option value="">Select Branch</option>' +
+                    response.branches.map(branch => 
+                        `<option value="${branch.branch_id}">${branch.name}</option>`
+                    ).join('');
+                
+                if (branchSelect) {
+                    branchSelect.innerHTML = branchOptions;
+                }
+                if (editBranchSelect) {
+                    editBranchSelect.innerHTML = branchOptions;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading branches for form:', error);
+        }
+    }
+    {% endif %}
     
     function generateUsername() {
         const firstNameField = document.querySelector('[name="first_name"]');
@@ -1057,6 +1109,14 @@
             if (departmentField?.value) {
                 userData.department_id = departmentField.value;
             }
+
+            // Add branch_id if selected
+            {% if current_user.role == 'customer_hr_admin' %}
+            const branchField = document.querySelector('#addUserModal [name="branch_id"]');
+            if (branchField?.value) {
+                userData.branch_id = branchField.value;
+            }
+            {% endif %}
             
             console.log('Submitting user data:', userData);
             
@@ -1087,7 +1147,7 @@
     async function editUser(userId) {
         try {
             const response = await apiCall(`/users/${userId}`);
-            
+        
             if (response.success) {
                 const user = response.user;
                 
@@ -1097,6 +1157,14 @@
                 document.getElementById('editEmail').value = user.email;
                 document.getElementById('editRole').value = user.role;
                 document.getElementById('editStatus').value = user.is_active.toString();
+
+                // Handle branch selection
+                {% if current_user.role == 'customer_hr_admin' %}
+                const editBranchSelect = document.getElementById('editBranch');
+                if (editBranchSelect && user.branch_id) {
+                    editBranchSelect.value = user.branch_id;
+                }
+                {% endif %}
                 
                 // Handle department selection for employees
                 if (user.role === 'customer_employee' && user.department_id) {
@@ -1143,6 +1211,13 @@
             if (formData.get('department_id')) {
                 userData.department_id = formData.get('department_id');
             }
+
+            // Add branch_id if selected
+            {% if current_user.role == 'customer_hr_admin' %}
+            if (formData.get('branch_id')) {
+                userData.branch_id = formData.get('branch_id');
+            }
+            {% endif %}
             
             const response = await apiCall(`/users/${userId}`, {
                 method: 'PUT',

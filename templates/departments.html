@@ -504,6 +504,15 @@
                     <textarea class="form-control" name="description" rows="3" placeholder="Optional description of the department"></textarea>
                     <span class="form-error"></span>
                 </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Branch (Optional)</label>
+                    <select class="form-control" name="branch_id" id="departmentBranch">
+                        <option value="">Select Branch</option>
+                    </select>
+                    <span class="form-help">Associate this department with a specific branch</span>
+                    <span class="form-error"></span>
+                </div>
             </form>
         </div>
         <div class="modal-footer">
@@ -533,6 +542,15 @@
                 <div class="form-group">
                     <label class="form-label">Description</label>
                     <textarea class="form-control" name="description" id="editDepartmentDescription" rows="3"></textarea>
+                    <span class="form-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Branch</label>
+                    <select class="form-control" name="branch_id" id="editDepartmentBranch">
+                        <option value="">Select Branch</option>
+                    </select>
+                    <span class="form-help">Associate this department with a specific branch</span>
                     <span class="form-error"></span>
                 </div>
                 
@@ -693,6 +711,33 @@
             firstNameField.addEventListener('input', generateUsernameDept);
             lastNameField.addEventListener('input', generateUsernameDept);
         }
+
+        // Load branches for department form
+        loadBranchesForDepartments();
+    }
+
+    async function loadBranchesForDepartments() {
+        try {
+            const response = await apiCall('/department-controller/branches');
+            const branchSelect = document.getElementById('departmentBranch');
+            const editBranchSelect = document.getElementById('editDepartmentBranch');
+            
+            if (response.success && response.branches) {
+                const branchOptions = '<option value="">Select Branch</option>' +
+                    response.branches.map(branch => 
+                        `<option value="${branch.branch_id}">${branch.name}</option>`
+                    ).join('');
+                
+                if (branchSelect) {
+                    branchSelect.innerHTML = branchOptions;
+                }
+                if (editBranchSelect) {
+                    editBranchSelect.innerHTML = branchOptions;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading branches for departments:', error);
+        }
     }
     
     function generateUsernameDept() {
@@ -843,6 +888,7 @@
                 <div class="department-header">
                     <div class="department-name">${dept.name}</div>
                     <div class="department-description">${dept.description || 'No description'}</div>
+                    ${dept.branch_name ? `<div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">📍 ${dept.branch_name}</div>` : ''}
                 </div>
                 <div class="department-body">
                     <div class="department-stats">
@@ -959,7 +1005,8 @@
         try {
             const deptData = {
                 name: formData.get('name'),
-                description: formData.get('description') || ''
+                description: formData.get('description') || '',
+                branch_id: formData.get('branch_id') || null
             };
             
             const response = await apiCall('/departments', {
@@ -992,6 +1039,12 @@
             document.getElementById('editDepartmentId').value = dept.department_id;
             document.getElementById('editDepartmentName').value = dept.name;
             document.getElementById('editDepartmentDescription').value = dept.description || '';
+            
+            // Set branch selection
+            const editBranchSelect = document.getElementById('editDepartmentBranch');
+            if (editBranchSelect && dept.branch_id) {
+                editBranchSelect.value = dept.branch_id;
+            }
             
             // Load users assignment grid
             await loadUsersAssignmentGrid(departmentId);
@@ -1050,6 +1103,7 @@
             const deptData = {
                 name: formData.get('name'),
                 description: formData.get('description') || '',
+                branch_id: formData.get('branch_id') || null,
                 user_assignments: selectedUsers
             };
             

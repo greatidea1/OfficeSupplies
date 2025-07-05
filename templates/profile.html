@@ -347,7 +347,7 @@
                 <div class="profile-info">
                     <div class="profile-stat">
                         <span class="stat-label">Full Name</span>
-                        <span class="stat-value">{{ current_user.full_name }}</span>
+                        <span class="stat-value">{{ current_user.full_name or 'Not set' }}</span>
                     </div>
                     <div class="profile-stat">
                         <span class="stat-label">Username</span>
@@ -358,6 +358,10 @@
                         <span class="stat-value">{{ current_user.email }}</span>
                     </div>
                     <div class="profile-stat">
+                        <span class="stat-label">Role</span>
+                        <span class="stat-value">{{ current_user.role.replace('_', ' ').title() }}</span>
+                    </div>
+                    <div class="profile-stat">
                         <span class="stat-label">Status</span>
                         <span class="stat-value" style="color: var(--secondary-green);">Active</span>
                     </div>
@@ -365,9 +369,23 @@
                         <span class="stat-label">Last Login</span>
                         <span class="stat-value" id="lastLoginTime">{{ current_user.last_login.strftime('%b %d, %Y') if current_user.last_login else 'Never' }}</span>
                     </div>
+                    {% if current_user.role.startswith('customer_') %}
+                    <div class="profile-stat">
+                        <span class="stat-label">Company</span>
+                        <span class="stat-value" id="companyName">Loading...</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="stat-label">Branch</span>
+                        <span class="stat-value" id="branchName">Loading...</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="stat-label">Department</span>
+                        <span class="stat-value" id="departmentName">Loading...</span>
+                    </div>
+                    {% endif %}
                     {% if current_user.customer_id %}
                     <div class="profile-stat">
-                        <span class="stat-label">Organization Customer ID</span>
+                        <span class="stat-label">Customer ID</span>
                         <span class="stat-value">{{ current_user.customer_id }}</span>
                     </div>
                     {% endif %}
@@ -483,28 +501,73 @@
     
     async function loadProfileData() {
         try {
-            // Load organization info for customer users
-            {% if current_user.customer_id %}
-            const customerResponse = await apiCall('/customers/current');
-            if (customerResponse.success) {
-                document.getElementById('organizationName').textContent = customerResponse.customer.company_name;
+            // Load enhanced profile data
+            const profileResponse = await apiCall('/profile/data');
+            if (profileResponse.success) {
+                const profile = profileResponse.profile;
+                
+                // Update company info for customer users
+                if (profile.company_name) {
+                    const companyNameElement = document.getElementById('companyName');
+                    if (companyNameElement) {
+                        const displayName = profile.company_alias ? 
+                            `${profile.company_alias} (${profile.company_name})` : 
+                            profile.company_name;
+                        companyNameElement.textContent = displayName;
+                    }
+                }
+                
+                // Update branch info
+                const branchNameElement = document.getElementById('branchName');
+                if (branchNameElement) {
+                    if (profile.branch_name) {
+                        branchNameElement.textContent = profile.branch_name;
+                    } else {
+                        branchNameElement.textContent = 'Not assigned';
+                        branchNameElement.style.color = 'var(--gray-500)';
+                        branchNameElement.style.fontStyle = 'italic';
+                    }
+                }
+                
+                // Update department info
+                const departmentNameElement = document.getElementById('departmentName');
+                if (departmentNameElement) {
+                    if (profile.department_name) {
+                        departmentNameElement.textContent = profile.department_name;
+                    } else {
+                        departmentNameElement.textContent = 'Not assigned';
+                        departmentNameElement.style.color = 'var(--gray-500)';
+                        departmentNameElement.style.fontStyle = 'italic';
+                    }
+                }
             }
-            {% endif %}
-            
-            // Load department info if applicable
-            {% if current_user.department_id %}
-            const deptResponse = await apiCall('/users/departments');
-            if (deptResponse.success) {
-                const department = deptResponse.departments.find(d => d.department_id === '{{ current_user.department_id }}');
-                document.getElementById('departmentName').textContent = department ? department.name : 'Unknown';
-            }
-            {% endif %}
             
             // Load activity statistics
             await loadActivityStats();
             
         } catch (error) {
             console.error('Error loading profile data:', error);
+            
+            // Set fallback values for customer users
+            {% if current_user.role.startswith('customer_') %}
+            const companyNameElement = document.getElementById('companyName');
+            if (companyNameElement) {
+                companyNameElement.textContent = 'Unable to load';
+                companyNameElement.style.color = 'var(--gray-500)';
+            }
+            
+            const branchNameElement = document.getElementById('branchName');
+            if (branchNameElement) {
+                branchNameElement.textContent = 'Unable to load';
+                branchNameElement.style.color = 'var(--gray-500)';
+            }
+            
+            const departmentNameElement = document.getElementById('departmentName');
+            if (departmentNameElement) {
+                departmentNameElement.textContent = 'Unable to load';
+                departmentNameElement.style.color = 'var(--gray-500)';
+            }
+            {% endif %}
         }
     }
     

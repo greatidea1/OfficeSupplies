@@ -140,7 +140,7 @@ class UserController:
             return {'success': False, 'message': 'Failed to retrieve user'}
     
     def create_user(self):
-        """Create new user - UPDATED VERSION"""
+        """Create new user - FIXED VERSION"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -173,7 +173,7 @@ class UserController:
                 if not data.get('department_id'):
                     return {'success': False, 'message': 'Department is required for employees and department heads'}
             
-            # Create user
+            # Create user - THIS IS WHERE user VARIABLE IS CREATED
             user = User(
                 username=data['username'],
                 email=data['email'],
@@ -204,6 +204,10 @@ class UserController:
             if 'department_id' in data and data['department_id']:
                 user.department_id = data['department_id']
             
+            # Set branch_id if provided - NOW user VARIABLE EXISTS
+            if 'branch_id' in data and data['branch_id']:
+                user.branch_id = data['branch_id']
+            
             if user.save():
                 # Send welcome email if requested
                 send_email = data.get('send_email', False)
@@ -223,6 +227,42 @@ class UserController:
             import traceback
             traceback.print_exc()
             return {'success': False, 'message': 'Failed to create user'}
+        
+    def get_branches_for_customer(self, customer_id=None):
+        """Get branches for dropdown (Customer users or vendor with customer_id)"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            # Determine customer_id to use
+            if current_user.role.startswith('customer_'):
+                target_customer_id = current_user.customer_id
+            elif current_user.role.startswith('vendor_') and customer_id:
+                target_customer_id = customer_id
+            else:
+                return {'success': False, 'message': 'Customer ID required'}
+            
+            from models import Branch
+            branches = Branch.get_by_customer_id(target_customer_id)
+            
+            branch_list = []
+            for branch in branches:
+                if branch.is_active:
+                    branch_list.append({
+                        'branch_id': branch.branch_id,
+                        'name': branch.name,
+                        'address': branch.address
+                    })
+            
+            return {
+                'success': True,
+                'branches': branch_list
+            }
+            
+        except Exception as e:
+            print(f"Get branches error: {e}")
+            return {'success': False, 'message': 'Failed to retrieve branches'}
         
     def send_welcome_email_without_password(self, user):
         """Send welcome email without exposing password"""

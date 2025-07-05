@@ -1,0 +1,994 @@
+{% extends "base.html" %}
+
+{% block title %}Branch Management - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .branches-container {
+        padding: 32px 0;
+    }
+    
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .company-info-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        margin-bottom: 32px;
+        overflow: hidden;
+    }
+    
+    .company-header {
+        padding: 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+        color: white;
+    }
+    
+    .company-body {
+        padding: 24px;
+    }
+    
+    .company-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+    
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .info-label {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        font-weight: 500;
+    }
+    
+    .info-value {
+        font-size: 1rem;
+        color: var(--gray-900);
+        font-weight: 600;
+    }
+    
+    .branches-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+    
+    .branch-card {
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .branch-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--primary-blue);
+    }
+    
+    .branch-header {
+        padding: 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: linear-gradient(135deg, var(--secondary-green), #059669);
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .branch-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 100px;
+        height: 100px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+    
+    .branch-name {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    
+    .branch-address {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+    
+    .branch-body {
+        padding: 20px;
+    }
+    
+    .branch-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    
+    .branch-stat {
+        text-align: center;
+        padding: 12px;
+        background: var(--gray-50);
+        border-radius: 8px;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--primary-blue);
+        margin-bottom: 4px;
+    }
+    
+    .stat-text {
+        font-size: 0.75rem;
+        color: var(--gray-600);
+    }
+    
+    .branch-details {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    
+    .branch-detail {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+    
+    .branch-footer {
+        padding: 16px 20px;
+        border-top: 1px solid var(--gray-200);
+        background: var(--gray-50);
+        display: flex;
+        gap: 8px;
+    }
+    
+    .action-btn {
+        flex: 1;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-view {
+        background: var(--primary-blue);
+        color: white;
+    }
+    
+    .btn-view:hover {
+        background: var(--primary-blue-dark);
+    }
+    
+    .btn-edit {
+        background: var(--secondary-orange);
+        color: white;
+    }
+    
+    .btn-edit:hover {
+        opacity: 0.9;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--gray-500);
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--gray-200);
+    }
+    
+    .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.3;
+    }
+    
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow-xl);
+        max-width: 600px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        animation: modalSlideIn 0.3s ease;
+    }
+    
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .modal-header {
+        padding: 24px 24px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: var(--gray-400);
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: var(--transition);
+    }
+    
+    .modal-close:hover {
+        background: var(--gray-100);
+        color: var(--gray-600);
+    }
+    
+    .modal-body {
+        padding: 24px;
+    }
+    
+    .modal-footer {
+        padding: 0 24px 24px;
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    
+    @media (max-width: 768px) {
+        .branches-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .branch-stats {
+            grid-template-columns: 1fr;
+        }
+        
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+        
+        .company-info-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="branches-container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Branch Management</h1>
+                <p style="color: var(--gray-600); margin: 8px 0 0 0;">Manage company branches and locations</p>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-secondary" onclick="showCompanyInfoModal()">
+                    <i class="fas fa-building"></i>
+                    Company Info
+                </button>
+                <button class="btn btn-primary" onclick="showAddBranchModal()">
+                    <i class="fas fa-plus"></i>
+                    Add Branch
+                </button>
+            </div>
+        </div>
+        
+        <!-- Company Information Section -->
+        <div class="company-info-section">
+            <div class="company-header">
+                <h3 style="margin: 0; font-size: 1.5rem;">Company Information</h3>
+                <p style="margin: 8px 0 0 0; opacity: 0.9;">Organization details and alias</p>
+            </div>
+            <div class="company-body">
+                <div class="company-info-grid" id="companyInfoGrid">
+                    <!-- Company info will be loaded here -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="branches-grid" id="branchesGrid">
+            <!-- Branches will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<!-- Add Branch Modal -->
+<div class="modal" id="addBranchModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Add New Branch</h3>
+            <button class="modal-close" onclick="closeAddBranchModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="addBranchForm">
+                <div class="form-group">
+                    <label class="form-label">Branch Name</label>
+                    <input type="text" class="form-control" name="name" required>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Branch Address</label>
+                    <textarea class="form-control" name="address" rows="3" required></textarea>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Phone (Optional)</label>
+                        <input type="tel" class="form-control" name="phone">
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Email (Optional)</label>
+                        <input type="email" class="form-control" name="email">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Branch Manager (Optional)</label>
+                    <input type="text" class="form-control" name="manager_name">
+                    <span class="form-error"></span>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeAddBranchModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddBranch()">Create Branch</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Branch Modal -->
+<div class="modal" id="editBranchModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Edit Branch</h3>
+            <button class="modal-close" onclick="closeEditBranchModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editBranchForm">
+                <input type="hidden" name="branch_id" id="editBranchId">
+                
+                <div class="form-group">
+                    <label class="form-label">Branch Name</label>
+                    <input type="text" class="form-control" name="name" id="editBranchName" required>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Branch Address</label>
+                    <textarea class="form-control" name="address" id="editBranchAddress" rows="3" required></textarea>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Phone</label>
+                        <input type="tel" class="form-control" name="phone" id="editBranchPhone">
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" id="editBranchEmail">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Branch Manager</label>
+                    <input type="text" class="form-control" name="manager_name" id="editBranchManager">
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-control" name="is_active" id="editBranchStatus">
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-danger" onclick="deleteBranch()">Delete Branch</button>
+            <button class="btn btn-secondary" onclick="closeEditBranchModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitEditBranch()">Update Branch</button>
+        </div>
+    </div>
+</div>
+
+<!-- Company Info Modal -->
+<div class="modal" id="companyInfoModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Company Information</h3>
+            <button class="modal-close" onclick="closeCompanyInfoModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="companyInfoForm">
+                <div class="form-group">
+                    <label class="form-label">Company Name</label>
+                    <input type="text" class="form-control" id="companyName" disabled>
+                    <span class="form-help">Company name cannot be changed</span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Company Alias</label>
+                    <input type="text" class="form-control" name="company_alias" id="companyAlias" placeholder="Enter a short alias for your company">
+                    <span class="form-help">This alias will be used in reports and displays</span>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Customer ID</label>
+                    <input type="text" class="form-control" id="customerId" disabled>
+                    <span class="form-help">Unique customer identifier</span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Primary Email</label>
+                    <input type="email" class="form-control" id="companyEmail" disabled>
+                    <span class="form-help">Primary company email address</span>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeCompanyInfoModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitCompanyInfo()">Update Company Info</button>
+        </div>
+    </div>
+</div>
+
+<!-- Branch Details Modal -->
+<div class="modal" id="branchDetailsModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title" id="branchDetailsTitle">Branch Details</h3>
+            <button class="modal-close" onclick="closeBranchDetailsModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="branchDetailsBody">
+            <!-- Branch details will be loaded here -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeBranchDetailsModal()">Close</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let branches = [];
+    let companyInfo = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCompanyInfo();
+        loadBranches();
+    });
+    
+    async function loadCompanyInfo() {
+        try {
+            const response = await apiCall('/branches/company-info');
+            
+            if (response.success) {
+                companyInfo = response.company;
+                displayCompanyInfo();
+            } else {
+                console.error('Failed to load company info:', response.message);
+            }
+        } catch (error) {
+            console.error('Error loading company info:', error);
+        }
+    }
+    
+    function displayCompanyInfo() {
+        const grid = document.getElementById('companyInfoGrid');
+        
+        if (!companyInfo) {
+            grid.innerHTML = '<div style="color: var(--gray-500);">Loading company information...</div>';
+            return;
+        }
+        
+        grid.innerHTML = `
+            <div class="info-item">
+                <div class="info-label">Company Name</div>
+                <div class="info-value">${companyInfo.company_name}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Company Alias</div>
+                <div class="info-value">${companyInfo.company_alias || 'Not set'}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Customer ID</div>
+                <div class="info-value">${companyInfo.customer_id}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Primary Email</div>
+                <div class="info-value">${companyInfo.email}</div>
+            </div>
+        `;
+    }
+    
+    async function loadBranches() {
+        try {
+            const response = await apiCall('/branches');
+            
+            if (response.success) {
+                branches = response.branches;
+                displayBranches();
+            } else {
+                showEmptyState('Failed to load branches');
+            }
+        } catch (error) {
+            console.error('Error loading branches:', error);
+            showEmptyState('Error loading branches');
+        }
+    }
+    
+    function displayBranches() {
+        const grid = document.getElementById('branchesGrid');
+        
+        if (branches.length === 0) {
+            showEmptyState('No branches found');
+            return;
+        }
+        
+        grid.innerHTML = branches.map(branch => `
+            <div class="branch-card" onclick="viewBranch('${branch.branch_id}')">
+                <div class="branch-header">
+                    <div class="branch-name">${branch.name}</div>
+                    <div class="branch-address">${branch.address}</div>
+                </div>
+                <div class="branch-body">
+                    <div class="branch-stats">
+                        <div class="branch-stat">
+                            <div class="stat-number">${branch.user_count || 0}</div>
+                            <div class="stat-text">Users</div>
+                        </div>
+                        <div class="branch-stat">
+                            <div class="stat-number">${branch.department_count || 0}</div>
+                            <div class="stat-text">Departments</div>
+                        </div>
+                    </div>
+                    
+                    <div class="branch-details">
+                        ${branch.phone ? `
+                            <div class="branch-detail">
+                                <i class="fas fa-phone"></i>
+                                <span>${branch.phone}</span>
+                            </div>
+                        ` : ''}
+                        ${branch.email ? `
+                            <div class="branch-detail">
+                                <i class="fas fa-envelope"></i>
+                                <span>${branch.email}</span>
+                            </div>
+                        ` : ''}
+                        ${branch.manager_name ? `
+                            <div class="branch-detail">
+                                <i class="fas fa-user-tie"></i>
+                                <span>${branch.manager_name}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                <div class="branch-footer">
+                    <button class="action-btn btn-view" onclick="event.stopPropagation(); viewBranch('${branch.branch_id}')">
+                        View Details
+                    </button>
+                    <button class="action-btn btn-edit" onclick="event.stopPropagation(); editBranch('${branch.branch_id}')">
+                        Edit
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function showEmptyState(message) {
+        const grid = document.getElementById('branchesGrid');
+        grid.innerHTML = `
+            <div class="empty-state" style="grid-column: 1 / -1;">
+                <div class="empty-state-icon">
+                    <i class="fas fa-map-marker-alt"></i>
+                </div>
+                <div style="font-size: 1.25rem; font-weight: 600; margin-bottom: 8px; color: var(--gray-700);">${message}</div>
+                <div style="font-size: 1rem; margin-bottom: 20px;">Create branches to organize your company locations</div>
+                <button class="btn btn-primary" onclick="showAddBranchModal()">
+                    <i class="fas fa-plus"></i>
+                    Add Branch
+                </button>
+            </div>
+        `;
+    }
+    
+    // Modal Functions
+    function showCompanyInfoModal() {
+        if (companyInfo) {
+            document.getElementById('companyName').value = companyInfo.company_name;
+            document.getElementById('companyAlias').value = companyInfo.company_alias || '';
+            document.getElementById('customerId').value = companyInfo.customer_id;
+            document.getElementById('companyEmail').value = companyInfo.email;
+        }
+        document.getElementById('companyInfoModal').classList.add('show');
+    }
+    
+    function closeCompanyInfoModal() {
+        document.getElementById('companyInfoModal').classList.remove('show');
+        document.getElementById('companyInfoForm').reset();
+    }
+    
+    async function submitCompanyInfo() {
+        const form = document.getElementById('companyInfoForm');
+        const formData = new FormData(form);
+        
+        try {
+            const companyData = {
+                company_alias: formData.get('company_alias')
+            };
+            
+            const response = await apiCall('/branches/company-info', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(companyData)
+            });
+            
+            if (response.success) {
+                showNotification('Company information updated successfully!', 'success');
+                closeCompanyInfoModal();
+                loadCompanyInfo();
+            } else {
+                showNotification(response.message || 'Failed to update company information', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating company info:', error);
+            showNotification('Failed to update company information', 'error');
+        }
+    }
+    
+    function showAddBranchModal() {
+        document.getElementById('addBranchModal').classList.add('show');
+        document.querySelector('[name="name"]').focus();
+    }
+    
+    function closeAddBranchModal() {
+        document.getElementById('addBranchModal').classList.remove('show');
+        document.getElementById('addBranchForm').reset();
+    }
+    
+    async function submitAddBranch() {
+        const form = document.getElementById('addBranchForm');
+        const formData = new FormData(form);
+        
+        if (!validateForm(form)) {
+            return;
+        }
+        
+        try {
+            const branchData = {
+                name: formData.get('name'),
+                address: formData.get('address'),
+                phone: formData.get('phone') || '',
+                email: formData.get('email') || '',
+                manager_name: formData.get('manager_name') || ''
+            };
+            
+            const response = await apiCall('/branches', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(branchData)
+            });
+            
+            if (response.success) {
+                showNotification('Branch created successfully!', 'success');
+                closeAddBranchModal();
+                loadBranches();
+            } else {
+                showNotification(response.message || 'Failed to create branch', 'error');
+            }
+        } catch (error) {
+            console.error('Error creating branch:', error);
+            showNotification('Failed to create branch', 'error');
+        }
+    }
+    
+    async function editBranch(branchId) {
+        try {
+            const branch = branches.find(b => b.branch_id === branchId);
+            if (!branch) return;
+            
+            // Populate edit form
+            document.getElementById('editBranchId').value = branch.branch_id;
+            document.getElementById('editBranchName').value = branch.name;
+            document.getElementById('editBranchAddress').value = branch.address;
+            document.getElementById('editBranchPhone').value = branch.phone || '';
+            document.getElementById('editBranchEmail').value = branch.email || '';
+            document.getElementById('editBranchManager').value = branch.manager_name || '';
+            document.getElementById('editBranchStatus').value = branch.is_active.toString();
+            
+            document.getElementById('editBranchModal').classList.add('show');
+        } catch (error) {
+            console.error('Error loading branch for edit:', error);
+        }
+    }
+    
+    function closeEditBranchModal() {
+        document.getElementById('editBranchModal').classList.remove('show');
+        document.getElementById('editBranchForm').reset();
+    }
+    
+    async function submitEditBranch() {
+        const form = document.getElementById('editBranchForm');
+        const formData = new FormData(form);
+        const branchId = formData.get('branch_id');
+        
+        if (!validateForm(form)) {
+            return;
+        }
+        
+        try {
+            const branchData = {
+                name: formData.get('name'),
+                address: formData.get('address'),
+                phone: formData.get('phone'),
+                email: formData.get('email'),
+                manager_name: formData.get('manager_name'),
+                is_active: formData.get('is_active') === 'true'
+            };
+            
+            const response = await apiCall(`/branches/${branchId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(branchData)
+            });
+            
+            if (response.success) {
+                showNotification('Branch updated successfully!', 'success');
+                closeEditBranchModal();
+                loadBranches();
+            } else {
+                showNotification(response.message || 'Failed to update branch', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating branch:', error);
+            showNotification('Failed to update branch', 'error');
+        }
+    }
+    
+    async function deleteBranch() {
+        const branchId = document.getElementById('editBranchId').value;
+        const branchName = document.getElementById('editBranchName').value;
+        
+        if (!confirm(`Are you sure you want to delete the "${branchName}" branch? All users and departments in this branch will become unassigned.`)) {
+            return;
+        }
+        
+        try {
+            const response = await apiCall(`/branches/${branchId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.success) {
+                showNotification('Branch deleted successfully!', 'success');
+                closeEditBranchModal();
+                loadBranches();
+            } else {
+                showNotification(response.message || 'Failed to delete branch', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting branch:', error);
+            showNotification('Failed to delete branch', 'error');
+        }
+    }
+    
+    async function viewBranch(branchId) {
+        try {
+            const response = await apiCall(`/branches/${branchId}`);
+            
+            if (response.success) {
+                const branch = response.branch;
+                
+                document.getElementById('branchDetailsTitle').textContent = branch.name;
+                document.getElementById('branchDetailsBody').innerHTML = `
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="margin-bottom: 16px;">Branch Information</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div><strong>Name:</strong> ${branch.name}</div>
+                            <div><strong>Status:</strong> 
+                                <span class="badge ${branch.is_active ? 'badge-success' : 'badge-danger'}">
+                                    ${branch.is_active ? 'Active ✅' : 'Inactive ❌'}
+                                </span>
+                            </div>
+                            <div style="grid-column: 1 / -1;"><strong>Address:</strong> ${branch.address}</div>
+                            ${branch.phone ? `<div><strong>Phone:</strong> ${branch.phone}</div>` : ''}
+                            ${branch.email ? `<div><strong>Email:</strong> ${branch.email}</div>` : ''}
+                            ${branch.manager_name ? `<div><strong>Manager:</strong> ${branch.manager_name}</div>` : ''}
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="margin-bottom: 16px;">Statistics</h4>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                            <div style="text-align: center; padding: 16px; background: var(--gray-50); border-radius: 8px;">
+                                <div style="font-size: 1.5rem; font-weight: 600; color: var(--primary-blue);">${branch.users ? branch.users.length : 0}</div>
+                                <div style="font-size: 0.875rem; color: var(--gray-600);">Total Users</div>
+                            </div>
+                            <div style="text-align: center; padding: 16px; background: var(--gray-50); border-radius: 8px;">
+                                <div style="font-size: 1.5rem; font-weight: 600; color: var(--secondary-green);">${branch.departments ? branch.departments.length : 0}</div>
+                                <div style="font-size: 0.875rem; color: var(--gray-600);">Departments</div>
+                            </div>
+                            <div style="text-align: center; padding: 16px; background: var(--gray-50); border-radius: 8px;">
+                                <div style="font-size: 1.5rem; font-weight: 600; color: var(--secondary-orange);">0</div>
+                                <div style="font-size: 0.875rem; color: var(--gray-600);">Orders</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${branch.users && branch.users.length > 0 ? `
+                        <div style="margin-bottom: 24px;">
+                            <h4 style="margin-bottom: 16px;">Users in Branch</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
+                                ${branch.users.map(user => `
+                                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--gray-50); border-radius: 8px;">
+                                        <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--primary-blue); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600;">
+                                            ${(user.full_name || user.username).charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 500;">${user.full_name || user.username}</div>
+                                            <div style="font-size: 0.875rem; color: var(--gray-600);">${formatRole(user.role)}</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${branch.departments && branch.departments.length > 0 ? `
+                        <div>
+                            <h4 style="margin-bottom: 16px;">Departments in Branch</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
+                                ${branch.departments.map(dept => `
+                                    <div style="padding: 12px; background: var(--gray-50); border-radius: 8px;">
+                                        <div style="font-weight: 500;">${dept.name}</div>
+                                        <div style="font-size: 0.875rem; color: var(--gray-600);">${dept.description || 'No description'}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                `;
+                
+                document.getElementById('branchDetailsModal').classList.add('show');
+            }
+        } catch (error) {
+            console.error('Error loading branch details:', error);
+        }
+    }
+    
+    function closeBranchDetailsModal() {
+        document.getElementById('branchDetailsModal').classList.remove('show');
+    }
+    
+    function formatRole(role) {
+        const roleMap = {
+            'customer_hr_admin': 'HR Admin',
+            'customer_dept_head': 'Department Head',
+            'customer_employee': 'Employee'
+        };
+        return roleMap[role] || role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+    
+    function validateForm(form) {
+        const requiredFields = form.querySelectorAll('[required]');
+        let isValid = true;
+        
+        requiredFields.forEach(field => {
+            const errorSpan = field.parentNode.querySelector('.form-error');
+            
+            if (!field.value.trim()) {
+                if (errorSpan) {
+                    errorSpan.textContent = `${field.name.replace('_', ' ')} is required`;
+                    errorSpan.style.display = 'block';
+                }
+                field.style.borderColor = 'var(--secondary-red)';
+                isValid = false;
+            } else {
+                if (errorSpan) {
+                    errorSpan.textContent = '';
+                    errorSpan.style.display = 'none';
+                }
+                field.style.borderColor = 'var(--gray-300)';
+            }
+        });
+        
+        return isValid;
+    }
+</script>
+{% endblock %}

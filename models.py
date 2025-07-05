@@ -71,6 +71,21 @@ class User(BaseModel):
         self.department_id = None  # For customer employees
         self.is_first_login = True
         self.password_reset_required = False
+        self.branch_id = None   
+
+    @classmethod
+    def get_by_branch_id(cls, branch_id):
+        """Get users by branch ID"""
+        try:
+            db = config.get_db()
+            docs = db.collection('users').where('branch_id', '==', branch_id).get()
+            users = []
+            for doc in docs:
+                users.append(cls.from_dict(doc.to_dict()))
+            return users
+        except Exception as e:
+            print(f"Error getting users by branch ID: {e}")
+            return []
     
     @staticmethod
     def hash_password(password):
@@ -243,6 +258,7 @@ class Customer(BaseModel):
         self.agreement_file_url = None
         self.is_active = True
         self.hr_admin_created = False
+        self.company_alias = None
     
     @staticmethod
     def generate_customer_id():
@@ -352,6 +368,59 @@ class Customer(BaseModel):
         except Exception as e:
             print(f"Error creating HR admin user: {e}")
             return {'success': False, 'message': 'Failed to create HR admin user'}
+
+class Branch(BaseModel):
+    """Branch model for customer organization locations"""
+    
+    def __init__(self):
+        super().__init__()
+        self.branch_id = str(uuid.uuid4())
+        self.customer_id = None
+        self.name = None
+        self.address = None
+        self.phone = None
+        self.email = None
+        self.manager_name = None
+        self.is_active = True
+    
+    def save(self):
+        """Save branch to Firebase"""
+        try:
+            self.updated_at = datetime.now()
+            db = config.get_db()
+            doc_ref = db.collection('branches').document(self.branch_id)
+            doc_ref.set(self.to_dict())
+            return True
+        except Exception as e:
+            print(f"Error saving branch: {e}")
+            return False
+    
+    @classmethod
+    def get_by_id(cls, branch_id):
+        """Get branch by ID"""
+        try:
+            db = config.get_db()
+            doc = db.collection('branches').document(branch_id).get()
+            if doc.exists:
+                return cls.from_dict(doc.to_dict())
+            return None
+        except Exception as e:
+            print(f"Error getting branch by ID: {e}")
+            return None
+    
+    @classmethod
+    def get_by_customer_id(cls, customer_id):
+        """Get branches by customer ID"""
+        try:
+            db = config.get_db()
+            docs = db.collection('branches').where('customer_id', '==', customer_id).get()
+            branches = []
+            for doc in docs:
+                branches.append(cls.from_dict(doc.to_dict()))
+            return branches
+        except Exception as e:
+            print(f"Error getting branches by customer ID: {e}")
+            return []
 
 class Product(BaseModel):
     """Product model for inventory management"""
@@ -693,6 +762,7 @@ class Department(BaseModel):
         self.description = None
         self.department_head_id = None
         self.is_active = True
+        self.branch_id = None
     
     def save(self):
         """Save department to Firebase"""
@@ -705,6 +775,20 @@ class Department(BaseModel):
         except Exception as e:
             print(f"Error saving department: {e}")
             return False
+        
+    @classmethod
+    def get_by_branch_id(cls, branch_id):
+        """Get departments by branch ID"""
+        try:
+            db = config.get_db()
+            docs = db.collection('departments').where('branch_id', '==', branch_id).get()
+            departments = []
+            for doc in docs:
+                departments.append(cls.from_dict(doc.to_dict()))
+            return departments
+        except Exception as e:
+            print(f"Error getting departments by branch ID: {e}")
+            return []
 
     @classmethod
     def get_by_id(cls, department_id):
