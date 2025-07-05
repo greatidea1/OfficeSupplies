@@ -686,14 +686,6 @@
                 </a>
                 
                 <div class="navbar-nav">
-                    <!-- Customer Selector for Vendor Users -->
-                    {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
-                    <div class="dropdown">
-                        <select id="customerSelector" class="form-control" style="min-width: 200px;">
-                            <option value="">Select Customer</option>
-                        </select>
-                    </div>
-                    {% endif %}
                     
                     <!-- Navigation Links -->
                     <a href="{{ url_for('dashboard') }}" class="nav-link">
