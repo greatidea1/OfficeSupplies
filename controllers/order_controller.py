@@ -211,97 +211,176 @@ class OrderController:
             }
     
     def create_order(self):
-        """Create new order (Customer employees only) - UPDATED FOR CUSTOMER PRICING"""
+        """Create new order with approval workflow - UPDATED VERSION"""
         try:
             current_user = self.auth.get_current_user()
-            if not current_user or current_user.role != 'customer_employee':
-                return {'success': False, 'message': 'Only customer employees can create orders'}
+            if not current_user or not current_user.role.startswith('customer_'):
+                return {'success': False, 'message': 'Only customer users can create orders'}
             
             data = request.get_json()
-            items = data.get('items', [])
             
-            if not items:
+            if not data.get('items') or len(data['items']) == 0:
                 return {'success': False, 'message': 'Order must contain at least one item'}
             
-            # Validate items and check stock with customer pricing
-            validated_items = []
-            for item in items:
-                product_id = item.get('product_id')
-                quantity = int(item.get('quantity', 0))
-                
-                if quantity <= 0:
-                    return {'success': False, 'message': 'Invalid quantity'}
-                
-                product = Product.get_by_id(product_id)
-                if not product or not product.is_active:
-                    return {'success': False, 'message': f'Product not found: {product_id}'}
-                
-                if product.quantity < quantity:
-                    return {'success': False, 'message': f'Insufficient stock for {product.product_name}'}
-                
-                # Get customer-specific price or base price
-                from controllers.product_controller import product_controller
-                custom_price = product_controller.get_customer_pricing(product_id, current_user.customer_id)
-                price = custom_price if custom_price is not None else product.price
-                
-                validated_items.append({
-                    'product_id': product_id,
-                    'quantity': quantity,
-                    'price': price,
-                    'is_custom_price': custom_price is not None
-                })
-            
-            # Create order
+            # Create new order
             order = Order()
             order.customer_id = current_user.customer_id
             order.user_id = current_user.user_id
             order.department_id = current_user.department_id
-            order.status = 'pending_dept_approval'  # Skip draft, go directly to approval
             
-            # Add items with customer-specific pricing
-            for item in validated_items:
-                order.add_item(item['product_id'], item['quantity'], item['price'])
+            # Set initial status based on user role
+            if current_user.role == 'customer_employee':
+                # Employees need department approval first
+                order.status = 'pending_dept_approval'
+            elif current_user.role == 'customer_dept_head':
+                # Department heads can approve their own orders, need HR approval
+                order.status = 'pending_hr_approval'
+                order.add_comment(
+                    current_user.user_id, 
+                    current_user.role, 
+                    'auto_approved', 
+                    'Auto-approved by department head'
+                )
+            elif current_user.role == 'customer_hr_admin':
+                # HR admins can approve their own orders
+                order.status = 'approved'
+                order.add_comment(
+                    current_user.user_id, 
+                    current_user.role, 
+                    'auto_approved', 
+                    'Auto-approved by HR admin'
+                )
             
-            # Add metadata about pricing
-            order.pricing_metadata = {
-                'customer_id': current_user.customer_id,
-                'has_custom_pricing': any(item['is_custom_price'] for item in validated_items),
-                'created_with_custom_rates': True
-            }
+            # Add order comments if provided
+            if data.get('comments'):
+                order.add_comment(
+                    current_user.user_id,
+                    current_user.role,
+                    'order_created',
+                    f"Order created with comments: {data['comments']}"
+                )
             
-            # Add initial comment
-            pricing_note = " (with custom pricing)" if order.pricing_metadata['has_custom_pricing'] else ""
-            order.add_comment(
-                current_user.user_id,
-                current_user.role,
-                'created',
-                f'Order created and submitted for department approval{pricing_note}'
-            )
+            # Process items and calculate totals
+            total_amount = 0
+            total_gst = 0
             
-            if order.save():
-                # Reduce product quantities
-                for item in validated_items:
-                    product = Product.get_by_id(item['product_id'])
-                    product.reduce_quantity(item['quantity'])
+            for item_data in data['items']:
+                product_id = item_data.get('product_id')
+                quantity = int(item_data.get('quantity', 1))
                 
-                # Send notification to department head
-                self.send_order_notification(order, 'approval_required')
+                # Get product details
+                product = Product.get_by_id(product_id)
+                if not product:
+                    return {'success': False, 'message': f'Product {product_id} not found'}
+                
+                if not product.is_active:
+                    return {'success': False, 'message': f'Product {product.product_name} is no longer available'}
+                
+                if product.quantity < quantity:
+                    return {'success': False, 'message': f'Insufficient stock for {product.product_name}. Available: {product.quantity}'}
+                
+                # Get customer-specific price if available
+                custom_price = product_controller.get_customer_pricing(product_id, current_user.customer_id)
+                unit_price = custom_price if custom_price is not None else product.price
+                
+                if unit_price == 0:
+                    return {'success': False, 'message': f'Price not available for {product.product_name}'}
+                
+                # Calculate item total
+                item_total = unit_price * quantity
+                item_gst = (item_total * product.gst_rate) / 100
+                
+                # Add item to order
+                order.add_item(product_id, quantity, unit_price)
+                
+                total_amount += item_total
+                total_gst += item_gst
+            
+            # Set order totals
+            order.total_amount = total_amount + total_gst
+            order.total_gst = total_gst
+            
+            # Save order
+            if order.save():
+                # Send notification emails based on status
+                self.send_order_notifications(order, 'created')
                 
                 return {
                     'success': True,
                     'message': 'Order created successfully',
                     'order_id': order.order_id,
-                    'pricing_info': {
-                        'has_custom_pricing': order.pricing_metadata['has_custom_pricing'],
-                        'total_amount': order.total_amount
-                    }
+                    'status': order.status,
+                    'total_amount': order.total_amount
                 }
             else:
                 return {'success': False, 'message': 'Failed to create order'}
                 
         except Exception as e:
             print(f"Create order error: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': 'Failed to create order'}
+        
+    def send_order_notifications(self, order, action):
+        """Send email notifications for order actions"""
+        try:
+            from models import Customer, User
+            
+            customer = Customer.get_by_id(order.customer_id)
+            order_user = User.get_by_id(order.user_id)
+            
+            if not customer or not order_user:
+                print("Could not find customer or user for notification")
+                return
+            
+            # Determine who to notify based on order status and action
+            if action == 'created':
+                if order.status == 'pending_dept_approval':
+                    # Notify department heads
+                    dept_heads = User.get_by_customer_and_roles(
+                        order.customer_id, 
+                        ['customer_dept_head']
+                    )
+                    for dept_head in dept_heads:
+                        if dept_head.department_id == order.department_id:
+                            self.send_notification_email(
+                                dept_head.email,
+                                f"New Order Approval Required - {order.order_id}",
+                                f"A new order from {order_user.full_name or order_user.username} requires your approval.",
+                                order
+                            )
+                
+                elif order.status == 'pending_hr_approval':
+                    # Notify HR admins
+                    hr_admins = User.get_by_customer_and_roles(
+                        order.customer_id, 
+                        ['customer_hr_admin']
+                    )
+                    for hr_admin in hr_admins:
+                        self.send_notification_email(
+                            hr_admin.email,
+                            f"New Order HR Approval Required - {order.order_id}",
+                            f"A new order from {order_user.full_name or order_user.username} requires HR approval.",
+                            order
+                        )
+            
+            print(f"Notifications sent for order {order.order_id} - {action}")
+            
+        except Exception as e:
+            print(f"Error sending order notifications: {e}")
+
+    def send_notification_email(self, to_email, subject, message, order):
+        """Send notification email"""
+        try:
+            # Basic email implementation - you can enhance this
+            print(f"Would send email to {to_email}: {subject}")
+            print(f"Message: {message}")
+            print(f"Order: {order.order_id}, Amount: ₹{order.total_amount}")
+            
+            # TODO: Implement actual email sending using your email service
+            
+        except Exception as e:
+            print(f"Error sending notification email: {e}")
     
     def process_dept_approval(self, order_id):
         """Process department head approval"""
@@ -314,42 +393,65 @@ class OrderController:
             if not order:
                 return {'success': False, 'message': 'Order not found'}
             
-            if not order.can_be_approved_by_dept_head(current_user):
-                return {'success': False, 'message': 'Cannot approve this order'}
+            # Check if this department head can approve this order
+            if order.customer_id != current_user.customer_id:
+                return {'success': False, 'message': 'Access denied'}
+            
+            if order.department_id != current_user.department_id:
+                return {'success': False, 'message': 'You can only approve orders from your department'}
+            
+            if order.status != 'pending_dept_approval':
+                return {'success': False, 'message': f'Order is in {order.status} status and cannot be approved'}
             
             data = request.get_json()
-            action = data.get('action')  # 'approve' or 'reject'
+            action = data.get('action', 'approve')
             comments = data.get('comments', '')
             
             if action == 'approve':
-                order.update_status('pending_hr_approval', current_user.user_id, f"Approved by department head. {comments}")
+                # Move to HR approval
+                order.status = 'pending_hr_approval'
+                order.add_comment(
+                    current_user.user_id,
+                    current_user.role,
+                    'approved',
+                    f"Approved by department head. {comments}" if comments else "Approved by department head"
+                )
                 
-                # Send notification to HR admin
-                self.send_order_notification(order, 'approval_required')
+                # Notify HR admins
+                self.send_order_notifications(order, 'dept_approved')
                 
-                return {
-                    'success': True,
-                    'message': 'Order approved and sent to HR for final approval'
-                }
+                message = 'Order approved and sent to HR for final approval'
                 
             elif action == 'reject':
-                order.update_status('rejected', current_user.user_id, f"Rejected by department head. {comments}")
+                if not comments:
+                    return {'success': False, 'message': 'Comments are required when rejecting an order'}
                 
-                # Restore product quantities
-                self.restore_product_quantities(order)
+                order.status = 'rejected'
+                order.add_comment(
+                    current_user.user_id,
+                    current_user.role,
+                    'rejected',
+                    f"Rejected by department head: {comments}"
+                )
                 
-                # Send notification to employee
-                self.send_order_notification(order, 'order_rejected')
+                # Notify the employee who created the order
+                self.send_order_notifications(order, 'rejected')
                 
-                return {
-                    'success': True,
-                    'message': 'Order rejected'
-                }
+                message = 'Order rejected'
             else:
                 return {'success': False, 'message': 'Invalid action'}
+            
+            if order.save():
+                return {
+                    'success': True,
+                    'message': message,
+                    'new_status': order.status
+                }
+            else:
+                return {'success': False, 'message': 'Failed to update order'}
                 
         except Exception as e:
-            print(f"Department approval error: {e}")
+            print(f"Process dept approval error: {e}")
             return {'success': False, 'message': 'Failed to process approval'}
     
     def process_hr_approval(self, order_id):
@@ -357,49 +459,69 @@ class OrderController:
         try:
             current_user = self.auth.get_current_user()
             if not current_user or current_user.role != 'customer_hr_admin':
-                return {'success': False, 'message': 'Only HR admins can approve orders'}
+                return {'success': False, 'message': 'Only HR admins can process HR approval'}
             
             order = Order.get_by_id(order_id)
             if not order:
                 return {'success': False, 'message': 'Order not found'}
             
-            if not order.can_be_approved_by_hr(current_user):
-                return {'success': False, 'message': 'Cannot approve this order'}
+            # Check if this HR admin can approve this order
+            if order.customer_id != current_user.customer_id:
+                return {'success': False, 'message': 'Access denied'}
+            
+            if order.status != 'pending_hr_approval':
+                return {'success': False, 'message': f'Order is in {order.status} status and cannot be processed'}
             
             data = request.get_json()
-            action = data.get('action')  # 'approve' or 'reject'
+            action = data.get('action', 'approve')
             comments = data.get('comments', '')
             
             if action == 'approve':
-                order.update_status('approved', current_user.user_id, f"Final approval by HR admin. {comments}")
+                # Approve order - ready for vendor processing
+                order.status = 'approved'
+                order.add_comment(
+                    current_user.user_id,
+                    current_user.role,
+                    'approved',
+                    f"Approved by HR admin. {comments}" if comments else "Approved by HR admin"
+                )
                 
-                # Send notification to vendor
-                self.send_order_notification(order, 'order_approved')
+                # Notify vendor (optional - could be implemented)
+                # self.send_vendor_notification(order)
                 
-                return {
-                    'success': True,
-                    'message': 'Order approved and sent to vendor for processing'
-                }
+                message = 'Order approved and sent to vendor for processing'
                 
             elif action == 'reject':
-                order.update_status('rejected', current_user.user_id, f"Rejected by HR admin. {comments}")
+                if not comments:
+                    return {'success': False, 'message': 'Comments are required when rejecting an order'}
                 
-                # Restore product quantities
-                self.restore_product_quantities(order)
+                order.status = 'rejected'
+                order.add_comment(
+                    current_user.user_id,
+                    current_user.role,
+                    'rejected',
+                    f"Rejected by HR admin: {comments}"
+                )
                 
-                # Send notification to employee
-                self.send_order_notification(order, 'order_rejected')
+                # Notify the employee and department head
+                self.send_order_notifications(order, 'hr_rejected')
                 
-                return {
-                    'success': True,
-                    'message': 'Order rejected'
-                }
+                message = 'Order rejected by HR'
             else:
                 return {'success': False, 'message': 'Invalid action'}
+            
+            if order.save():
+                return {
+                    'success': True,
+                    'message': message,
+                    'new_status': order.status
+                }
+            else:
+                return {'success': False, 'message': 'Failed to update order'}
                 
         except Exception as e:
-            print(f"HR approval error: {e}")
-            return {'success': False, 'message': 'Failed to process approval'}
+            print(f"Process HR approval error: {e}")
+            return {'success': False, 'message': 'Failed to process HR approval'}
     
     def pack_order(self, order_id):
         """Mark order items as packed (Vendor users)"""

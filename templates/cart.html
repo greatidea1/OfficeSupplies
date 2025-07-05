@@ -1,0 +1,479 @@
+{% extends "base.html" %}
+
+{% block title %}Shopping Cart - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cart-container {
+        padding: 32px 0;
+    }
+    
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 32px;
+    }
+    
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .cart-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+        margin-bottom: 32px;
+    }
+    
+    .cart-header {
+        padding: 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+    }
+    
+    .cart-items {
+        padding: 24px;
+    }
+    
+    .cart-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 20px;
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        margin-bottom: 16px;
+        transition: all 0.3s ease;
+    }
+    
+    .cart-item:hover {
+        border-color: var(--primary-blue);
+        box-shadow: var(--shadow);
+    }
+    
+    .cart-item-info {
+        flex: 1;
+    }
+    
+    .cart-item-name {
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 4px;
+        font-size: 1.1rem;
+    }
+    
+    .cart-item-price {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+        margin-bottom: 4px;
+    }
+    
+    .cart-item-details {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+    }
+    
+    .quantity-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--gray-50);
+        padding: 12px;
+        border-radius: 8px;
+    }
+    
+    .quantity-btn {
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--gray-300);
+        background: white;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .quantity-btn:hover {
+        background: var(--primary-blue);
+        color: white;
+        border-color: var(--primary-blue);
+    }
+    
+    .quantity-display {
+        min-width: 50px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    .cart-item-total {
+        text-align: right;
+        min-width: 120px;
+    }
+    
+    .item-total-price {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-blue);
+        margin-bottom: 4px;
+    }
+    
+    .item-gst {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+    }
+    
+    .remove-btn {
+        background: var(--secondary-red);
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .remove-btn:hover {
+        background: #dc2626;
+        transform: translateY(-1px);
+    }
+    
+    .cart-summary {
+        background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+        color: white;
+        padding: 32px;
+        border-radius: 16px;
+        margin-bottom: 32px;
+    }
+    
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+    }
+    
+    .summary-row.total {
+        border-top: 1px solid rgba(255, 255, 255, 0.3);
+        padding-top: 16px;
+        margin-top: 16px;
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .checkout-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        padding: 32px;
+    }
+    
+    .order-actions {
+        display: flex;
+        gap: 16px;
+        justify-content: flex-end;
+        margin-top: 24px;
+    }
+    
+    .empty-cart {
+        text-align: center;
+        padding: 80px 20px;
+        color: var(--gray-500);
+    }
+    
+    .empty-cart-icon {
+        font-size: 80px;
+        margin-bottom: 24px;
+        opacity: 0.3;
+    }
+    
+    @media (max-width: 768px) {
+        .cart-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .cart-item-total {
+            text-align: left;
+            width: 100%;
+        }
+        
+        .order-actions {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="cart-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Shopping Cart</h1>
+                <p style="color: var(--gray-600); margin: 8px 0 0 0;">Review your items and place your order</p>
+            </div>
+            <div>
+                <a href="{{ url_for('products') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    Continue Shopping
+                </a>
+            </div>
+        </div>
+        
+        <!-- Cart Items Section -->
+        <div class="cart-section">
+            <div class="cart-header">
+                <h3 style="margin: 0; color: var(--gray-900);">Cart Items</h3>
+                <p style="margin: 8px 0 0 0; color: var(--gray-600);" id="cartItemsCount">Loading...</p>
+            </div>
+            <div class="cart-items" id="cartItemsList">
+                <!-- Cart items will be loaded here -->
+            </div>
+        </div>
+        
+        <!-- Cart Summary -->
+        <div class="cart-summary" id="cartSummarySection" style="display: none;">
+            <h3 style="margin: 0 0 20px 0;">Order Summary</h3>
+            <div class="summary-row">
+                <span>Subtotal:</span>
+                <span id="subtotalAmount">₹0.00</span>
+            </div>
+            <div class="summary-row">
+                <span>GST:</span>
+                <span id="gstAmount">₹0.00</span>
+            </div>
+            <div class="summary-row total">
+                <span>Total:</span>
+                <span id="totalAmount">₹0.00</span>
+            </div>
+        </div>
+        
+        <!-- Checkout Section -->
+        <div class="checkout-section" id="checkoutSection" style="display: none;">
+            <h3 style="margin: 0 0 20px 0;">Order Details</h3>
+            <div class="form-group">
+                <label class="form-label">Order Comments (Optional)</label>
+                <textarea id="orderComments" class="form-control" rows="3" placeholder="Add any special instructions or comments for this order..."></textarea>
+            </div>
+            
+            <div class="order-actions">
+                <button class="btn btn-secondary" onclick="clearCart()">
+                    <i class="fas fa-trash"></i>
+                    Clear Cart
+                </button>
+                <button class="btn btn-primary btn-lg" onclick="placeOrder()">
+                    <i class="fas fa-paper-plane"></i>
+                    Place Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let cart = [];
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCart();
+        displayCart();
+    });
+    
+    function loadCart() {
+        const savedCart = localStorage.getItem('cart');
+        if (savedCart) {
+            cart = JSON.parse(savedCart);
+        }
+        console.log('Loaded cart:', cart);
+    }
+    
+    function displayCart() {
+        const cartList = document.getElementById('cartItemsList');
+        const cartCount = document.getElementById('cartItemsCount');
+        const summarySection = document.getElementById('cartSummarySection');
+        const checkoutSection = document.getElementById('checkoutSection');
+        
+        if (cart.length === 0) {
+            showEmptyCart();
+            return;
+        }
+        
+        cartCount.textContent = `${cart.length} item${cart.length !== 1 ? 's' : ''} in your cart`;
+        
+        cartList.innerHTML = cart.map((item, index) => `
+            <div class="cart-item">
+                <div class="cart-item-info">
+                    <div class="cart-item-name">${item.product_name}</div>
+                    <div class="cart-item-price">₹${item.price.toLocaleString('en-IN')} per unit</div>
+                    <div class="cart-item-details">Product ID: ${item.product_id}</div>
+                </div>
+                
+                <div class="quantity-controls">
+                    <button class="quantity-btn" onclick="updateQuantity(${index}, -1)">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <span class="quantity-display">${item.quantity}</span>
+                    <button class="quantity-btn" onclick="updateQuantity(${index}, 1)">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                
+                <div class="cart-item-total">
+                    <div class="item-total-price">₹${(item.price * item.quantity).toLocaleString('en-IN')}</div>
+                    <div class="item-gst">+ GST</div>
+                </div>
+                
+                <button class="remove-btn" onclick="removeFromCart(${index})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `).join('');
+        
+        updateSummary();
+        summarySection.style.display = 'block';
+        checkoutSection.style.display = 'block';
+    }
+    
+    function updateQuantity(index, change) {
+        if (cart[index]) {
+            cart[index].quantity += change;
+            if (cart[index].quantity <= 0) {
+                cart.splice(index, 1);
+            } else {
+                cart[index].total = cart[index].quantity * cart[index].price;
+            }
+            saveCart();
+            displayCart();
+            updateCartBadge();
+        }
+    }
+    
+    function removeFromCart(index) {
+        if (confirm('Remove this item from your cart?')) {
+            cart.splice(index, 1);
+            saveCart();
+            displayCart();
+            updateCartBadge();
+            showNotification('Item removed from cart', 'success');
+        }
+    }
+    
+    function updateSummary() {
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const gst = subtotal * 0.18; // Assuming 18% GST
+        const total = subtotal + gst;
+        
+        document.getElementById('subtotalAmount').textContent = `₹${subtotal.toLocaleString('en-IN')}`;
+        document.getElementById('gstAmount').textContent = `₹${gst.toLocaleString('en-IN')}`;
+        document.getElementById('totalAmount').textContent = `₹${total.toLocaleString('en-IN')}`;
+    }
+    
+    function saveCart() {
+        localStorage.setItem('cart', JSON.stringify(cart));
+    }
+    
+    function clearCart() {
+        if (confirm('Are you sure you want to clear your entire cart?')) {
+            cart = [];
+            saveCart();
+            displayCart();
+            updateCartBadge();
+            showNotification('Cart cleared', 'success');
+        }
+    }
+    
+    async function placeOrder() {
+        if (cart.length === 0) {
+            showNotification('Your cart is empty', 'error');
+            return;
+        }
+        
+        const comments = document.getElementById('orderComments').value;
+        
+        try {
+            const orderItems = cart.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity
+            }));
+            
+            const response = await apiCall('/orders', {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    items: orderItems,
+                    comments: comments 
+                })
+            });
+            
+            if (response.success) {
+                showNotification('Order placed successfully! Awaiting approval.', 'success');
+                cart = [];
+                saveCart();
+                updateCartBadge();
+                
+                // Redirect to orders page after a delay
+                setTimeout(() => {
+                    window.location.href = '/orders';
+                }, 2000);
+            } else {
+                showNotification(response.message || 'Failed to place order', 'error');
+            }
+        } catch (error) {
+            console.error('Error placing order:', error);
+            showNotification('Failed to place order', 'error');
+        }
+    }
+    
+    function showEmptyCart() {
+        const cartList = document.getElementById('cartItemsList');
+        const cartCount = document.getElementById('cartItemsCount');
+        const summarySection = document.getElementById('cartSummarySection');
+        const checkoutSection = document.getElementById('checkoutSection');
+        
+        cartCount.textContent = 'Your cart is empty';
+        
+        cartList.innerHTML = `
+            <div class="empty-cart">
+                <div class="empty-cart-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <h3>Your cart is empty</h3>
+                <p>Add some products to get started with your order</p>
+                <a href="/products" class="btn btn-primary">
+                    <i class="fas fa-shopping-bag"></i>
+                    Browse Products
+                </a>
+            </div>
+        `;
+        
+        summarySection.style.display = 'none';
+        checkoutSection.style.display = 'none';
+    }
+    
+    function updateCartBadge() {
+        const badge = document.getElementById('cartBadge');
+        const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+        
+        if (badge) {
+            if (cartCount > 0) {
+                badge.textContent = cartCount;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    }
+</script>
+{% endblock %}

@@ -1115,7 +1115,19 @@ function updateCartDisplay() {
     const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
     const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
     
-    // Update various cart display elements
+    // Update cart badge in navigation
+    const cartBadge = document.getElementById('cartBadge');
+    if (cartBadge) {
+        if (cartCount > 0) {
+            cartBadge.textContent = cartCount;
+            cartBadge.style.display = 'flex';
+            cartBadge.style.animation = 'cartPulse 0.3s ease';
+        } else {
+            cartBadge.style.display = 'none';
+        }
+    }
+    
+    // Update other cart display elements if they exist
     const elements = [
         { id: 'cartCount', value: cartCount },
         { id: 'cartCountHeader', value: cartCount },
@@ -1128,12 +1140,14 @@ function updateCartDisplay() {
         if (element) element.textContent = value;
     });
     
-    // Show/hide cart elements
+    // Show/hide cart summary elements
     const viewCartBtn = document.getElementById('viewCartBtn');
     const cartSummary = document.getElementById('cartSummary');
     
     if (viewCartBtn) viewCartBtn.style.display = cartCount > 0 ? 'block' : 'none';
     if (cartSummary) cartSummary.classList.toggle('show', cartCount > 0);
+    
+    console.log(`Cart updated: ${cartCount} items, total: ₹${cartTotal.toLocaleString('en-IN')}`);
 }
 
 function loadCart() {

@@ -60,6 +60,30 @@
             /* Transitions */
             --transition: all 0.3s ease;
         }
+
+        /* Cart badge styling - add to base.html <style> section */
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--secondary-red);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: cartPulse 0.3s ease;
+        }
+        
+        @keyframes cartPulse {
+            0% { transform: scale(0.8); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
         
         * {
             margin: 0;
@@ -701,6 +725,14 @@
                         <i class="fas fa-list"></i>
                         Orders
                     </a>
+                    
+                    <!-- Cart Icon for Customer Users -->
+                    <a href="{{ url_for('cart') }}" class="nav-link" id="cartNavLink" style="position: relative;">
+                        <i class="fas fa-shopping-cart"></i>
+                        Cart
+                        <span id="cartBadge" class="cart-badge" style="display: none;">0</span>
+                    </a>
+                    
                     {% if current_user.role == 'customer_hr_admin' %}
                     <a href="{{ url_for('departments') }}" class="nav-link">
                         <i class="fas fa-sitemap"></i>
@@ -1015,6 +1047,48 @@
             }
         `;
         document.head.appendChild(style);
+
+
+    // Add this to the base.html JavaScript section for customer users
+    {% if current_user and current_user.role.startswith('customer_') %}
+    // Global cart badge update function
+    function updateGlobalCartBadge() {
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+        const cartBadge = document.getElementById('cartBadge');
+        
+        if (cartBadge) {
+            if (cartCount > 0) {
+                cartBadge.textContent = cartCount;
+                cartBadge.style.display = 'flex';
+            } else {
+                cartBadge.style.display = 'none';
+            }
+        }
+    }
+
+    // Update cart badge on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateGlobalCartBadge();
+        
+        // Listen for storage changes (when cart is updated on other pages)
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'cart') {
+                updateGlobalCartBadge();
+            }
+        });
+    });
+
+    // Update cart badge when localStorage changes on same page
+    const originalSetItem = localStorage.setItem;
+    localStorage.setItem = function(key, value) {
+        originalSetItem.apply(this, arguments);
+        if (key === 'cart') {
+            updateGlobalCartBadge();
+        }
+    };
+    {% endif %}
+
     </script>
     
     {% block extra_js %}{% endblock %}

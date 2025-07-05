@@ -1630,6 +1630,15 @@ def create_app():
                 'error': str(e),
                 'cwd': os.getcwd()
             })
+        
+    # Add this route to app.py
+
+    @app.route('/cart')
+    @login_required
+    @role_required('customer_employee', 'customer_dept_head', 'customer_hr_admin')
+    def cart():
+        """Shopping cart page for customer users"""
+        return render_template('cart.html')
 
     return app
 
