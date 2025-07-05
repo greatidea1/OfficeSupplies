@@ -863,10 +863,7 @@
     }
     
     async function loadCustomerPricing() {
-        if (!selectedCustomerId) {
-            customerPricing = {};
-            return;
-        }
+        if (!selectedCustomerId || !IS_VENDOR) return;
         
         try {
             const response = await apiCall(`/customer-pricing/${selectedCustomerId}`);
@@ -875,15 +872,23 @@
                 response.pricing.forEach(item => {
                     customerPricing[item.product_id] = item.custom_price;
                 });
-                console.log('Loaded customer pricing:', customerPricing);
-                // Refresh product display to show correct pricing
-                displayProducts();
+                
+                // Update product displays with pricing
+                updateProductPricing();
             }
         } catch (error) {
             console.error('Error loading customer pricing:', error);
-            customerPricing = {};
         }
     }
+
+    function updateProductPricing() {
+        // Update pricing displays for vendor users
+        filteredProducts.forEach(product => {
+            updatePriceIndicator(product.product_id);
+        });
+    }
+
+    
     
     function getProductPrice(product) {
         if (selectedCustomerId && customerPricing[product.product_id]) {
@@ -976,13 +981,107 @@
     }
     
     function updatePriceIndicator(productId) {
-        const indicator = document.getElementById(`price-indicator-${productId}`);
-        if (hasCustomPrice(productId)) {
-            indicator.className = 'custom-price-indicator';
-            indicator.innerHTML = '<i class="fas fa-tag"></i> Custom Price';
+        if (!IS_VENDOR || !selectedCustomerId) return;
+        
+        const priceSection = document.getElementById(`price-section-${productId}`);
+        if (!priceSection) return;
+        
+        const product = currentProducts.find(p => p.product_id === productId);
+        if (!product) return;
+        
+        const customPrice = customerPricing[productId];
+        const basePrice = product.price || 0;
+        
+        if (customPrice !== undefined) {
+            priceSection.innerHTML = `
+                <div class="product-price">
+                    Base: ₹${basePrice.toLocaleString('en-IN')} 
+                    <span style="color: var(--secondary-green); margin-left: 8px;">
+                        Custom: ₹${customPrice.toLocaleString('en-IN')}
+                    </span>
+                </div>
+                <div class="product-gst">+ ${product.gst_rate || 18}% GST</div>
+                <button class="btn btn-sm btn-warning" onclick="editCustomerPrice('${productId}', ${customPrice})">
+                    Edit Price
+                </button>
+            `;
         } else {
-            indicator.className = 'base-price-indicator';
-            indicator.textContent = 'Base Price';
+            priceSection.innerHTML = `
+                <div class="product-price">₹${basePrice.toLocaleString('en-IN')}</div>
+                <div class="product-gst">+ ${product.gst_rate || 18}% GST</div>
+                <button class="btn btn-sm btn-primary" onclick="setCustomerPrice('${productId}')">
+                    Set Custom Price
+                </button>
+            `;
+        }
+    }
+
+    async function setCustomerPrice(productId) {
+        if (!selectedCustomerId) {
+            showNotification('Please select a customer first', 'warning');
+            return;
+        }
+        
+        const product = currentProducts.find(p => p.product_id === productId);
+        if (!product) return;
+        
+        const customPrice = prompt(`Set custom price for ${product.product_name}\nBase price: ₹${product.price}`, product.price);
+        
+        if (customPrice !== null && !isNaN(customPrice) && parseFloat(customPrice) >= 0) {
+            try {
+                const response = await apiCall('/customer-pricing', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customer_id: selectedCustomerId,
+                        product_id: productId,
+                        custom_price: parseFloat(customPrice)
+                    })
+                });
+                
+                if (response.success) {
+                    customerPricing[productId] = parseFloat(customPrice);
+                    updatePriceIndicator(productId);
+                    showNotification('Custom price set successfully', 'success');
+                } else {
+                    showNotification(response.message || 'Failed to set custom price', 'error');
+                }
+            } catch (error) {
+                console.error('Error setting custom price:', error);
+                showNotification('Failed to set custom price', 'error');
+            }
+        }
+    }
+
+    async function editCustomerPrice(productId, currentPrice) {
+        const product = currentProducts.find(p => p.product_id === productId);
+        if (!product) return;
+        
+        const newPrice = prompt(`Edit custom price for ${product.product_name}\nCurrent custom price: ₹${currentPrice}`, currentPrice);
+        
+        if (newPrice !== null && !isNaN(newPrice) && parseFloat(newPrice) >= 0) {
+            try {
+                const response = await apiCall('/customer-pricing', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customer_id: selectedCustomerId,
+                        product_id: productId,
+                        custom_price: parseFloat(newPrice)
+                    })
+                });
+                
+                if (response.success) {
+                    customerPricing[productId] = parseFloat(newPrice);
+                    updatePriceIndicator(productId);
+                    showNotification('Custom price updated successfully', 'success');
+                } else {
+                    showNotification(response.message || 'Failed to update custom price', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating custom price:', error);
+                showNotification('Failed to update custom price', 'error');
+            }
         }
     }
     
@@ -1414,116 +1513,51 @@
     {% endif %}
     
     function getPriceSection(product) {
-        {% if current_user.role.startswith('vendor_') %}
-        const currentPrice = getProductPrice(product);
-        const gstAmount = (currentPrice * product.gst_rate) / 100;
-        const isEditable = selectedCustomerId ? 'editable' : '';
-        const clickHandler = selectedCustomerId ? `onclick="startPriceEdit('${product.product_id}')"` : '';
-        
         return `
-            <div class="product-price-section ${isEditable}" id="price-section-${product.product_id}">
-                <div class="product-price" ${clickHandler}>
-                    <span id="price-display-${product.product_id}">₹${currentPrice.toLocaleString('en-IN')}</span>
-                    <input type="number" 
-                           class="price-input" 
-                           id="price-input-${product.product_id}" 
-                           style="display: none;"
-                           step="0.01"
-                           min="0"
-                           onkeypress="if(event.key==='Enter') savePriceEdit('${product.product_id}'); if(event.key==='Escape') cancelPriceEdit('${product.product_id}');">
-                    <div class="price-actions">
-                        <button class="price-btn save" onclick="savePriceEdit('${product.product_id}')" title="Save">
-                            <i class="fas fa-check"></i>
-                        </button>
-                        <button class="price-btn cancel" onclick="cancelPriceEdit('${product.product_id}')" title="Cancel">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                    ${selectedCustomerId ? '<i class="fas fa-edit" style="font-size: 14px; margin-left: auto; opacity: 0.7;"></i>' : ''}
+            <div class="product-price-section" id="price-section-${product.product_id}">
+                <div class="product-price">
+                    Base Price: ₹${(product.price || 0).toLocaleString('en-IN')}
                 </div>
-                <div id="price-indicator-${product.product_id}" class="base-price-indicator">Base Price</div>
-                <div class="product-gst" id="gst-display-${product.product_id}">+ ₹${gstAmount.toFixed(2)} GST (${product.gst_rate}%)</div>
+                <div class="product-gst">
+                    + ${product.gst_rate || 18}% GST
+                </div>
             </div>
         `;
-        {% else %}
-        // For customer users, show their custom price or base price
-        const price = product.custom_price || product.price;
-        const gstAmount = (price * product.gst_rate) / 100;
-        
-        return `
-            <div class="product-price-section">
-                <div class="product-price">₹${price.toLocaleString('en-IN')}</div>
-                <div class="product-gst">+ ₹${gstAmount.toFixed(2)} GST (${product.gst_rate}%)</div>
-            </div>
-        `;
-        {% endif %}
     }
     
     function getStockIndicator(product) {
-        {% if current_user.role.startswith('vendor_') %}
-        const stockLevel = product.quantity;
-        const threshold = product.low_stock_threshold || 10;
-        
-        let indicatorClass = 'stock-high';
+        let stockClass = 'stock-high';
         let stockText = 'In Stock';
         
-        if (stockLevel === 0) {
-            indicatorClass = 'stock-low';
+        if (product.quantity === 0) {
+            stockClass = 'stock-low';
             stockText = 'Out of Stock';
-        } else if (stockLevel <= threshold) {
-            indicatorClass = 'stock-medium';
+        } else if (product.quantity <= (product.low_stock_threshold || 10)) {
+            stockClass = 'stock-medium';
             stockText = 'Low Stock';
         }
         
         return `
             <div class="product-stock">
-                <div class="stock-indicator ${indicatorClass}"></div>
-                <span style="font-size: 0.875rem; color: var(--gray-600);">${stockText}</span>
+                <div class="stock-indicator ${stockClass}"></div>
+                <span>${stockText}</span>
             </div>
         `;
-        {% else %}
-        return '';
-        {% endif %}
     }
     
     function getProductActions(product) {
-        {% if current_user.role == 'customer_employee' %}
-        const isOutOfStock = product.quantity === 0;
-        const effectivePrice = product.custom_price || product.price;
-        
-        return `
-            <div class="quantity-selector">
-                <button class="quantity-btn" onclick="changeQuantity('${product.product_id}', -1)" ${isOutOfStock ? 'disabled' : ''}>
-                    <i class="fas fa-minus"></i>
-                </button>
-                <input type="number" class="quantity-input" id="qty_${product.product_id}" value="1" min="1" max="${product.quantity}" ${isOutOfStock ? 'disabled' : ''}>
-                <button class="quantity-btn" onclick="changeQuantity('${product.product_id}', 1)" ${isOutOfStock ? 'disabled' : ''}>
-                    <i class="fas fa-plus"></i>
-                </button>
-            </div>
-            <div class="product-actions">
-                <button class="btn-add-cart" onclick="addToCart('${product.product_id}')" ${isOutOfStock ? 'disabled' : ''} data-price="${effectivePrice}">
-                    <i class="fas fa-shopping-cart"></i>
-                    ${isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
-                </button>
-            </div>
-        `;
-        {% elif current_user.role.startswith('vendor_') %}
         return `
             <div class="product-actions">
-                <button class="btn btn-secondary btn-sm" onclick="editProduct('${product.product_id}')">
+                <button class="btn btn-secondary btn-sm" onclick="viewProductDetails('${product.product_id}')">
+                    <i class="fas fa-eye"></i>
+                    View Details
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="editProduct('${product.product_id}')">
                     <i class="fas fa-edit"></i>
                     Edit
                 </button>
-                <button class="btn btn-primary btn-sm" onclick="viewProduct('${product.product_id}')">
-                    <i class="fas fa-eye"></i>
-                    View
-                </button>
             </div>
         `;
-        {% else %}
-        return '';
-        {% endif %}
     }
     
     function searchProducts() {
@@ -1948,6 +1982,38 @@
     
     function viewProduct(productId) {
         showNotification('View Product functionality coming soon!', 'info');
+    }
+
+    // Setup customer pricing system for vendors
+    async function setupCustomerPricingSystem() {
+        if (!IS_VENDOR) return;
+        
+        try {
+            // Load customers for the dropdown
+            const response = await apiCall('/vendor/customers-dropdown');
+            if (response.success) {
+                const customerFilter = document.getElementById('customerFilterProducts');
+                if (customerFilter) {
+                    customerFilter.innerHTML = '<option value="">Select Customer for Pricing</option>' +
+                        response.customers.map(customer => 
+                            `<option value="${customer.customer_id}">${customer.company_name}</option>`
+                        ).join('');
+                    
+                    // Handle customer selection change
+                    customerFilter.addEventListener('change', function() {
+                        selectedCustomerId = this.value;
+                        if (selectedCustomerId) {
+                            loadCustomerPricing();
+                            document.getElementById('noCustomerMessage').style.display = 'none';
+                        } else {
+                            document.getElementById('noCustomerMessage').style.display = 'block';
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error setting up customer pricing system:', error);
+        }
     }
     
     // Generate item number when page loads

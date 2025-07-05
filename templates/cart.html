@@ -409,19 +409,32 @@
                 quantity: item.quantity
             }));
             
+            const orderData = { 
+                items: orderItems
+            };
+            
+            // Add comments if provided
+            if (comments && comments.trim()) {
+                orderData.comments = comments.trim();
+            }
+            
+            console.log('Placing order with data:', orderData);
+            
             const response = await apiCall('/orders', {
                 method: 'POST',
-                body: JSON.stringify({ 
-                    items: orderItems,
-                    comments: comments 
-                })
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(orderData)
             });
+            
+            console.log('Order response:', response);
             
             if (response.success) {
                 showNotification('Order placed successfully! Awaiting approval.', 'success');
                 cart = [];
                 saveCart();
-                updateCartBadge();
+                updateGlobalCartBadge();
                 
                 // Redirect to orders page after a delay
                 setTimeout(() => {

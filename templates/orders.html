@@ -1026,10 +1026,17 @@
                 quantity: item.quantity
             }));
             
+            console.log('Placing order from orders page:', orderItems);
+            
             const response = await apiCall('/orders', {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({ items: orderItems })
             });
+            
+            console.log('Order response:', response);
             
             if (response.success) {
                 showNotification('Order placed successfully!', 'success');
@@ -1038,9 +1045,12 @@
                 updateCartDisplay();
                 hideCart();
                 loadOrders();
+            } else {
+                showNotification(response.message || 'Failed to place order', 'error');
             }
         } catch (error) {
             console.error('Error placing order:', error);
+            showNotification('Failed to place order', 'error');
         }
     }
     

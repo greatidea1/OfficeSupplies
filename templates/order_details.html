@@ -1,0 +1,555 @@
+{% extends "base.html" %}
+
+{% block title %}Order Details - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .order-container {
+        padding: 32px 0;
+    }
+    
+    .order-header {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        margin-bottom: 32px;
+    }
+    
+    .order-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin-bottom: 16px;
+    }
+    
+    .order-meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+    
+    .meta-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .meta-label {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .meta-value {
+        font-weight: 600;
+        color: var(--gray-900);
+    }
+    
+    .order-items-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+        margin-bottom: 32px;
+    }
+    
+    .section-header {
+        padding: 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+    }
+    
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .items-table th {
+        background: var(--gray-50);
+        padding: 16px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--gray-700);
+        border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .items-table td {
+        padding: 16px;
+        border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .order-summary {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        margin-bottom: 32px;
+    }
+    
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        padding: 8px 0;
+    }
+    
+    .summary-row.total {
+        border-top: 2px solid var(--primary-blue);
+        padding-top: 16px;
+        margin-top: 16px;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-blue);
+    }
+    
+    .order-actions {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        text-align: center;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .comments-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        margin-bottom: 32px;
+    }
+    
+    .comment-item {
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .comment-item:last-child {
+        border-bottom: none;
+    }
+    
+    .comment-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    }
+    
+    .comment-author {
+        font-weight: 600;
+        color: var(--gray-900);
+    }
+    
+    .comment-time {
+        font-size: 0.875rem;
+        color: var(--gray-500);
+    }
+    
+    .comment-message {
+        color: var(--gray-700);
+        line-height: 1.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="order-container">
+        <!-- Loading State -->
+        <div id="loadingState" style="text-align: center; padding: 80px 20px;">
+            <div class="spinner"></div>
+            <p style="margin-top: 16px; color: var(--gray-600);">Loading order details...</p>
+        </div>
+        
+        <!-- Order Content -->
+        <div id="orderContent" style="display: none;">
+            <!-- Order Header -->
+            <div class="order-header">
+                <div class="order-title" id="orderTitle">Order Details</div>
+                <div class="order-meta" id="orderMeta">
+                    <!-- Order metadata will be loaded here -->
+                </div>
+                <div id="orderActions" class="action-buttons">
+                    <!-- Action buttons will be loaded here -->
+                </div>
+            </div>
+            
+            <!-- Order Items -->
+            <div class="order-items-section">
+                <div class="section-header">
+                    <h3 class="section-title">Order Items</h3>
+                </div>
+                <table class="items-table" id="orderItemsTable">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderItemsBody">
+                        <!-- Items will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Order Summary -->
+            <div class="order-summary">
+                <h3 style="margin: 0 0 20px 0;">Order Summary</h3>
+                <div id="orderSummaryContent">
+                    <!-- Summary will be loaded here -->
+                </div>
+            </div>
+            
+            <!-- Comments/Timeline -->
+            <div class="comments-section" id="commentsSection" style="display: none;">
+                <div class="section-header">
+                    <h3 class="section-title">Order Timeline</h3>
+                </div>
+                <div id="commentsContent">
+                    <!-- Comments will be loaded here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error State -->
+        <div id="errorState" style="display: none; text-align: center; padding: 80px 20px;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: var(--secondary-orange); margin-bottom: 20px;"></i>
+            <h3>Order Not Found</h3>
+            <p style="color: var(--gray-600); margin-bottom: 20px;">The order you're looking for doesn't exist or you don't have permission to view it.</p>
+            <a href="/orders" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i>
+                Back to Orders
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const orderId = '{{ order_id }}';
+    let currentOrder = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        loadOrderDetails();
+    });
+    
+    async function loadOrderDetails() {
+        try {
+            const response = await apiCall(`/orders/${orderId}`);
+            
+            if (response.success) {
+                currentOrder = response.order;
+                displayOrderDetails();
+            } else {
+                showErrorState();
+            }
+        } catch (error) {
+            console.error('Error loading order details:', error);
+            showErrorState();
+        }
+    }
+    
+    function displayOrderDetails() {
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('orderContent').style.display = 'block';
+        
+        // Update title
+        document.getElementById('orderTitle').textContent = `Order #${currentOrder.order_id}`;
+        
+        // Update metadata
+        const orderMeta = document.getElementById('orderMeta');
+        orderMeta.innerHTML = `
+            <div class="meta-item">
+                <span class="meta-label">Status</span>
+                <span class="meta-value">${getStatusBadge(currentOrder.status)}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Created</span>
+                <span class="meta-value">${formatDateTime(currentOrder.created_at)}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Items</span>
+                <span class="meta-value">${currentOrder.items_count || currentOrder.items.length} items</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Total Amount</span>
+                <span class="meta-value">${formatCurrency(currentOrder.total_amount)}</span>
+            </div>
+        `;
+        
+        // Display items
+        displayOrderItems();
+        
+        // Display summary
+        displayOrderSummary();
+        
+        // Display comments if any
+        if (currentOrder.comments && currentOrder.comments.length > 0) {
+            displayComments();
+        }
+        
+        // Display action buttons
+        displayActionButtons();
+    }
+    
+    function displayOrderItems() {
+        const tbody = document.getElementById('orderItemsBody');
+        const items = currentOrder.items_with_details || currentOrder.items;
+        
+        tbody.innerHTML = items.map(item => `
+            <tr>
+                <td>
+                    <div>
+                        <div style="font-weight: 600;">${item.product_name || 'Product ' + item.product_id}</div>
+                        ${item.product_make ? `<div style="font-size: 0.875rem; color: var(--gray-600);">${item.product_make}</div>` : ''}
+                    </div>
+                </td>
+                <td>${item.quantity}</td>
+                <td>${formatCurrency(item.price)}</td>
+                <td>${formatCurrency(item.price * item.quantity)}</td>
+            </tr>
+        `).join('');
+    }
+    
+    function displayOrderSummary() {
+        const summaryContent = document.getElementById('orderSummaryContent');
+        const subtotal = currentOrder.total_amount - (currentOrder.total_gst || 0);
+        
+        summaryContent.innerHTML = `
+            <div class="summary-row">
+                <span>Subtotal:</span>
+                <span>${formatCurrency(subtotal)}</span>
+            </div>
+            <div class="summary-row">
+                <span>GST:</span>
+                <span>${formatCurrency(currentOrder.total_gst || 0)}</span>
+            </div>
+            <div class="summary-row total">
+                <span>Total:</span>
+                <span>${formatCurrency(currentOrder.total_amount)}</span>
+            </div>
+        `;
+    }
+    
+    function displayComments() {
+        const commentsSection = document.getElementById('commentsSection');
+        const commentsContent = document.getElementById('commentsContent');
+        
+        commentsContent.innerHTML = currentOrder.comments.map(comment => `
+            <div class="comment-item">
+                <div class="comment-header">
+                    <span class="comment-author">${comment.user_name || 'System'}</span>
+                    <span class="comment-time">${formatDateTime(comment.timestamp)}</span>
+                </div>
+                <div class="comment-message">${comment.message}</div>
+            </div>
+        `).join('');
+        
+        commentsSection.style.display = 'block';
+    }
+    
+    function displayActionButtons() {
+        const actionsContainer = document.getElementById('orderActions');
+        const buttons = [];
+        
+        // Add action buttons based on user role and order status
+        {% if current_user.role == 'customer_dept_head' %}
+        if (currentOrder.status === 'pending_dept_approval') {
+            buttons.push(`
+                <button class="btn btn-success" onclick="approveOrder('dept')">
+                    <i class="fas fa-check"></i>
+                    Approve Order
+                </button>
+                <button class="btn btn-danger" onclick="rejectOrder('dept')">
+                    <i class="fas fa-times"></i>
+                    Reject Order
+                </button>
+            `);
+        }
+        {% elif current_user.role == 'customer_hr_admin' %}
+        if (currentOrder.status === 'pending_hr_approval') {
+            buttons.push(`
+                <button class="btn btn-success" onclick="approveOrder('hr')">
+                    <i class="fas fa-check"></i>
+                    Approve Order
+                </button>
+                <button class="btn btn-danger" onclick="rejectOrder('hr')">
+                    <i class="fas fa-times"></i>
+                    Reject Order
+                </button>
+            `);
+        }
+        {% elif current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+        if (currentOrder.status === 'approved') {
+            buttons.push(`
+                <button class="btn btn-primary" onclick="packOrder()">
+                    <i class="fas fa-box"></i>
+                    Mark as Packed
+                </button>
+            `);
+        } else if (currentOrder.status === 'packed' && '{{ current_user.role }}' !== 'vendor_normal') {
+            buttons.push(`
+                <button class="btn btn-success" onclick="approveDispatch()">
+                    <i class="fas fa-truck"></i>
+                    Approve Dispatch
+                </button>
+            `);
+        } else if (currentOrder.status === 'ready_for_dispatch') {
+            buttons.push(`
+                <button class="btn btn-primary" onclick="markDispatched()">
+                    <i class="fas fa-shipping-fast"></i>
+                    Mark Dispatched
+                </button>
+            `);
+        }
+        {% endif %}
+        
+        // Always add back button
+        buttons.push(`
+            <a href="/orders" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i>
+                Back to Orders
+            </a>
+        `);
+        
+        actionsContainer.innerHTML = buttons.join('');
+    }
+    
+    function showErrorState() {
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('errorState').style.display = 'block';
+    }
+    
+    // Action functions
+    async function approveOrder(type) {
+        const comments = prompt('Add approval comments (optional):');
+        
+        try {
+            const endpoint = type === 'dept' ? 'dept-approval' : 'hr-approval';
+            const response = await apiCall(`/orders/${orderId}/${endpoint}`, {
+                method: 'PUT',
+                body: JSON.stringify({ 
+                    action: 'approve',
+                    comments: comments || ''
+                })
+            });
+            
+            if (response.success) {
+                showNotification('Order approved successfully!', 'success');
+                loadOrderDetails(); // Reload to update status
+            } else {
+                showNotification(response.message || 'Failed to approve order', 'error');
+            }
+        } catch (error) {
+            console.error('Error approving order:', error);
+            showNotification('Failed to approve order', 'error');
+        }
+    }
+    
+    async function rejectOrder(type) {
+        const reason = prompt('Please provide a reason for rejection:');
+        if (!reason) return;
+        
+        try {
+            const endpoint = type === 'dept' ? 'dept-approval' : 'hr-approval';
+            const response = await apiCall(`/orders/${orderId}/${endpoint}`, {
+                method: 'PUT',
+                body: JSON.stringify({ 
+                    action: 'reject',
+                    comments: reason
+                })
+            });
+            
+            if (response.success) {
+                showNotification('Order rejected', 'warning');
+                loadOrderDetails(); // Reload to update status
+            } else {
+                showNotification(response.message || 'Failed to reject order', 'error');
+            }
+        } catch (error) {
+            console.error('Error rejecting order:', error);
+            showNotification('Failed to reject order', 'error');
+        }
+    }
+    
+    async function packOrder() {
+        try {
+            const response = await apiCall(`/orders/${orderId}/pack`, {
+                method: 'PUT',
+                body: JSON.stringify({ 
+                    packed_items: {'0': true} // Mark all items as packed
+                })
+            });
+            
+            if (response.success) {
+                showNotification('Order marked as packed!', 'success');
+                loadOrderDetails();
+            } else {
+                showNotification(response.message || 'Failed to pack order', 'error');
+            }
+        } catch (error) {
+            console.error('Error packing order:', error);
+            showNotification('Failed to pack order', 'error');
+        }
+    }
+    
+    async function approveDispatch() {
+        try {
+            const response = await apiCall(`/orders/${orderId}/dispatch-approval`, {
+                method: 'PUT',
+                body: JSON.stringify({ action: 'approve' })
+            });
+            
+            if (response.success) {
+                showNotification('Dispatch approved!', 'success');
+                loadOrderDetails();
+            } else {
+                showNotification(response.message || 'Failed to approve dispatch', 'error');
+            }
+        } catch (error) {
+            console.error('Error approving dispatch:', error);
+            showNotification('Failed to approve dispatch', 'error');
+        }
+    }
+    
+    async function markDispatched() {
+        try {
+            const response = await apiCall(`/orders/${orderId}/dispatch`, {
+                method: 'PUT'
+            });
+            
+            if (response.success) {
+                showNotification('Order marked as dispatched!', 'success');
+                loadOrderDetails();
+            } else {
+                showNotification(response.message || 'Failed to mark as dispatched', 'error');
+            }
+        } catch (error) {
+            console.error('Error marking dispatched:', error);
+            showNotification('Failed to mark as dispatched', 'error');
+        }
+    }
+</script>
+{% endblock %}

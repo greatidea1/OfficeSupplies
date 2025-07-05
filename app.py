@@ -1300,7 +1300,7 @@ def create_app():
     
     @app.route('/api/orders', methods=['POST'])
     @login_required
-    @role_required('customer_employee')
+    @role_required('customer_employee', 'customer_dept_head', 'customer_hr_admin')  # Allow all customer roles
     def api_create_order():
         """API: Create new order with customer-specific pricing"""
         return jsonify(order_controller.create_order())
@@ -1310,6 +1310,12 @@ def create_app():
     def api_order_details(order_id):
         """API: Get order details with pricing information"""
         return jsonify(order_controller.get_order(order_id))
+    
+    @app.route('/orders/<order_id>')
+    @login_required
+    def order_details(order_id):
+        """Order details page"""
+        return render_template('order_details.html', order_id=order_id)
     
     @app.route('/api/orders/<order_id>/dept-approval', methods=['PUT'])
     @login_required

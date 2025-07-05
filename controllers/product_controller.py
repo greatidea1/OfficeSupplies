@@ -11,7 +11,7 @@ class ProductController:
         self.auth = auth_controller
     
     def get_products(self):
-        """Get products list with customer-specific pricing - COMPLETE FIX"""
+        """Get products list with customer-specific pricing - FIXED FOR VENDORS"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -108,7 +108,15 @@ class ProductController:
                         except Exception as e:
                             print(f"Error getting custom pricing for product {product.product_id}: {e}")
                     
-                    product_list.append(product_dict)
+                    # For vendor users, always include the product (they manage all products)
+                    if current_user.role.startswith('vendor_'):
+                        # Vendors see all products regardless of pricing
+                        product_list.append(product_dict)
+                    elif current_user.role.startswith('customer_'):
+                        # Customers only see products with pricing (base price > 0 or custom price exists)
+                        effective_price = product_dict.get('custom_price', product_dict.get('price', 0))
+                        if effective_price > 0:
+                            product_list.append(product_dict)
                     
                 except Exception as e:
                     print(f"Error processing product {getattr(product, 'product_id', 'unknown')}: {e}")
@@ -138,7 +146,7 @@ class ProductController:
                 }
             }
             
-            print(f"Returning {len(product_list)} products to user")
+            print(f"Returning {len(product_list)} products to {current_user.role} user")
             return result
             
         except Exception as e:

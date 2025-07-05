@@ -784,7 +784,8 @@
 
 <script>
 
-    // Clean products JavaScript without template syntax issues
+    // Complete JavaScript for products.html
+
 let currentProducts = [];
 let filteredProducts = [];
 let categories = [];
@@ -830,11 +831,6 @@ async function loadProducts() {
             categories = response.categories || [];
             
             populateCategoryFilter();
-            
-            if (IS_VENDOR) {
-                await loadCustomerPricing();
-            }
-            
             displayProducts();
         } else {
             console.error('Failed to load products:', response);
@@ -857,10 +853,8 @@ function displayProducts() {
     console.log('Displaying products for role:', USER_ROLE);
     
     if (IS_CUSTOMER) {
-        // Customer view
         displayCustomerProducts();
     } else if (IS_VENDOR) {
-        // Vendor view
         displayVendorProducts();
     }
     
@@ -1039,12 +1033,420 @@ function displayVendorProducts() {
             ${getProductActions(product)}
         </div>
     `).join('');
+}
+
+function getStockIndicator(product) {
+    let stockClass = 'stock-high';
+    let stockText = 'In Stock';
     
-    // Update price indicators for vendor users
-    if (typeof updatePriceIndicator === 'function') {
-        filteredProducts.forEach(product => {
-            updatePriceIndicator(product.product_id);
+    if (product.quantity === 0) {
+        stockClass = 'stock-low';
+        stockText = 'Out of Stock';
+    } else if (product.quantity <= (product.low_stock_threshold || 10)) {
+        stockClass = 'stock-medium';
+        stockText = 'Low Stock';
+    }
+    
+    return `
+        <div class="product-stock">
+            <div class="stock-indicator ${stockClass}"></div>
+            <span>${stockText}</span>
+        </div>
+    `;
+}
+
+function getPriceSection(product) {
+    return `
+        <div class="product-price-section" id="price-section-${product.product_id}">
+            <div class="product-price">
+                Base Price: ₹${(product.price || 0).toLocaleString('en-IN')}
+            </div>
+            <div class="product-gst">
+                + ${product.gst_rate || 18}% GST
+            </div>
+        </div>
+    `;
+}
+
+function getProductActions(product) {
+    return `
+        <div class="product-actions">
+            <button class="btn btn-secondary btn-sm" onclick="viewProductDetails('${product.product_id}')">
+                <i class="fas fa-eye"></i>
+                View Details
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="editProduct('${product.product_id}')">
+                <i class="fas fa-edit"></i>
+                Edit
+            </button>
+        </div>
+    `;
+}
+
+// Setup customer pricing system for vendors
+async function setupCustomerPricingSystem() {
+    if (!IS_VENDOR) return;
+    
+    try {
+        // Load customers for the dropdown
+        const response = await apiCall('/vendor/customers-dropdown');
+        if (response.success) {
+            const customerFilter = document.getElementById('customerFilterProducts');
+            if (customerFilter) {
+                customerFilter.innerHTML = '<option value="">Select Customer for Pricing</option>' +
+                    response.customers.map(customer => 
+                        `<option value="${customer.customer_id}">${customer.company_name}</option>`
+                    ).join('');
+                
+                // Handle customer selection change
+                customerFilter.addEventListener('change', function() {
+                    selectedCustomerId = this.value;
+                    if (selectedCustomerId) {
+                        loadCustomerPricing();
+                        document.getElementById('noCustomerMessage').style.display = 'none';
+                    } else {
+                        document.getElementById('noCustomerMessage').style.display = 'block';
+                        // Reset pricing displays
+                        filteredProducts.forEach(product => {
+                            updatePriceIndicator(product.product_id);
+                        });
+                    }
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error setting up customer pricing system:', error);
+    }
+}
+
+async function loadCustomerPricing() {
+    if (!selectedCustomerId || !IS_VENDOR) return;
+    
+    try {
+        const response = await apiCall(`/customer-pricing/${selectedCustomerId}`);
+        if (response.success) {
+            customerPricing = {};
+            response.pricing.forEach(item => {
+                customerPricing[item.product_id] = item.custom_price;
+            });
+            
+            // Update product displays with pricing
+            updateProductPricing();
+        }
+    } catch (error) {
+        console.error('Error loading customer pricing:', error);
+    }
+}
+
+function updateProductPricing() {
+    // Update pricing displays for vendor users
+    filteredProducts.forEach(product => {
+        updatePriceIndicator(product.product_id);
+    });
+}
+
+function updatePriceIndicator(productId) {
+    if (!IS_VENDOR) return;
+    
+    const priceSection = document.getElementById(`price-section-${productId}`);
+    if (!priceSection) return;
+    
+    const product = currentProducts.find(p => p.product_id === productId);
+    if (!product) return;
+    
+    const customPrice = customerPricing[productId];
+    const basePrice = product.price || 0;
+    
+    if (customPrice !== undefined && selectedCustomerId) {
+        priceSection.innerHTML = `
+            <div class="product-price">
+                Base: ₹${basePrice.toLocaleString('en-IN')} 
+                <span style="color: var(--secondary-green); margin-left: 8px;">
+                    Custom: ₹${customPrice.toLocaleString('en-IN')}
+                </span>
+            </div>
+            <div class="product-gst">+ ${product.gst_rate || 18}% GST</div>
+            <button class="btn btn-sm btn-warning" onclick="editCustomerPrice('${productId}', ${customPrice})" style="margin-top: 8px;">
+                Edit Price
+            </button>
+        `;
+    } else if (selectedCustomerId) {
+        priceSection.innerHTML = `
+            <div class="product-price">₹${basePrice.toLocaleString('en-IN')}</div>
+            <div class="product-gst">+ ${product.gst_rate || 18}% GST</div>
+            <button class="btn btn-sm btn-primary" onclick="setCustomerPrice('${productId}')" style="margin-top: 8px;">
+                Set Custom Price
+            </button>
+        `;
+    } else {
+        priceSection.innerHTML = `
+            <div class="product-price">Base Price: ₹${basePrice.toLocaleString('en-IN')}</div>
+            <div class="product-gst">+ ${product.gst_rate || 18}% GST</div>
+        `;
+    }
+}
+
+async function setCustomerPrice(productId) {
+    if (!selectedCustomerId) {
+        showNotification('Please select a customer first', 'warning');
+        return;
+    }
+    
+    const product = currentProducts.find(p => p.product_id === productId);
+    if (!product) return;
+    
+    const customPrice = prompt(`Set custom price for ${product.product_name}\nBase price: ₹${product.price}`, product.price);
+    
+    if (customPrice !== null && !isNaN(customPrice) && parseFloat(customPrice) >= 0) {
+        try {
+            const response = await apiCall('/customer-pricing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customer_id: selectedCustomerId,
+                    product_id: productId,
+                    custom_price: parseFloat(customPrice)
+                })
+            });
+            
+            if (response.success) {
+                customerPricing[productId] = parseFloat(customPrice);
+                updatePriceIndicator(productId);
+                showNotification('Custom price set successfully', 'success');
+            } else {
+                showNotification(response.message || 'Failed to set custom price', 'error');
+            }
+        } catch (error) {
+            console.error('Error setting custom price:', error);
+            showNotification('Failed to set custom price', 'error');
+        }
+    }
+}
+
+async function editCustomerPrice(productId, currentPrice) {
+    const product = currentProducts.find(p => p.product_id === productId);
+    if (!product) return;
+    
+    const newPrice = prompt(`Edit custom price for ${product.product_name}\nCurrent custom price: ₹${currentPrice}`, currentPrice);
+    
+    if (newPrice !== null && !isNaN(newPrice) && parseFloat(newPrice) >= 0) {
+        try {
+            const response = await apiCall('/customer-pricing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customer_id: selectedCustomerId,
+                    product_id: productId,
+                    custom_price: parseFloat(newPrice)
+                })
+            });
+            
+            if (response.success) {
+                customerPricing[productId] = parseFloat(newPrice);
+                updatePriceIndicator(productId);
+                showNotification('Custom price updated successfully', 'success');
+            } else {
+                showNotification(response.message || 'Failed to update custom price', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating custom price:', error);
+            showNotification('Failed to update custom price', 'error');
+        }
+    }
+}
+
+// Product Details Modal
+async function viewProductDetails(productId) {
+    try {
+        const product = currentProducts.find(p => p.product_id === productId);
+        if (!product) {
+            showNotification('Product not found', 'error');
+            return;
+        }
+        
+        // Create and show modal
+        const modal = document.createElement('div');
+        modal.className = 'modal show';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h3 class="modal-title">Product Details</h3>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 12px;">${product.product_name}</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div><strong>Item Number:</strong> ${product.item_no}</div>
+                            <div><strong>Category:</strong> ${product.category}</div>
+                            ${product.product_make ? `<div><strong>Make:</strong> ${product.product_make}</div>` : ''}
+                            ${product.product_model ? `<div><strong>Model:</strong> ${product.product_model}</div>` : ''}
+                            <div><strong>Price:</strong> ₹${(product.price || 0).toLocaleString('en-IN')}</div>
+                            <div><strong>Stock:</strong> ${product.quantity} units</div>
+                            <div><strong>GST Rate:</strong> ${product.gst_rate || 18}%</div>
+                            ${product.hsn_code ? `<div><strong>HSN Code:</strong> ${product.hsn_code}</div>` : ''}
+                        </div>
+                    </div>
+                    
+                    ${product.description ? `
+                        <div style="margin-bottom: 20px;">
+                            <h5>Description</h5>
+                            <p style="color: var(--gray-700);">${product.description}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${IS_VENDOR && selectedCustomerId ? `
+                        <div style="margin-bottom: 20px;">
+                            <h5>Customer Pricing</h5>
+                            <div id="modalPricing" style="padding: 12px; background: var(--gray-50); border-radius: 8px;">
+                                ${customerPricing[productId] ? 
+                                    `Custom Price: ₹${customerPricing[productId].toLocaleString('en-IN')}` : 
+                                    'No custom pricing set'}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Close</button>
+                    ${IS_VENDOR ? `<button class="btn btn-primary" onclick="editProduct('${productId}'); this.closest('.modal').remove();">Edit Product</button>` : ''}
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    } catch (error) {
+        console.error('Error viewing product details:', error);
+        showNotification('Failed to load product details', 'error');
+    }
+}
+
+// Edit Product Modal
+async function editProduct(productId) {
+    try {
+        const product = currentProducts.find(p => p.product_id === productId);
+        if (!product) {
+            showNotification('Product not found', 'error');
+            return;
+        }
+        
+        // Create and show edit modal
+        const modal = document.createElement('div');
+        modal.className = 'modal show';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal-header">
+                    <h3 class="modal-title">Edit Product</h3>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="editProductForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Product Name</label>
+                                <input type="text" class="form-control" name="product_name" value="${product.product_name}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Category</label>
+                                <select class="form-control" name="category" required>
+                                    ${categories.map(cat => 
+                                        `<option value="${cat}" ${cat === product.category ? 'selected' : ''}>${cat}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Make</label>
+                                <input type="text" class="form-control" name="product_make" value="${product.product_make || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Model</label>
+                                <input type="text" class="form-control" name="product_model" value="${product.product_model || ''}">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="3">${product.description || ''}</textarea>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Base Price (₹)</label>
+                                <input type="number" class="form-control" name="price" value="${product.price || 0}" min="0" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Stock Quantity</label>
+                                <input type="number" class="form-control" name="quantity" value="${product.quantity}" min="0" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">GST Rate (%)</label>
+                                <select class="form-control" name="gst_rate">
+                                    <option value="0" ${product.gst_rate === 0 ? 'selected' : ''}>0%</option>
+                                    <option value="5" ${product.gst_rate === 5 ? 'selected' : ''}>5%</option>
+                                    <option value="12" ${product.gst_rate === 12 ? 'selected' : ''}>12%</option>
+                                    <option value="18" ${product.gst_rate === 18 ? 'selected' : ''}>18%</option>
+                                    <option value="28" ${product.gst_rate === 28 ? 'selected' : ''}>28%</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">HSN Code</label>
+                                <input type="text" class="form-control" name="hsn_code" value="${product.hsn_code || ''}">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveProductChanges('${productId}', this.closest('.modal'))">Save Changes</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    } catch (error) {
+        console.error('Error editing product:', error);
+        showNotification('Failed to load product editor', 'error');
+    }
+}
+
+async function saveProductChanges(productId, modal) {
+    try {
+        const form = modal.querySelector('#editProductForm');
+        const formData = new FormData(form);
+        
+        const updateData = {
+            product_name: formData.get('product_name'),
+            category: formData.get('category'),
+            product_make: formData.get('product_make'),
+            product_model: formData.get('product_model'),
+            description: formData.get('description'),
+            price: parseFloat(formData.get('price')) || 0,
+            quantity: parseInt(formData.get('quantity')) || 0,
+            gst_rate: parseFloat(formData.get('gst_rate')) || 18,
+            hsn_code: formData.get('hsn_code')
+        };
+        
+        const response = await apiCall(`/products/${productId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
         });
+        
+        if (response.success) {
+            showNotification('Product updated successfully!', 'success');
+            modal.remove();
+            loadProducts(); // Reload products
+        } else {
+            showNotification(response.message || 'Failed to update product', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving product changes:', error);
+        showNotification('Failed to update product', 'error');
     }
 }
 
@@ -1076,6 +1478,8 @@ function addToCart(productId) {
     }
     
     const quantity = parseInt(quantityInput.value) || 1;
+    
+    // Use custom price if available, otherwise use base price
     const price = product.custom_price || product.price || 0;
     
     if (price === 0) {
@@ -1193,7 +1597,6 @@ function populateCategoryFilter() {
 }
 
 function searchProducts() {
-    // Apply filters and sorting logic here
     applyFilters();
 }
 
@@ -1203,7 +1606,7 @@ function applyFilters() {
     const priceRange = document.getElementById('priceFilter').value;
     const sortBy = document.getElementById('sortFilter').value;
     
-    // Filter logic here...
+    // Filter logic
     filteredProducts = currentProducts.filter(product => {
         // Search filter
         const matchesSearch = !searchTerm || 
@@ -1214,8 +1617,33 @@ function applyFilters() {
         // Category filter
         const matchesCategory = !category || product.category === category;
         
-        return matchesSearch && matchesCategory;
+        // Price filter
+        let matchesPrice = true;
+        if (priceRange) {
+            const price = product.custom_price || product.price || 0;
+            if (priceRange === '0-100') matchesPrice = price < 100;
+            else if (priceRange === '100-500') matchesPrice = price >= 100 && price < 500;
+            else if (priceRange === '500-1000') matchesPrice = price >= 500 && price < 1000;
+            else if (priceRange === '1000+') matchesPrice = price >= 1000;
+        }
+        
+        return matchesSearch && matchesCategory && matchesPrice;
     });
+    
+    // Apply sorting
+    if (sortBy === 'name_asc') {
+        filteredProducts.sort((a, b) => a.product_name.localeCompare(b.product_name));
+    } else if (sortBy === 'name_desc') {
+        filteredProducts.sort((a, b) => b.product_name.localeCompare(a.product_name));
+    } else if (sortBy === 'price_asc') {
+        filteredProducts.sort((a, b) => (a.custom_price || a.price) - (b.custom_price || b.price));
+    } else if (sortBy === 'price_desc') {
+        filteredProducts.sort((a, b) => (b.custom_price || b.price) - (a.custom_price || a.price));
+    } else if (sortBy === 'stock_asc') {
+        filteredProducts.sort((a, b) => a.quantity - b.quantity);
+    } else if (sortBy === 'stock_desc') {
+        filteredProducts.sort((a, b) => b.quantity - a.quantity);
+    }
     
     displayProducts();
 }
@@ -1245,12 +1673,80 @@ function showEmptyState(message = 'No products found') {
     `;
 }
 
-// Product details modal
-function viewProductDetails(productId) {
-    console.log('Viewing product details:', productId);
-    // Modal implementation here...
+// Add Product Modal Functions (for vendors)
+{% if current_user.role.startswith('vendor_') %}
+function showAddProductModal() {
+    document.getElementById('addProductModal').classList.add('show');
+    document.querySelector('[name="item_no"]').focus();
 }
 
+function closeAddProductModal() {
+    document.getElementById('addProductModal').classList.remove('show');
+    document.getElementById('addProductForm').reset();
+}
+
+async function submitAddProduct() {
+    const form = document.getElementById('addProductForm');
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch('/api/products', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Product created successfully!', 'success');
+            closeAddProductModal();
+            loadProducts();
+        } else {
+            showNotification(result.message || 'Failed to create product', 'error');
+        }
+    } catch (error) {
+        console.error('Error creating product:', error);
+        showNotification('Failed to create product', 'error');
+    }
+}
+
+function handleImageUpload(event) {
+    const file = event.target.files[0];
+    const preview = document.getElementById('imagePreview');
+    const errorSpan = document.getElementById('imageError');
+    
+    if (!file) {
+        preview.style.display = 'none';
+        return;
+    }
+    
+    // Validate file size (16MB max)
+    if (file.size > 16 * 1024 * 1024) {
+        errorSpan.textContent = 'File size must be less than 16MB';
+        event.target.value = '';
+        preview.style.display = 'none';
+        return;
+    }
+    
+    // Clear any errors
+    errorSpan.textContent = '';
+    
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        preview.innerHTML = `
+            <img src="${e.target.result}" 
+                 style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px;">
+            <div style="margin-top: 8px; font-size: 0.875rem; color: var(--gray-600);">
+                Preview: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)
+            </div>
+        `;
+        preview.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+}
+{% endif %}
+    
 </script>
 
 {% endblock %}

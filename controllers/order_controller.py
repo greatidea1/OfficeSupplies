@@ -211,7 +211,7 @@ class OrderController:
             }
     
     def create_order(self):
-        """Create new order with approval workflow - UPDATED VERSION"""
+        """Create new order with approval workflow - FIXED VERSION"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or not current_user.role.startswith('customer_'):
@@ -222,18 +222,21 @@ class OrderController:
             if not data.get('items') or len(data['items']) == 0:
                 return {'success': False, 'message': 'Order must contain at least one item'}
             
+            # Import Product here to avoid circular imports
+            from models import Product
+            
             # Create new order
             order = Order()
             order.customer_id = current_user.customer_id
             order.user_id = current_user.user_id
             order.department_id = current_user.department_id
             
-            # Set initial status based on user role
+            # Set initial status based on user role - FIXED LOGIC
             if current_user.role == 'customer_employee':
                 # Employees need department approval first
                 order.status = 'pending_dept_approval'
             elif current_user.role == 'customer_dept_head':
-                # Department heads can approve their own orders, need HR approval
+                # Department heads skip dept approval, need HR approval
                 order.status = 'pending_hr_approval'
                 order.add_comment(
                     current_user.user_id, 
@@ -280,7 +283,7 @@ class OrderController:
                     return {'success': False, 'message': f'Insufficient stock for {product.product_name}. Available: {product.quantity}'}
                 
                 # Get customer-specific price if available
-                custom_price = product_controller.get_customer_pricing(product_id, current_user.customer_id)
+                custom_price = self.get_customer_pricing(product_id, current_user.customer_id)
                 unit_price = custom_price if custom_price is not None else product.price
                 
                 if unit_price == 0:
@@ -661,6 +664,24 @@ class OrderController:
             orders = [o for o in orders if o.status == status]
         
         return orders
+    
+    def get_customer_pricing(self, product_id, customer_id):
+        """Get custom pricing for customer"""
+        try:
+            from config import config
+            db = config.get_db()
+            doc_id = f"{customer_id}_{product_id}"
+            doc = db.collection('customer_pricing').document(doc_id).get()
+            
+            if doc.exists:
+                pricing_data = doc.to_dict()
+                return pricing_data.get('custom_price')
+            
+            return None
+            
+        except Exception as e:
+            print(f"Get customer pricing error: {e}")
+            return None
     
     def get_dept_head_orders(self, user):
         """Get orders for department head"""
