@@ -49,6 +49,120 @@
         color: var(--gray-900);
     }
     
+    /* Enhanced vendor details section */
+    .vendor-details-section {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 32px;
+    }
+    
+    .vendor-details-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .vendor-details-icon {
+        width: 32px;
+        height: 32px;
+        background: var(--primary-blue);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 16px;
+    }
+    
+    .vendor-details-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--gray-900);
+    }
+    
+    .vendor-details-subtitle {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        margin-left: auto;
+    }
+    
+    .vendor-details-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+    
+    .vendor-detail-card {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid var(--gray-200);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .vendor-detail-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+    
+    .vendor-detail-icon {
+        width: 24px;
+        height: 24px;
+        background: var(--gray-100);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--gray-600);
+        font-size: 12px;
+    }
+    
+    .vendor-detail-card-title {
+        font-weight: 600;
+        color: var(--gray-900);
+        font-size: 0.875rem;
+    }
+    
+    .vendor-detail-content {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .vendor-detail-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .vendor-detail-label {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 500;
+    }
+    
+    .vendor-detail-value {
+        font-weight: 500;
+        color: var(--gray-900);
+        font-size: 0.875rem;
+    }
+    
+    .vendor-detail-value.primary {
+        color: var(--primary-blue);
+        font-weight: 600;
+    }
+    
+    .vendor-detail-value.secondary {
+        color: var(--gray-600);
+    }
+    
     .order-items-section {
         background: white;
         border-radius: 16px;
@@ -168,6 +282,30 @@
         color: var(--gray-700);
         line-height: 1.5;
     }
+    
+    @media (max-width: 768px) {
+        .order-meta {
+            grid-template-columns: 1fr;
+        }
+        
+        .vendor-details-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .vendor-details-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .vendor-details-subtitle {
+            margin-left: 0;
+            margin-top: 4px;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -192,6 +330,24 @@
                     <!-- Action buttons will be loaded here -->
                 </div>
             </div>
+            
+            <!-- Vendor Details Section (only for vendor users) -->
+            {% if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+            <div class="vendor-details-section" id="vendorDetailsSection">
+                <div class="vendor-details-header">
+                    <div class="vendor-details-icon">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <div>
+                        <div class="vendor-details-title">Customer Information</div>
+                        <div class="vendor-details-subtitle">Order placement details</div>
+                    </div>
+                </div>
+                <div class="vendor-details-grid" id="vendorDetailsGrid">
+                    <!-- Vendor details will be loaded here -->
+                </div>
+            </div>
+            {% endif %}
             
             <!-- Order Items -->
             <div class="order-items-section">
@@ -299,6 +455,11 @@
             </div>
         `;
         
+        // Display vendor details if user is vendor
+        {% if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+        displayVendorDetails();
+        {% endif %}
+        
         // Display items
         displayOrderItems();
         
@@ -313,6 +474,114 @@
         // Display action buttons
         displayActionButtons();
     }
+    
+    {% if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal'] %}
+    function displayVendorDetails() {
+        const vendorDetailsGrid = document.getElementById('vendorDetailsGrid');
+        
+        vendorDetailsGrid.innerHTML = `
+            <div class="vendor-detail-card">
+                <div class="vendor-detail-header">
+                    <div class="vendor-detail-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <span class="vendor-detail-card-title">Order Placed By</span>
+                </div>
+                <div class="vendor-detail-content">
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Name</span>
+                        <span class="vendor-detail-value primary">${currentOrder.user_name || 'Unknown User'}</span>
+                    </div>
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Email</span>
+                        <span class="vendor-detail-value secondary">${currentOrder.user_email || 'No Email'}</span>
+                    </div>
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Role</span>
+                        <span class="vendor-detail-value">${formatRole(currentOrder.user_role || 'Unknown')}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="vendor-detail-card">
+                <div class="vendor-detail-header">
+                    <div class="vendor-detail-icon">
+                        <i class="fas fa-sitemap"></i>
+                    </div>
+                    <span class="vendor-detail-card-title">Department</span>
+                </div>
+                <div class="vendor-detail-content">
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Department Name</span>
+                        <span class="vendor-detail-value primary">${currentOrder.department_name || 'No Department'}</span>
+                    </div>
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Description</span>
+                        <span class="vendor-detail-value secondary">${currentOrder.department_description || 'No Description'}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="vendor-detail-card">
+                <div class="vendor-detail-header">
+                    <div class="vendor-detail-icon">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <span class="vendor-detail-card-title">Branch Information</span>
+                </div>
+                <div class="vendor-detail-content">
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Branch Name</span>
+                        <span class="vendor-detail-value primary">${currentOrder.branch_name || 'No Branch'}</span>
+                    </div>
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Address</span>
+                        <span class="vendor-detail-value secondary">${currentOrder.branch_address || 'No Address'}</span>
+                    </div>
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Phone</span>
+                        <span class="vendor-detail-value">${currentOrder.branch_phone || 'No Phone'}</span>
+                    </div>
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Manager</span>
+                        <span class="vendor-detail-value">${currentOrder.branch_manager || 'No Manager'}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="vendor-detail-card">
+                <div class="vendor-detail-header">
+                    <div class="vendor-detail-icon">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <span class="vendor-detail-card-title">Company Information</span>
+                </div>
+                <div class="vendor-detail-content">
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Company Name</span>
+                        <span class="vendor-detail-value primary">${currentOrder.company_name || 'Unknown Company'}</span>
+                    </div>
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Company Address</span>
+                        <span class="vendor-detail-value secondary">${currentOrder.company_address || 'No Address'}</span>
+                    </div>
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Company Phone</span>
+                        <span class="vendor-detail-value">${currentOrder.company_phone || 'No Phone'}</span>
+                    </div>
+                    <div class="vendor-detail-item">
+                        <span class="vendor-detail-label">Company Email</span>
+                        <span class="vendor-detail-value">${currentOrder.company_email || 'No Email'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function formatRole(role) {
+        return role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+    {% endif %}
     
     function displayOrderItems() {
         const tbody = document.getElementById('orderItemsBody');

@@ -1,7 +1,7 @@
 # Order Controller - Handle order management and workflow with customer pricing
 from flask import request, session
 from datetime import datetime
-from models import Order, Product, User, Customer
+from models import Order, Product, User, Customer, Department, Branch
 from controllers.auth_controller import auth_controller
 from config import config
 
@@ -105,9 +105,70 @@ class OrderController:
         except Exception as e:
             print(f"Get orders error: {e}")
             return {'success': False, 'message': 'Failed to retrieve orders'}
-    
+        
+    def get_order_with_user_details(self, order):
+        """Get order with complete user details for vendor display"""
+        try:
+            order_dict = order.to_dict()
+            
+            # Get user details
+            user = User.get_by_id(order.user_id)
+            if user:
+                order_dict['user_name'] = user.full_name or user.username
+                order_dict['user_email'] = user.email
+                order_dict['user_role'] = user.role
+                
+                # Get customer details
+                if user.customer_id:
+                    customer = Customer.get_by_id(user.customer_id)
+                    if customer:
+                        order_dict['company_name'] = customer.company_name
+                        order_dict['company_email'] = customer.email
+                        order_dict['company_address'] = customer.postal_address
+                        order_dict['company_phone'] = customer.primary_phone
+                
+                # Get department details
+                if user.department_id:
+                    department = Department.get_by_id(user.department_id)
+                    if department:
+                        order_dict['department_name'] = department.name
+                        order_dict['department_description'] = department.description
+                    else:
+                        order_dict['department_name'] = 'Unknown Department'
+                else:
+                    order_dict['department_name'] = 'No Department'
+                
+                # Get branch details
+                if user.branch_id:
+                    branch = Branch.get_by_id(user.branch_id)
+                    if branch:
+                        order_dict['branch_name'] = branch.name
+                        order_dict['branch_address'] = branch.address
+                        order_dict['branch_phone'] = branch.phone
+                        order_dict['branch_email'] = branch.email
+                        order_dict['branch_manager'] = branch.manager_name
+                    else:
+                        order_dict['branch_name'] = 'Unknown Branch'
+                        order_dict['branch_address'] = 'Unknown Address'
+                else:
+                    order_dict['branch_name'] = 'No Branch'
+                    order_dict['branch_address'] = 'No Branch Address'
+            else:
+                # Fallback if user not found
+                order_dict['user_name'] = 'Unknown User'
+                order_dict['company_name'] = 'Unknown Company'
+                order_dict['department_name'] = 'Unknown Department'
+                order_dict['branch_name'] = 'Unknown Branch'
+                order_dict['branch_address'] = 'Unknown Address'
+            
+            return order_dict
+            
+        except Exception as e:
+            print(f"Error getting order with user details: {e}")
+            return order.to_dict()
+        
     def get_order(self, order_id):
-        """Get single order details - UPDATED WITH PRICING INFO"""
+        """Get single order details - Enhanced with user details"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -121,7 +182,11 @@ class OrderController:
             if not self.can_user_view_order(current_user, order):
                 return {'success': False, 'message': 'Access denied'}
             
-            order_dict = order.to_dict()
+            # Use enhanced method for vendor users
+            if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal']:
+                order_dict = self.get_order_with_user_details(order)
+            else:
+                order_dict = order.to_dict()
             
             # Add computed fields
             order_dict['items_count'] = len(order.items)
@@ -170,6 +235,208 @@ class OrderController:
         except Exception as e:
             print(f"Get order error: {e}")
             return {'success': False, 'message': 'Failed to retrieve order'}
+        
+    def get_orders(self):
+        """Get orders list based on user role and filters - Enhanced with user details"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            # Get query parameters
+            status = request.args.get('status', '')
+            customer_id = request.args.get('customer_id', '')
+            date_range = request.args.get('date_range', '')
+            page = int(request.args.get('page', 1))
+            per_page = int(request.args.get('per_page', 20))
+            
+            # Get orders based on user role
+            if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal']:
+                orders = self.get_vendor_orders(status, customer_id)
+            elif current_user.role == 'customer_hr_admin':
+                orders = self.get_customer_hr_orders(current_user.customer_id, status)
+            elif current_user.role == 'customer_dept_head':
+                orders = self.get_dept_head_orders(current_user)
+            elif current_user.role == 'customer_employee':
+                orders = self.get_employee_orders(current_user.user_id, status)
+            else:
+                return {'success': False, 'message': 'Invalid user role'}
+            
+            # Apply date filtering if specified
+            if date_range:
+                orders = self.filter_orders_by_date(orders, date_range)
+            
+            # Sort orders by creation date (newest first)
+            orders.sort(key=lambda o: o.created_at, reverse=True)
+            
+            # Apply pagination
+            total_orders = len(orders)
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_orders = orders[start_idx:end_idx]
+            
+            # Convert to dict and add additional info
+            order_list = []
+            for order in paginated_orders:
+                # Use enhanced method for vendor users
+                if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal']:
+                    order_dict = self.get_order_with_user_details(order)
+                else:
+                    order_dict = order.to_dict()
+                
+                # Add computed fields
+                order_dict['items_count'] = len(order.items)
+                order_dict['can_approve'] = self.can_user_approve_order(current_user, order)
+                order_dict['can_edit'] = self.can_user_edit_order(current_user, order)
+                order_dict['customer_name'] = self.get_customer_name(order.customer_id)
+                
+                # Add product details for items with pricing information
+                order_dict['items_with_details'] = []
+                for item in order.items:
+                    product = Product.get_by_id(item['product_id'])
+                    if product:
+                        item_detail = item.copy()
+                        item_detail['product_name'] = product.product_name
+                        item_detail['product_make'] = product.product_make
+                        item_detail['category'] = product.category
+                        
+                        # Add pricing information
+                        item_detail['base_price'] = product.price
+                        item_detail['used_price'] = item['price']
+                        item_detail['is_custom_price'] = item['price'] != product.price
+                        item_detail['savings_per_unit'] = product.price - item['price'] if item['price'] != product.price else 0
+                        item_detail['total_savings'] = item_detail['savings_per_unit'] * item['quantity']
+                        
+                        order_dict['items_with_details'].append(item_detail)
+                
+                # Calculate total savings for the order
+                total_savings = sum(item.get('total_savings', 0) for item in order_dict['items_with_details'])
+                order_dict['total_savings'] = total_savings
+                
+                order_list.append(order_dict)
+            
+            return {
+                'success': True,
+                'orders': order_list,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': total_orders,
+                    'pages': (total_orders + per_page - 1) // per_page
+                },
+                'filters': {
+                    'status': status,
+                    'customer_id': customer_id,
+                    'date_range': date_range
+                }
+            }
+            
+        except Exception as e:
+            print(f"Get orders error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'message': 'Failed to retrieve orders'}
+    
+    def get_orders(self):
+        """Get orders list based on user role and filters - Enhanced with user details"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            # Get query parameters
+            status = request.args.get('status', '')
+            customer_id = request.args.get('customer_id', '')
+            date_range = request.args.get('date_range', '')
+            page = int(request.args.get('page', 1))
+            per_page = int(request.args.get('per_page', 20))
+            
+            # Get orders based on user role
+            if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal']:
+                orders = self.get_vendor_orders(status, customer_id)
+            elif current_user.role == 'customer_hr_admin':
+                orders = self.get_customer_hr_orders(current_user.customer_id, status)
+            elif current_user.role == 'customer_dept_head':
+                orders = self.get_dept_head_orders(current_user)
+            elif current_user.role == 'customer_employee':
+                orders = self.get_employee_orders(current_user.user_id, status)
+            else:
+                return {'success': False, 'message': 'Invalid user role'}
+            
+            # Apply date filtering if specified
+            if date_range:
+                orders = self.filter_orders_by_date(orders, date_range)
+            
+            # Sort orders by creation date (newest first)
+            orders.sort(key=lambda o: o.created_at, reverse=True)
+            
+            # Apply pagination
+            total_orders = len(orders)
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_orders = orders[start_idx:end_idx]
+            
+            # Convert to dict and add additional info
+            order_list = []
+            for order in paginated_orders:
+                # Use enhanced method for vendor users
+                if current_user.role in ['vendor_superadmin', 'vendor_admin', 'vendor_normal']:
+                    order_dict = self.get_order_with_user_details(order)
+                else:
+                    order_dict = order.to_dict()
+                
+                # Add computed fields
+                order_dict['items_count'] = len(order.items)
+                order_dict['can_approve'] = self.can_user_approve_order(current_user, order)
+                order_dict['can_edit'] = self.can_user_edit_order(current_user, order)
+                order_dict['customer_name'] = self.get_customer_name(order.customer_id)
+                
+                # Add product details for items with pricing information
+                order_dict['items_with_details'] = []
+                for item in order.items:
+                    product = Product.get_by_id(item['product_id'])
+                    if product:
+                        item_detail = item.copy()
+                        item_detail['product_name'] = product.product_name
+                        item_detail['product_make'] = product.product_make
+                        item_detail['category'] = product.category
+                        
+                        # Add pricing information
+                        item_detail['base_price'] = product.price
+                        item_detail['used_price'] = item['price']
+                        item_detail['is_custom_price'] = item['price'] != product.price
+                        item_detail['savings_per_unit'] = product.price - item['price'] if item['price'] != product.price else 0
+                        item_detail['total_savings'] = item_detail['savings_per_unit'] * item['quantity']
+                        
+                        order_dict['items_with_details'].append(item_detail)
+                
+                # Calculate total savings for the order
+                total_savings = sum(item.get('total_savings', 0) for item in order_dict['items_with_details'])
+                order_dict['total_savings'] = total_savings
+                
+                order_list.append(order_dict)
+            
+            return {
+                'success': True,
+                'orders': order_list,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': total_orders,
+                    'pages': (total_orders + per_page - 1) // per_page
+                },
+                'filters': {
+                    'status': status,
+                    'customer_id': customer_id,
+                    'date_range': date_range
+                }
+            }
+            
+        except Exception as e:
+            print(f"Get orders error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'message': 'Failed to retrieve orders'}
         
     def get_order_pricing_summary(self, order):
         """Get pricing summary for an order showing base vs custom pricing"""
