@@ -46,7 +46,7 @@
         }
         
         .product-card {
-            padding: 16px;
+            padding: 12px;
         }
     }
 
@@ -135,7 +135,7 @@
     .product-card {
         background: white;
         border-radius: 16px;
-        padding: 24px;
+        padding: 16px;
         box-shadow: var(--shadow);
         border: 1px solid var(--gray-200);
         transition: all 0.3s ease;
@@ -220,8 +220,8 @@
     }
     
     .product-price {
-        font-size: 1.5rem;
-        font-weight: 700;
+        font-size: 1rem;
+        font-weight: 500;
         color: var(--primary-blue);
         margin-bottom: 4px;
         display: flex;
@@ -976,7 +976,7 @@ function displayCustomerProducts() {
                 <div onclick="event.stopPropagation()" style="display: flex; gap: 12px;">
                     <!-- Qty Section -->
                     <div style="flex: 1; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; align-items: center;">
-                        <div style="font-size: 0.75rem; font-weight: 600; color: var(--gray-600); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Qty</div>
+                        <div style="font-size: 0.75rem; font-weight: 600; color: var(--gray-600); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Quantity</div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <button onclick="changeQuantity('${product.product_id}', -1)" 
                                     ${isOutOfStock ? 'disabled' : ''} 
@@ -1003,7 +1003,7 @@ function displayCustomerProducts() {
                         <button onclick="addToCart('${product.product_id}')" 
                                 ${isOutOfStock ? 'disabled' : ''} 
                                 data-price="${effectivePrice}" 
-                                style="width: 100%; height: 100%; background: ${isOutOfStock ? 'var(--gray-400)' : 'var(--primary-blue)'}; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: ${isOutOfStock ? 'not-allowed' : 'pointer'}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: all 0.3s ease;">
+                                style="width: 100%; height: 100%; background: ${isOutOfStock ? 'var(--gray-400)' : 'var(--primary-sky-blue)'}; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: ${isOutOfStock ? 'not-allowed' : 'pointer'}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: all 0.3s ease;">
                             <i class="fas fa-cart-plus" style="font-size: 1.25rem;"></i>
                             <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
                                 ${isOutOfStock ? 'Out of Stock' : '+Cart'}
@@ -1194,15 +1194,15 @@ function updatePriceIndicator(productId) {
             </div>
             <div class="product-gst">+ ${product.gst_rate || 18}% GST</div>
             <button class="btn btn-sm btn-warning" onclick="editCustomerPrice('${productId}', ${customPrice})" style="margin-top: 8px;">
-                Edit Price
+                Edit ✍🏻
             </button>
         `;
     } else if (selectedCustomerId) {
         priceSection.innerHTML = `
             <div class="product-price">₹${basePrice.toLocaleString('en-IN')}</div>
             <div class="product-gst">+ ${product.gst_rate || 18}% GST</div>
-            <button class="btn btn-sm btn-primary" onclick="setCustomerPrice('${productId}')" style="margin-top: 8px;">
-                Set Custom Price
+            <button class="btn btn-sm btn-warning" onclick="setCustomerPrice('${productId}')" style="margin-top: 8px;">
+                Set Price ✍🏻
             </button>
         `;
     } else {

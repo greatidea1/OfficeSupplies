@@ -398,6 +398,7 @@ a:hover {
     padding: var(--space-3);
     border: 1px solid var(--gray-300);
     border-radius: var(--radius);
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
     font-size: 0.875rem;
     transition: all var(--transition-fast);
     background: var(--white);

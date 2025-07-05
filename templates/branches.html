@@ -531,9 +531,6 @@
         <div class="modal-body" id="branchDetailsBody">
             <!-- Branch details will be loaded here -->
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeBranchDetailsModal()">Close</button>
-        </div>
     </div>
 </div>
 {% endblock %}
@@ -897,15 +894,15 @@
                         <h4 style="margin-bottom: 16px;">Statistics</h4>
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
                             <div style="text-align: center; padding: 16px; background: var(--gray-50); border-radius: 8px;">
-                                <div style="font-size: 1.5rem; font-weight: 600; color: var(--primary-blue);">${branch.users ? branch.users.length : 0}</div>
+                                <div style="font-size: 1.3rem; font-weight: 600; color: var(--primary-blue);">${branch.users ? branch.users.length : 0}</div>
                                 <div style="font-size: 0.875rem; color: var(--gray-600);">Total Users</div>
                             </div>
                             <div style="text-align: center; padding: 16px; background: var(--gray-50); border-radius: 8px;">
-                                <div style="font-size: 1.5rem; font-weight: 600; color: var(--secondary-green);">${branch.departments ? branch.departments.length : 0}</div>
+                                <div style="font-size: 1.3rem; font-weight: 600; color: var(--secondary-green);">${branch.departments ? branch.departments.length : 0}</div>
                                 <div style="font-size: 0.875rem; color: var(--gray-600);">Departments</div>
                             </div>
                             <div style="text-align: center; padding: 16px; background: var(--gray-50); border-radius: 8px;">
-                                <div style="font-size: 1.5rem; font-weight: 600; color: var(--secondary-orange);">0</div>
+                                <div style="font-size: 1.3rem; font-weight: 600; color: var(--secondary-orange);">0</div>
                                 <div style="font-size: 0.875rem; color: var(--gray-600);">Orders</div>
                             </div>
                         </div>
