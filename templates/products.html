@@ -69,7 +69,20 @@
         color: var(--gray-900);
         margin: 0;
     }
-    
+
+    .customer-filter-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+        flex-wrap: wrap; /* makes it responsive */
+    }
+
+    .customer-filter-section {
+        width: 300px;
+    }
+
     .filters-section {
         background: white;
         border-radius: 16px;
@@ -81,9 +94,8 @@
     
     .filters-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
-        margin-bottom: 20px;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 16px;
     }
     
     .filter-group {
@@ -99,10 +111,10 @@
     }
     
     .search-section {
+        margin-top: 16px;
         display: flex;
         gap: 12px;
         align-items: center;
-        flex-wrap: wrap;
     }
     
     .search-input {
@@ -290,14 +302,16 @@
     }
     
     .no-customer-message {
-        background: rgba(245, 158, 11, 0.1);
-        border: 1px solid rgba(245, 158, 11, 0.3);
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 24px;
-        color: var(--secondary-orange);
-        text-align: center;
-        font-weight: 500;
+        flex: 1;
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+        padding: 12px 16px;
+        border-radius: 6px;
+        color: #856404;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     
     .product-stock {
@@ -537,33 +551,22 @@
             </div>
         </div>
         
-        <!-- Customer Selection Message for Vendors -->
-        {% if current_user.role.startswith('vendor_') %}
-        <div class="no-customer-message" id="noCustomerMessage">
-            <i class="fas fa-info-circle"></i>
-            Select a customer from the dropdown below to view and edit customer-specific pricing
-        </div>
-        {% endif %}
+
         
+
         <!-- Filters Section -->
+        
+
+        <!-- Filters Section (Other Dropdowns) -->
         <div class="filters-section">
             <div class="filters-grid">
-                {% if current_user.role.startswith('vendor_') %}
-                <div class="filter-group">
-                    <label class="filter-label">Customer</label>
-                    <select class="form-control" id="customerFilterProducts">
-                        <option value="">Select Customer for Pricing</option>
-                    </select>
-                </div>
-                {% endif %}
-                
                 <div class="filter-group">
                     <label class="filter-label">Category</label>
                     <select class="form-control" id="categoryFilter">
                         <option value="">All Categories</option>
                     </select>
                 </div>
-                
+
                 <div class="filter-group">
                     <label class="filter-label">Price Range</label>
                     <select class="form-control" id="priceFilter">
@@ -574,7 +577,7 @@
                         <option value="1000+">₹1,000+</option>
                     </select>
                 </div>
-                
+
                 {% if current_user.role.startswith('vendor_') %}
                 <div class="filter-group">
                     <label class="filter-label">Stock Status</label>
@@ -586,7 +589,7 @@
                     </select>
                 </div>
                 {% endif %}
-                
+
                 <div class="filter-group">
                     <label class="filter-label">Sort By</label>
                     <select class="form-control" id="sortFilter">
@@ -601,7 +604,8 @@
                     </select>
                 </div>
             </div>
-            
+
+            <!-- Search Section -->
             <div class="search-section">
                 <input 
                     type="text" 
@@ -619,6 +623,29 @@
                 </button>
             </div>
         </div>
+
+        {% if current_user.role.startswith('vendor_') %}
+        <!-- Wrapper for left-right alignment -->
+        <div class="customer-filter-wrapper">
+            <!-- Left side: Customer dropdown -->
+            <div class="customer-filter-section">
+                <div class="filter-group">
+                    <select class="form-control" id="customerFilterProducts">
+                        <option value="">Select Customer to Edit Pricing</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Right side: Info message -->
+            <div class="no-customer-message" id="noCustomerMessage">
+                <i class="fas fa-arrow-circle-left"></i>
+                Select a customer from the dropdown to view and edit customer-specific pricing
+            </div>
+        </div>
+        {% endif %}
+
+
+
         
         <div class="products-grid" id="productsGrid">
             <!-- Products will be loaded here -->
@@ -1093,7 +1120,7 @@ async function setupCustomerPricingSystem() {
         if (response.success) {
             const customerFilter = document.getElementById('customerFilterProducts');
             if (customerFilter) {
-                customerFilter.innerHTML = '<option value="">Select Customer for Pricing</option>' +
+                customerFilter.innerHTML = '<option value="">Select Customer to Edit Pricing</option>' +
                     response.customers.map(customer => 
                         `<option value="${customer.customer_id}">${customer.company_name}</option>`
                     ).join('');
