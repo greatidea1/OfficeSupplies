@@ -53,8 +53,8 @@
             --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             
             /* Spacing */
-            --container-max-width: 1280px;
-            --header-height: 70px;
+            --container-max-width: 1380px;
+            --header-height: 100px;
             --sidebar-width: 280px;
             
             /* Transitions */
@@ -92,10 +92,10 @@
         }
         
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: var(--gray-50);
             color: var(--gray-900);
-            line-height: 1.6;
+            line-height: 1.4;
             overflow-x: hidden;
         }
         
@@ -438,7 +438,7 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            padding-top: 15px;
+            padding-top: 30px;
             height: var(--header-height);
         }
         
@@ -570,25 +570,25 @@
         }
         
         .alert-success {
-            background: rgba(16, 185, 129, 0.1);
+            background: rgba(16, 185, 129, 0.68);
             border: 1px solid rgba(16, 185, 129, 0.2);
             color: var(--secondary-green);
         }
         
         .alert-warning {
-            background: rgba(245, 158, 11, 0.1);
+            background: rgba(209, 123, 30, 0.68);
             border: 1px solid rgba(245, 158, 11, 0.2);
             color: var(--secondary-orange);
         }
         
         .alert-error {
-            background: rgba(239, 68, 68, 0.1);
+            background: rgba(239, 68, 68, 0.36);
             border: 1px solid rgba(239, 68, 68, 0.2);
             color: var(--secondary-red);
         }
         
         .alert-info {
-            background: rgba(37, 99, 235, 0.1);
+            background: rgba(37, 100, 235, 0.56);
             border: 1px solid rgba(37, 99, 235, 0.2);
             color: var(--primary-blue);
         }
@@ -778,7 +778,7 @@
     </main>
     
     <!-- Notification Container -->
-    <div id="notificationContainer" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+    <div id="notificationContainer" style="position: fixed; top: 40px; right: 30px; z-index: 9999;"></div>
     
     <!-- Base JavaScript -->
     <script>
@@ -811,7 +811,7 @@
         }
         
         // Notification system
-        function showNotification(message, type = 'info', duration = 5000) {
+        function showNotification(message, type = 'info', duration = 6000) {
             const container = document.getElementById('notificationContainer');
             const id = 'notif_' + Date.now();
             

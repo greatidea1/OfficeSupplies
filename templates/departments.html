@@ -4,6 +4,51 @@
 
 {% block extra_css %}
 <style>
+    .branch-section {
+        margin-bottom: 40px;
+    }
+    
+    .branch-section-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        padding: 16px 20px;
+        background: linear-gradient(135deg, var(--secondary-green), #059669);
+        color: white;
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+    }
+    
+    .branch-section-header.unassigned {
+        background: linear-gradient(135deg, var(--gray-600), var(--gray-700));
+    }
+    
+    .branch-icon {
+        font-size: 1.5rem;
+    }
+    
+    .branch-info {
+        flex: 1;
+    }
+    
+    .branch-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    
+    .branch-subtitle {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+    
+    .branch-stats {
+        display: flex;
+        gap: 20px;
+        font-size: 0.875rem;
+    }
+
     .departments-container {
         padding: 32px 0;
     }
@@ -28,7 +73,6 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
         gap: 24px;
-        margin-bottom: 32px;
     }
     
     .department-card {
@@ -142,7 +186,6 @@
         font-weight: 600;
     }
     
-    /* FIXED: Department head styling to match team members */
     .dept-head-section {
         margin-bottom: 16px;
         padding: 12px;
@@ -235,7 +278,6 @@
         opacity: 0.3;
     }
     
-    /* FIXED: Modal styling to match users.html */
     .modal {
         position: fixed;
         top: 0;
@@ -322,7 +364,6 @@
         justify-content: flex-end;
     }
     
-    /* FIXED: Form styling to match users.html */
     .form-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -361,7 +402,6 @@
         margin: 0;
     }
     
-    /* Unassigned users styling */
     .section-card {
         background: white;
         border-radius: 16px;
@@ -478,8 +518,8 @@
             </div>
         </div>
         
-        <div class="departments-grid" id="departmentsGrid">
-            <!-- Departments will be loaded here -->
+        <div id="departmentsByBranch">
+            <!-- Departments grouped by branches will be loaded here -->
         </div>
     </div>
 </div>
@@ -614,7 +654,7 @@
     </div>
 </div>
 
-<!-- FIXED: Add User Modal with consistent styling -->
+<!-- Add User Modal -->
 <div class="modal" id="addUserModalDept">
     <div class="modal-content">
         <div class="modal-header">
@@ -695,13 +735,13 @@
     let departments = [];
     let organizationUsers = [];
     let unassignedUsers = [];
-    
+
     document.addEventListener('DOMContentLoaded', function() {
         loadDepartments();
         loadOrganizationUsers();
         setupEventListeners();
     });
-    
+
     function setupEventListeners() {
         // Username generation from first and last name
         const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
@@ -711,20 +751,23 @@
             firstNameField.addEventListener('input', generateUsernameDept);
             lastNameField.addEventListener('input', generateUsernameDept);
         }
-
+        
         // Load branches for department form
         loadBranchesForDepartments();
     }
 
     async function loadBranchesForDepartments() {
         try {
-            const response = await apiCall('/department-controller/branches');
+            const response = await apiCall('/branches');
             const branchSelect = document.getElementById('departmentBranch');
             const editBranchSelect = document.getElementById('editDepartmentBranch');
             
             if (response.success && response.branches) {
+                // Filter only active branches
+                const activeBranches = response.branches.filter(branch => branch.is_active);
+                
                 const branchOptions = '<option value="">Select Branch</option>' +
-                    response.branches.map(branch => 
+                    activeBranches.map(branch => 
                         `<option value="${branch.branch_id}">${branch.name}</option>`
                     ).join('');
                 
@@ -734,12 +777,33 @@
                 if (editBranchSelect) {
                     editBranchSelect.innerHTML = branchOptions;
                 }
+            } else {
+                console.error('Failed to load branches:', response.message || 'Unknown error');
+                // Set default options if branches fail to load
+                const defaultOptions = '<option value="">No branches available</option>';
+                if (branchSelect) {
+                    branchSelect.innerHTML = defaultOptions;
+                }
+                if (editBranchSelect) {
+                    editBranchSelect.innerHTML = defaultOptions;
+                }
             }
         } catch (error) {
             console.error('Error loading branches for departments:', error);
+            // Set error options
+            const errorOptions = '<option value="">Error loading branches</option>';
+            const branchSelect = document.getElementById('departmentBranch');
+            const editBranchSelect = document.getElementById('editDepartmentBranch');
+            
+            if (branchSelect) {
+                branchSelect.innerHTML = errorOptions;
+            }
+            if (editBranchSelect) {
+                editBranchSelect.innerHTML = errorOptions;
+            }
         }
     }
-    
+
     function generateUsernameDept() {
         const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
         const lastNameField = document.querySelector('#addUserModalDept [name="last_name"]');
@@ -762,7 +826,7 @@
             usernameField.value = '';
         }
     }
-    
+
     async function loadDepartments() {
         try {
             const response = await apiCall('/departments');
@@ -770,8 +834,9 @@
             if (response.success) {
                 departments = response.departments;
                 displayDepartments();
-                loadUnassignedUsers(); // Load unassigned users after departments are loaded
+                loadUnassignedUsers();
             } else {
+                console.error('Failed to load departments:', response.message);
                 showEmptyState('Failed to load departments');
             }
         } catch (error) {
@@ -779,7 +844,7 @@
             showEmptyState('Error loading departments');
         }
     }
-    
+
     async function loadUnassignedUsers() {
         try {
             const response = await apiCall('/users');
@@ -806,10 +871,12 @@
             console.error('Error loading unassigned users:', error);
         }
     }
-    
+
     function displayUnassignedUsers() {
         const grid = document.getElementById('unassignedUsersGrid');
         const countBadge = document.getElementById('unassignedCount');
+        
+        if (!grid || !countBadge) return;
         
         countBadge.textContent = unassignedUsers.length;
         
@@ -836,8 +903,193 @@
         
         grid.className = unassignedUsers.length === 0 ? 'users-grid' : 'unassigned-users-grid';
     }
-    
-    // FIXED: Department head section with proper avatar rendering
+
+    function displayDepartments() {
+        const container = document.getElementById('departmentsByBranch');
+        
+        if (!container) {
+            console.error('departmentsByBranch container not found');
+            return;
+        }
+        
+        if (departments.length === 0) {
+            showEmptyState('No departments found');
+            return;
+        }
+        
+        // Group departments by branch with proper sorting
+        const departmentsByBranch = groupDepartmentsByBranch(departments);
+        
+        let html = '';
+        
+        // First, render unassigned departments
+        if (departmentsByBranch.unassigned && departmentsByBranch.unassigned.length > 0) {
+            html += renderBranchSection('Unassigned Departments', null, departmentsByBranch.unassigned, true);
+        }
+        
+        // Then, render departments by branch in alphabetical order
+        const sortedBranchNames = Object.keys(departmentsByBranch.branches).sort();
+        
+        sortedBranchNames.forEach(branchName => {
+            const branchData = departmentsByBranch.branches[branchName];
+            // Sort departments within each branch by name
+            const sortedDepartments = branchData.departments.sort((a, b) => 
+                a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+            );
+            html += renderBranchSection(branchName, branchData.branch, sortedDepartments, false);
+        });
+        
+        container.innerHTML = html;
+    }
+
+    function groupDepartmentsByBranch(departments) {
+        const grouped = {
+            unassigned: [],
+            branches: {}
+        };
+        
+        departments.forEach(dept => {
+            // Check if department has branch information
+            if (!dept.branch_name || dept.branch_name.trim() === '') {
+                grouped.unassigned.push(dept);
+            } else {
+                const branchName = dept.branch_name.trim();
+                
+                if (!grouped.branches[branchName]) {
+                    grouped.branches[branchName] = {
+                        branch: {
+                            name: branchName,
+                            address: dept.branch_address || '',
+                            branch_id: dept.branch_id || null
+                        },
+                        departments: []
+                    };
+                }
+                grouped.branches[branchName].departments.push(dept);
+            }
+        });
+        
+        // Sort unassigned departments by name
+        grouped.unassigned.sort((a, b) => 
+            a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        );
+        
+        return grouped;
+    }
+
+    function renderBranchSection(title, branch, depts, isUnassigned) {
+        const departmentCount = depts.length;
+        const userCount = depts.reduce((sum, dept) => sum + (dept.user_count || 0), 0);
+        const activeUserCount = depts.reduce((sum, dept) => sum + (dept.active_users || 0), 0);
+        
+        return `
+            <div class="branch-section">
+                <div class="branch-section-header ${isUnassigned ? 'unassigned' : ''}">
+                    <div class="branch-icon">
+                        <i class="fas fa-${isUnassigned ? 'question-circle' : 'map-marker-alt'}"></i>
+                    </div>
+                    <div class="branch-info">
+                        <div class="branch-title">${title}</div>
+                        <div class="branch-subtitle">
+                            ${isUnassigned ? 'Departments not assigned to any branch' : (branch?.address || 'Branch location')}
+                        </div>
+                    </div>
+                    <div class="branch-stats">
+                        <div><strong>${departmentCount}</strong> Dept${departmentCount !== 1 ? 's' : ''}</div>
+                        <div><strong>${userCount}</strong> User${userCount !== 1 ? 's' : ''}</div>
+                        <div><strong>${activeUserCount}</strong> Active</div>
+                    </div>
+                </div>
+                
+                <div class="departments-grid">
+                    ${depts.map(dept => renderDepartmentCard(dept)).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    function renderDepartmentCard(dept) {
+        return `
+            <div class="department-card" onclick="viewDepartment('${dept.department_id}')">
+                <div class="department-header">
+                    <div class="department-name">${dept.name}</div>
+                    <div class="department-description">${dept.description || 'No description'}</div>
+                </div>
+                <div class="department-body">
+                    <div class="department-stats">
+                        <div class="department-stat">
+                            <div class="stat-number">${dept.user_count || 0}</div>
+                            <div class="stat-text">Total Users</div>
+                        </div>
+                        <div class="department-stat">
+                            <div class="stat-number">${dept.active_users || 0}</div>
+                            <div class="stat-text">Active Users</div>
+                        </div>
+                    </div>
+                    
+                    ${getBranchInfoSection(dept)}
+                    
+                    ${getDepartmentHeadSection(dept)}
+                    
+                    <div class="department-users">
+                        <div style="font-weight: 500; color: var(--gray-700); font-size: 0.875rem; margin-bottom: 8px;">
+                            Team Members:
+                        </div>
+                        <div class="users-list">
+                            ${getTeamMembersList(dept)}
+                        </div>
+                    </div>
+                </div>
+                <div class="department-footer">
+                    <button class="action-btn btn-view" onclick="event.stopPropagation(); viewDepartment('${dept.department_id}')">
+                        View Details
+                    </button>
+                    <button class="action-btn btn-edit" onclick="event.stopPropagation(); editDepartment('${dept.department_id}')">
+                        Edit & Assign
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    function getBranchInfoSection(dept) {
+        if (dept.branch_name) {
+            return `
+                <div style="margin-bottom: 16px; padding: 12px; background: rgba(34, 197, 94, 0.05); border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.1);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 24px; height: 24px; border-radius: 50%; background: var(--secondary-green); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 500; color: var(--secondary-green); font-size: 0.875rem;">
+                                Branch: ${dept.branch_name}
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            return `
+                <div style="margin-bottom: 16px; padding: 12px; background: rgba(107, 114, 128, 0.05); border-radius: 8px; border: 1px solid rgba(107, 114, 128, 0.1);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 24px; height: 24px; border-radius: 50%; background: var(--gray-500); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">
+                            <i class="fas fa-question-circle"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 500; color: var(--gray-600); font-size: 0.875rem;">
+                                No Branch Assigned
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--gray-500); margin-top: 2px;">
+                                Department not assigned to any branch
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
     function getDepartmentHeadSection(dept) {
         const deptHead = dept.users ? dept.users.find(user => user.role === 'customer_dept_head') : null;
         
@@ -873,56 +1125,6 @@
                 </div>
             `;
         }
-    }
-    
-    function displayDepartments() {
-        const grid = document.getElementById('departmentsGrid');
-        
-        if (departments.length === 0) {
-            showEmptyState('No departments found');
-            return;
-        }
-        
-        grid.innerHTML = departments.map(dept => `
-            <div class="department-card" onclick="viewDepartment('${dept.department_id}')">
-                <div class="department-header">
-                    <div class="department-name">${dept.name}</div>
-                    <div class="department-description">${dept.description || 'No description'}</div>
-                    ${dept.branch_name ? `<div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">📍 ${dept.branch_name}</div>` : ''}
-                </div>
-                <div class="department-body">
-                    <div class="department-stats">
-                        <div class="department-stat">
-                            <div class="stat-number">${dept.user_count || 0}</div>
-                            <div class="stat-text">Total Users</div>
-                        </div>
-                        <div class="department-stat">
-                            <div class="stat-number">${dept.active_users || 0}</div>
-                            <div class="stat-text">Active Users</div>
-                        </div>
-                    </div>
-                    
-                    ${getDepartmentHeadSection(dept)}
-                    
-                    <div class="department-users">
-                        <div style="font-weight: 500; color: var(--gray-700); font-size: 0.875rem; margin-bottom: 8px;">
-                            Team Members:
-                        </div>
-                        <div class="users-list">
-                            ${getTeamMembersList(dept)}
-                        </div>
-                    </div>
-                </div>
-                <div class="department-footer">
-                    <button class="action-btn btn-view" onclick="event.stopPropagation(); viewDepartment('${dept.department_id}')">
-                        View Details
-                    </button>
-                    <button class="action-btn btn-edit" onclick="event.stopPropagation(); editDepartment('${dept.department_id}')">
-                        Edit & Assign
-                    </button>
-                </div>
-            </div>
-        `).join('');
     }
     
     function getTeamMembersList(dept) {
@@ -967,9 +1169,11 @@
     }
     
     function showEmptyState(message) {
-        const grid = document.getElementById('departmentsGrid');
-        grid.innerHTML = `
-            <div class="empty-state" style="grid-column: 1 / -1;">
+        const container = document.getElementById('departmentsByBranch');
+        if (!container) return;
+        
+        container.innerHTML = `
+            <div class="empty-state">
                 <div class="empty-state-icon">
                     <i class="fas fa-sitemap"></i>
                 </div>
@@ -1035,15 +1239,24 @@
             const dept = departments.find(d => d.department_id === departmentId);
             if (!dept) return;
             
+            // Load branches first
+            await loadBranchesForDepartments();
+            
             // Populate edit form
             document.getElementById('editDepartmentId').value = dept.department_id;
             document.getElementById('editDepartmentName').value = dept.name;
             document.getElementById('editDepartmentDescription').value = dept.description || '';
             
-            // Set branch selection
+            // Set branch selection - need to find the branch_id from the department data
             const editBranchSelect = document.getElementById('editDepartmentBranch');
-            if (editBranchSelect && dept.branch_id) {
-                editBranchSelect.value = dept.branch_id;
+            if (editBranchSelect) {
+                // The dept object might have branch_id directly or we need to find it
+                if (dept.branch_id) {
+                    editBranchSelect.value = dept.branch_id;
+                } else {
+                    // If no branch_id, leave it unselected
+                    editBranchSelect.value = '';
+                }
             }
             
             // Load users assignment grid
@@ -1144,7 +1357,7 @@
             if (response.success) {
                 showNotification('Department deleted successfully!', 'success');
                 closeEditDepartmentModal();
-                loadDepartments(); // This will also reload unassigned users
+                loadDepartments();
             } else {
                 showNotification(response.message || 'Failed to delete department', 'error');
             }
@@ -1177,6 +1390,31 @@
                             <div style="grid-column: 1 / -1;"><strong>Description:</strong> ${dept.description || 'No description'}</div>
                         </div>
                     </div>
+                    
+                    ${dept.branch_name ? `
+                        <div style="margin-bottom: 24px;">
+                            <h4 style="margin-bottom: 16px;">Branch Information</h4>
+                            <div style="background: var(--gray-50); padding: 16px; border-radius: 8px; border-left: 4px solid var(--secondary-green);">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                    <div><strong>Branch Name:</strong> ${dept.branch_name}</div>
+                                    ${dept.branch_address ? `<div><strong>Address:</strong> ${dept.branch_address}</div>` : ''}
+                                    ${dept.branch_phone ? `<div><strong>Phone:</strong> ${dept.branch_phone}</div>` : ''}
+                                    ${dept.branch_email ? `<div><strong>Email:</strong> ${dept.branch_email}</div>` : ''}
+                                    ${dept.branch_manager ? `<div><strong>Manager:</strong> ${dept.branch_manager}</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    ` : `
+                        <div style="margin-bottom: 24px;">
+                            <h4 style="margin-bottom: 16px;">Branch Information</h4>
+                            <div style="background: rgba(245, 158, 11, 0.1); padding: 16px; border-radius: 8px; border-left: 4px solid var(--secondary-orange); color: var(--secondary-orange);">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span>This department is not assigned to any branch</span>
+                                </div>
+                            </div>
+                        </div>
+                    `}
                     
                     <div style="margin-bottom: 24px;">
                         <h4 style="margin-bottom: 16px;">Statistics</h4>
@@ -1318,7 +1556,6 @@
         const selectedUserId = selectedRadio.value;
         
         try {
-            // Update department head assignment
             const response = await apiCall(`/departments/${departmentId}/assign-head`, {
                 method: 'PUT',
                 headers: {
@@ -1332,7 +1569,7 @@
             if (response.success) {
                 showNotification('Department head assigned successfully!', 'success');
                 closeEditDeptHeadModal();
-                loadDepartments(); // Reload departments to reflect changes
+                loadDepartments();
             } else {
                 showNotification(response.message || 'Failed to assign department head', 'error');
             }
@@ -1343,7 +1580,6 @@
     }
     
     function assignUserToDepartment(userId) {
-        // Show modal or dropdown to select department for this user
         showNotification('Click on "Edit & Assign" for a department to assign this user', 'info');
     }
     
@@ -1351,10 +1587,8 @@
         const modal = document.getElementById('addUserModalDept');
         modal.classList.add('show');
         
-        // Load departments for the form
         loadDepartmentsForUserForm();
         
-        // Focus first field
         setTimeout(() => {
             const firstNameField = document.querySelector('#addUserModalDept [name="first_name"]');
             if (firstNameField) {
@@ -1385,13 +1619,11 @@
         if (modal) {
             modal.classList.remove('show');
             
-            // Reset form
             const form = document.getElementById('addUserFormDept');
             if (form) {
                 form.reset();
             }
             
-            // Clear generated username
             const usernameField = document.getElementById('generatedUsernameDept');
             if (usernameField) {
                 usernameField.value = '';
@@ -1409,13 +1641,11 @@
         const usernameField = document.getElementById('generatedUsernameDept');
         const sendEmailField = document.querySelector('#addUserModalDept [name="send_email"]');
         
-        // Validate required fields
         if (!firstNameField?.value || !lastNameField?.value || !emailField?.value || !roleField?.value || !passwordField?.value || !departmentField?.value) {
             showNotification('Please fill in all required fields', 'error');
             return;
         }
         
-        // Generate username if not already generated
         if (!usernameField?.value) {
             generateUsernameDept();
         }
@@ -1444,7 +1674,6 @@
             if (response.success) {
                 showNotification('User created successfully!', 'success');
                 closeAddUserModalDept();
-                // Reload departments and unassigned users
                 loadDepartments();
             } else {
                 showNotification(response.message || 'Failed to create user', 'error');

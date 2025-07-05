@@ -11,7 +11,7 @@ class DepartmentController:
         self.auth = auth_controller
     
     def get_departments(self):
-        """Get departments for current customer (HR Admin only)"""
+        """Get departments for current customer (HR Admin only) - FIXED WITH BRANCH INFO"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or current_user.role != 'customer_hr_admin':
@@ -19,9 +19,25 @@ class DepartmentController:
             
             departments = Department.get_by_customer_id(current_user.customer_id)
             
+            # Get branches for this customer to map branch names
+            from models import Branch
+            branches = Branch.get_by_customer_id(current_user.customer_id)
+            branch_map = {branch.branch_id: branch for branch in branches}
+            
             dept_list = []
             for dept in departments:
                 dept_dict = dept.to_dict()
+                
+                # Add branch information
+                if dept.branch_id and dept.branch_id in branch_map:
+                    branch = branch_map[dept.branch_id]
+                    dept_dict['branch_name'] = branch.name
+                    dept_dict['branch_address'] = branch.address
+                    dept_dict['branch_id'] = branch.branch_id
+                else:
+                    dept_dict['branch_name'] = None
+                    dept_dict['branch_address'] = None
+                    dept_dict['branch_id'] = None
                 
                 # Add user information
                 users = User.get_by_department_id(dept.department_id)
@@ -41,6 +57,9 @@ class DepartmentController:
                 
                 dept_list.append(dept_dict)
             
+            # Sort departments by branch (unassigned first, then by branch name)
+            dept_list.sort(key=lambda d: (d['branch_name'] or 'ZZZ_Unassigned', d['name']))
+            
             return {
                 'success': True,
                 'departments': dept_list
@@ -48,10 +67,12 @@ class DepartmentController:
             
         except Exception as e:
             print(f"Get departments error: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': 'Failed to retrieve departments'}
     
     def get_department(self, department_id):
-        """Get single department details"""
+        """Get single department details - ENHANCED WITH BRANCH INFO"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or current_user.role != 'customer_hr_admin':
@@ -62,6 +83,21 @@ class DepartmentController:
                 return {'success': False, 'message': 'Department not found'}
             
             dept_dict = department.to_dict()
+            
+            # Add branch information
+            if department.branch_id:
+                from models import Branch
+                branch = Branch.get_by_id(department.branch_id)
+                if branch:
+                    dept_dict['branch_name'] = branch.name
+                    dept_dict['branch_address'] = branch.address
+                    dept_dict['branch_phone'] = branch.phone
+                    dept_dict['branch_email'] = branch.email
+                    dept_dict['branch_manager'] = branch.manager_name
+                else:
+                    dept_dict['branch_name'] = 'Branch not found'
+            else:
+                dept_dict['branch_name'] = None
             
             # Add detailed user information
             users = User.get_by_department_id(department_id)
@@ -92,47 +128,7 @@ class DepartmentController:
             print(f"Get department error: {e}")
             return {'success': False, 'message': 'Failed to retrieve department'}
         
-    def get_departments(self):
-        """Get departments for current customer (HR Admin only) - FIXED VERSION"""
-        try:
-            current_user = self.auth.get_current_user()
-            if not current_user or current_user.role != 'customer_hr_admin':
-                return {'success': False, 'message': 'Only HR admins can manage departments'}
-            
-            departments = Department.get_by_customer_id(current_user.customer_id)
-            
-            dept_list = []
-            for dept in departments:
-                dept_dict = dept.to_dict()
-                
-                # Add user information - FIXED: Use the correct method
-                users = User.get_by_department_id(dept.department_id)
-                dept_dict['users'] = [
-                    {
-                        'user_id': u.user_id,
-                        'username': u.username,
-                        'full_name': u.full_name,
-                        'email': u.email,
-                        'role': u.role,
-                        'is_active': u.is_active
-                    } for u in users if u.is_active
-                ]
-                
-                dept_dict['user_count'] = len(dept_dict['users'])
-                dept_dict['active_users'] = len([u for u in dept_dict['users'] if u['is_active']])
-                
-                dept_list.append(dept_dict)
-            
-            return {
-                'success': True,
-                'departments': dept_list
-            }
-            
-        except Exception as e:
-            print(f"Get departments error: {e}")
-            import traceback
-            traceback.print_exc()
-            return {'success': False, 'message': 'Failed to retrieve departments'}
+    
     
     def create_department(self):
         """Create new department (HR Admin only) - FIXED VERSION"""
@@ -215,9 +211,13 @@ class DepartmentController:
             
             data = request.get_json()
             
-            # Update department info
+            # Update department info - INCLUDING branch_id
             department.name = data.get('name', department.name)
             department.description = data.get('description', department.description)
+            
+            # Handle branch_id update
+            if 'branch_id' in data:
+                department.branch_id = data['branch_id'] if data['branch_id'] else None
             
             if department.save():
                 # Handle user assignments
@@ -233,6 +233,8 @@ class DepartmentController:
                 
         except Exception as e:
             print(f"Update department error: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': 'Failed to update department'}
     
     def update_user_assignments(self, department_id, assigned_user_ids, customer_id):
