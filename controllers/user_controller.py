@@ -10,6 +10,118 @@ class UserController:
     
     def __init__(self):
         self.auth = auth_controller
+
+    def get_users_with_branch_info(self):
+        """Get users list with branch information - NEW METHOD"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            # Get query parameters
+            search = request.args.get('search', '')
+            role = request.args.get('role', '')
+            status = request.args.get('status', '')
+            customer_id = request.args.get('customer_id', '')
+            branch_id = request.args.get('branch_id', '')
+            
+            # Get users based on current user's role and permissions
+            if current_user.role == 'vendor_superadmin':
+                users = self.get_all_users()
+            elif current_user.role == 'vendor_admin':
+                users = self.get_vendor_and_customer_users()
+            elif current_user.role == 'customer_hr_admin':
+                users = self.get_customer_users(current_user.customer_id)
+            else:
+                return {'success': False, 'message': 'Insufficient permissions'}
+            
+            # Apply filters
+            if search:
+                search = search.lower()
+                users = [u for u in users if 
+                        search in u.username.lower() or 
+                        search in (u.full_name or '').lower() or 
+                        search in u.email.lower()]
+            
+            if role:
+                # Handle multiple roles (comma-separated)
+                if ',' in role:
+                    role_list = [r.strip() for r in role.split(',')]
+                    users = [u for u in users if u.role in role_list]
+                else:
+                    users = [u for u in users if u.role == role]
+            
+            if status:
+                if status == 'active':
+                    users = [u for u in users if u.is_active]
+                elif status == 'inactive':
+                    users = [u for u in users if not u.is_active]
+            
+            if customer_id:
+                users = [u for u in users if u.customer_id == customer_id]
+            
+            if branch_id:
+                users = [u for u in users if getattr(u, 'branch_id', None) == branch_id]
+            
+            # Sort users
+            users.sort(key=lambda u: (u.full_name or u.username or '').lower())
+            
+            # Convert to dict and add additional info including branch information
+            user_list = []
+            for user in users:
+                user_dict = user.to_dict()
+                
+                # Remove sensitive information
+                if 'password_hash' in user_dict:
+                    del user_dict['password_hash']
+                
+                # Add customer information
+                if user.customer_id:
+                    from models import Customer
+                    customer = Customer.get_by_id(user.customer_id)
+                    user_dict['customer_name'] = customer.company_name if customer else 'Unknown'
+                
+                # Add department information
+                if user.department_id:
+                    from models import Department
+                    department = Department.get_by_id(user.department_id)
+                    user_dict['department_name'] = department.name if department else 'Unknown'
+                
+                # Add branch information
+                if hasattr(user, 'branch_id') and user.branch_id:
+                    from models import Branch
+                    branch = Branch.get_by_id(user.branch_id)
+                    if branch:
+                        user_dict['branch_name'] = branch.name
+                        user_dict['branch_address'] = branch.address
+                    else:
+                        user_dict['branch_name'] = 'Unknown Branch'
+                        user_dict['branch_address'] = None
+                else:
+                    user_dict['branch_name'] = None
+                    user_dict['branch_address'] = None
+                
+                # Add permission flags
+                user_dict['can_edit'] = self.can_edit_user(current_user, user)
+                user_dict['can_delete'] = self.can_delete_user(current_user, user)
+                
+                user_list.append(user_dict)
+            
+            # Get available roles for current user
+            available_roles = self.get_available_roles(current_user)
+            
+            return {
+                'success': True,
+                'users': user_list,
+                'available_roles': available_roles,
+                'total': len(user_list)
+            }
+            
+        except Exception as e:
+            print(f"Get users with branch info error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'message': 'Failed to retrieve users'}
     
     def get_users(self):
         """Get users list based on current user's permissions - FIXED VERSION"""
@@ -101,7 +213,7 @@ class UserController:
             return {'success': False, 'message': 'Failed to retrieve users'}
     
     def get_user(self, user_id):
-        """Get single user details"""
+        """Get single user details with branch information - UPDATED VERSION"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -116,17 +228,36 @@ class UserController:
                 return {'success': False, 'message': 'Access denied'}
             
             user_dict = user.to_dict()
-            del user_dict['password_hash']  # Remove sensitive info
+            if 'password_hash' in user_dict:
+                del user_dict['password_hash']  # Remove sensitive info
             
-            # Add additional info
+            # Add customer information
             if user.customer_id:
+                from models import Customer
                 customer = Customer.get_by_id(user.customer_id)
                 user_dict['customer_name'] = customer.company_name if customer else 'Unknown'
             
+            # Add department information
             if user.department_id:
+                from models import Department
                 department = Department.get_by_id(user.department_id)
                 user_dict['department_name'] = department.name if department else 'Unknown'
             
+            # Add branch information
+            if hasattr(user, 'branch_id') and user.branch_id:
+                from models import Branch
+                branch = Branch.get_by_id(user.branch_id)
+                if branch:
+                    user_dict['branch_name'] = branch.name
+                    user_dict['branch_address'] = branch.address
+                else:
+                    user_dict['branch_name'] = 'Unknown Branch'
+                    user_dict['branch_address'] = None
+            else:
+                user_dict['branch_name'] = None
+                user_dict['branch_address'] = None
+            
+            # Add permission flags
             user_dict['can_edit'] = self.can_edit_user(current_user, user)
             user_dict['can_delete'] = self.can_delete_user(current_user, user)
             

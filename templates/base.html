@@ -747,6 +747,14 @@
                         <span>Products</span>
                     </a>
                     
+                    <!-- Categories (Vendor users only) -->
+                    {% if current_user.role.startswith('vendor_') %}
+                    <a href="{{ url_for('categories') }}" class="nav-link">
+                        <i class="fas fa-tags"></i>
+                        <span>Categories</span>
+                    </a>
+                    {% endif %}
+                    
                     <!-- Orders -->
                     <a href="{{ url_for('orders') }}" class="nav-link">
                         <i class="fas fa-box-open"></i>

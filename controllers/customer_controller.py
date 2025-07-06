@@ -227,17 +227,21 @@ class CustomerController:
             return {'success': False, 'message': 'Failed to create customer'}
     
     def update_customer(self, customer_id):
-        """Update customer information (Vendor SuperAdmin only)"""
+        """Update customer information with enhanced file upload support - ENHANCED VERSION"""
         try:
             current_user = self.auth.get_current_user()
-            if not current_user or current_user.role != 'vendor_superadmin':
-                return {'success': False, 'message': 'Only SuperAdmin can update customers'}
+            if not current_user or current_user.role not in ['vendor_superadmin', 'vendor_admin']:
+                return {'success': False, 'message': 'Insufficient permissions'}
             
             customer = Customer.get_by_id(customer_id)
             if not customer:
                 return {'success': False, 'message': 'Customer not found'}
             
-            data = request.get_json()
+            # Handle both form data and JSON
+            if request.content_type and request.content_type.startswith('multipart/form-data'):
+                data = request.form.to_dict()
+            else:
+                data = request.get_json()
             
             # Update allowed fields
             updateable_fields = [
@@ -248,9 +252,36 @@ class CustomerController:
             for field in updateable_fields:
                 if field in data:
                     if field == 'is_active':
-                        setattr(customer, field, bool(data[field]))
+                        setattr(customer, field, data[field] == 'true' or data[field] is True)
                     else:
                         setattr(customer, field, data[field])
+            
+            # Handle agreement file upload
+            if 'agreement_file' in request.files:
+                file = request.files['agreement_file']
+                if file and file.filename:
+                    # Upload new file
+                    agreement_url = self.upload_agreement_file(file, customer.customer_id)
+                    if agreement_url:
+                        # Store old file URL for cleanup if needed
+                        old_file_url = customer.agreement_file_url
+                        customer.agreement_file_url = agreement_url
+                        
+                        # TODO: Clean up old file if using local storage
+                        # if old_file_url and config.use_local_storage:
+                        #     self.cleanup_old_file(old_file_url)
+                    else:
+                        return {'success': False, 'message': 'Failed to upload agreement file'}
+            
+            # Handle file removal
+            if data.get('remove_current_file') == 'true':
+                # Store old file URL for cleanup if needed
+                old_file_url = customer.agreement_file_url
+                customer.agreement_file_url = None
+                
+                # TODO: Clean up old file if using local storage
+                # if old_file_url and config.use_local_storage:
+                #     self.cleanup_old_file(old_file_url)
             
             if customer.save():
                 return {
@@ -262,6 +293,8 @@ class CustomerController:
                 
         except Exception as e:
             print(f"Update customer error: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': 'Failed to update customer'}
     
     def get_customer_statistics(self, customer_id):
@@ -443,21 +476,45 @@ class CustomerController:
             }
     
     def upload_agreement_file(self, file, customer_id):
-        """Upload agreement file to local or Firebase Storage"""
+        """Upload agreement file with enhanced format support - ENHANCED VERSION"""
         try:
             # Validate file
             if not file or not file.filename:
+                print("No file provided")
                 return None
             
-            # Check file type
-            allowed_extensions = {'pdf', 'jpg', 'jpeg', 'png'}
+            # Check file type - Enhanced to support more formats
+            allowed_extensions = {
+                # Documents
+                'pdf', 'doc', 'docx', 'txt', 'rtf', 'odt',
+                # Images
+                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg'
+            }
             file_extension = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
             
             if file_extension not in allowed_extensions:
+                print(f"File type {file_extension} not allowed")
                 return None
             
-            # Generate unique filename
-            filename = f"agreement_{customer_id}_{uuid.uuid4().hex}.{file_extension}"
+            # Reset file stream and check size
+            file.stream.seek(0, 2)  # Seek to end
+            file_size = file.stream.tell()
+            file.stream.seek(0)  # Seek back to beginning
+            
+            if file_size > 16 * 1024 * 1024:  # 16MB
+                print(f"File size {file_size} exceeds 16MB limit")
+                return None
+            
+            if file_size == 0:
+                print("File is empty")
+                return None
+            
+            # Generate unique filename with timestamp
+            import time
+            timestamp = int(time.time())
+            filename = f"agreement_{customer_id}_{timestamp}_{uuid.uuid4().hex[:8]}.{file_extension}"
+            
+            print(f"Uploading file: {filename}, Size: {file_size} bytes")
             
             # Get storage handler
             storage_handler = config.get_storage()
@@ -469,22 +526,99 @@ class CustomerController:
                 
                 # Ensure directory exists
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                print(f"Saving to: {full_path}")
                 
                 # Save file
                 file.save(full_path)
                 
-                return f"/uploads/{file_path}"
+                # Verify file was saved
+                if os.path.exists(full_path):
+                    saved_size = os.path.getsize(full_path)
+                    print(f"File saved successfully: {saved_size} bytes")
+                    return f"/uploads/{file_path}"
+                else:
+                    print("File was not saved")
+                    return None
             else:
                 # Firebase Storage
-                blob = storage_handler.blob(f"agreements/{filename}")
-                blob.upload_from_file(file.stream, content_type=file.content_type)
-                blob.make_public()
-                
-                return blob.public_url
+                try:
+                    blob = storage_handler.blob(f"agreements/{filename}")
+                    blob.upload_from_file(file.stream, content_type=file.content_type)
+                    blob.make_public()
+                    
+                    print(f"File uploaded to Firebase: {blob.public_url}")
+                    return blob.public_url
+                except Exception as e:
+                    print(f"Firebase upload error: {e}")
+                    return None
             
         except Exception as e:
             print(f"Upload agreement file error: {e}")
+            import traceback
+            traceback.print_exc()
             return None
+        
+    def cleanup_old_file(self, file_url):
+        """Clean up old agreement file from local storage"""
+        try:
+            if not file_url or not file_url.startswith('/uploads/'):
+                return
+            
+            # Convert URL to local file path
+            file_path = file_url[1:]  # Remove leading '/'
+            full_path = os.path.join(file_path)
+            
+            if os.path.exists(full_path):
+                os.remove(full_path)
+                print(f"Cleaned up old file: {full_path}")
+            else:
+                print(f"Old file not found for cleanup: {full_path}")
+                
+        except Exception as e:
+            print(f"Error cleaning up old file: {e}")
+            
+    def get_customer_agreement_info(self, customer_id):
+        """Get agreement file information for a customer"""
+        try:
+            customer = Customer.get_by_id(customer_id)
+            if not customer:
+                return {'success': False, 'message': 'Customer not found'}
+            
+            if customer.agreement_file_url:
+                # Extract filename from URL
+                url_parts = customer.agreement_file_url.split('/')
+                filename = url_parts[-1] if url_parts else 'Agreement Document'
+                
+                # Get file size if local storage
+                file_size = None
+                if config.use_local_storage and customer.agreement_file_url.startswith('/uploads/'):
+                    try:
+                        file_path = customer.agreement_file_url[1:]  # Remove leading '/'
+                        full_path = os.path.join(file_path)
+                        if os.path.exists(full_path):
+                            file_size = os.path.getsize(full_path)
+                    except:
+                        pass
+                
+                return {
+                    'success': True,
+                    'has_agreement': True,
+                    'agreement_info': {
+                        'filename': filename,
+                        'url': customer.agreement_file_url,
+                        'file_size': file_size
+                    }
+                }
+            else:
+                return {
+                    'success': True,
+                    'has_agreement': False,
+                    'agreement_info': None
+                }
+                
+        except Exception as e:
+            print(f"Get customer agreement info error: {e}")
+            return {'success': False, 'message': 'Failed to get agreement information'}
     
     def deactivate_customer(self, customer_id):
         """Deactivate customer (Vendor SuperAdmin only)"""

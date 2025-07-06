@@ -1341,6 +1341,7 @@ def create_app():
         """API: Update company information"""
         return jsonify(branch_controller.update_company_info())
     
+    
     # ================== ORDER ROUTES ==================
     
     @app.route('/orders')
@@ -1874,6 +1875,257 @@ def create_app():
         except Exception as e:
             print(f"Email config status error: {e}")
             return jsonify({'success': False, 'message': 'Failed to get email configuration status'})
+        
+    # ================== CUSTOMER EDIT ROUTES ==================
+
+    @app.route('/customers/<customer_id>/edit')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def edit_customer(customer_id):
+        """Customer edit page - FIXED VERSION"""
+        # Verify customer exists
+        from models import Customer
+        customer = Customer.get_by_id(customer_id)
+        if not customer:
+            return render_template('errors/404.html'), 404
+        
+        return render_template('customer_edit.html', customer_id=customer_id)
+
+    @app.route('/api/customers/<customer_id>', methods=['PUT'])
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_update_customer(customer_id):
+        """API: Update customer with file upload support - FIXED VERSION"""
+        try:
+            current_user = auth_controller.get_current_user()
+            if not current_user or current_user.role not in ['vendor_superadmin', 'vendor_admin']:
+                return jsonify({'success': False, 'message': 'Insufficient permissions'})
+            
+            from models import Customer
+            customer = Customer.get_by_id(customer_id)
+            if not customer:
+                return jsonify({'success': False, 'message': 'Customer not found'})
+            
+            # Handle both form data and JSON
+            if request.content_type and request.content_type.startswith('multipart/form-data'):
+                data = request.form.to_dict()
+            else:
+                data = request.get_json()
+            
+            # Update basic fields
+            updateable_fields = [
+                'company_name', 'email', 'postal_address', 
+                'primary_phone', 'alternate_phone', 'is_active'
+            ]
+            
+            for field in updateable_fields:
+                if field in data:
+                    if field == 'is_active':
+                        setattr(customer, field, data[field] == 'true' or data[field] is True)
+                    else:
+                        setattr(customer, field, data[field])
+            
+            # Handle agreement file upload
+            if 'agreement_file' in request.files:
+                file = request.files['agreement_file']
+                if file and file.filename:
+                    # Remove old file logic could go here
+                    agreement_url = customer_controller.upload_agreement_file(file, customer.customer_id)
+                    if agreement_url:
+                        customer.agreement_file_url = agreement_url
+                    else:
+                        return jsonify({'success': False, 'message': 'Failed to upload agreement file'})
+            
+            # Handle file removal
+            if data.get('remove_current_file') == 'true':
+                customer.agreement_file_url = None
+            
+            if customer.save():
+                return jsonify({
+                    'success': True,
+                    'message': 'Customer updated successfully'
+                })
+            else:
+                return jsonify({'success': False, 'message': 'Failed to update customer'})
+                
+        except Exception as e:
+            print(f"Update customer error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'success': False, 'message': 'Failed to update customer'})
+
+    # ================== PRODUCT CATEGORIES ROUTES ==================
+
+    @app.route('/categories')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
+    def categories():
+        """Product categories management page"""
+        return render_template('categories.html')
+
+    @app.route('/api/products/categories')
+    @login_required
+    def api_get_categories():
+        """API: Get product categories - FIXED VERSION"""
+        try:
+            categories = product_controller.get_product_categories()
+            return jsonify({
+                'success': True,
+                'categories': categories
+            })
+        except Exception as e:
+            print(f"Get categories error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve categories'})
+
+    @app.route('/api/products/categories', methods=['PUT'])
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_update_categories():
+        """API: Update product categories - FIXED VERSION"""
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({'success': False, 'message': 'No data provided'})
+            
+            categories = data.get('categories', [])
+            
+            if not isinstance(categories, list):
+                return jsonify({'success': False, 'message': 'Categories must be a list'})
+            
+            # Validate categories
+            for category in categories:
+                if not isinstance(category, str) or not category.strip():
+                    return jsonify({'success': False, 'message': 'Invalid category format'})
+            
+            # Remove duplicates and empty strings
+            categories = list(set([cat.strip() for cat in categories if cat.strip()]))
+            
+            result = product_controller.update_product_categories(categories)
+            return jsonify(result)
+            
+        except Exception as e:
+            print(f"Update categories error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'success': False, 'message': f'Failed to update categories: {str(e)}'})
+        
+    # ================== TEST ENDPOINT FOR DEBUGGING ==================
+
+    @app.route('/api/test-categories')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_test_categories():
+        """Test endpoint for categories functionality"""
+        try:
+            from config import config
+            db = config.get_db()
+            
+            # Test database connection
+            test_doc = db.collection('test').document('test').get()
+            
+            # Test categories collection
+            categories_doc = db.collection('product_categories').document('default').get()
+            
+            return jsonify({
+                'success': True,
+                'database_connected': True,
+                'categories_doc_exists': categories_doc.exists,
+                'categories_data': categories_doc.to_dict() if categories_doc.exists else None,
+                'message': 'Categories test completed'
+            })
+            
+        except Exception as e:
+            print(f"Test categories error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'message': 'Categories test failed'
+            })
+        
+    # ================== ENHANCED USER ROUTES FOR BRANCH SUPPORT ==================
+
+
+
+    @app.route('/api/users-with-branches')
+    @login_required
+    def api_users_with_branches():
+        """API: Get users list with branch information - FIXED VERSION"""
+        try:
+            result = user_controller.get_users()
+            
+            if result['success']:
+                # Add branch information to each user
+                for user in result['users']:
+                    if user.get('branch_id'):
+                        from models import Branch
+                        branch = Branch.get_by_id(user['branch_id'])
+                        if branch:
+                            user['branch_name'] = branch.name
+                            user['branch_address'] = branch.address
+                        else:
+                            user['branch_name'] = 'Unknown Branch'
+                            user['branch_address'] = None
+                    else:
+                        user['branch_name'] = None
+                        user['branch_address'] = None
+            
+            return jsonify(result)
+            
+        except Exception as e:
+            print(f"Get users with branches error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve users'})
+
+    @app.route('/api/branches-dropdown')
+    @login_required
+    def api_branches_dropdown():
+        """API: Get branches for dropdown filtering - FIXED VERSION"""
+        try:
+            current_user = auth_controller.get_current_user()
+            
+            # Get branches based on user role
+            if current_user.role.startswith('customer_'):
+                from models import Branch
+                branches = Branch.get_by_customer_id(current_user.customer_id)
+            elif current_user.role.startswith('vendor_'):
+                # Vendor users can see branches from all customers
+                from models import Branch, Customer
+                branches = []
+                customers = Customer.get_all_active()
+                for customer in customers:
+                    customer_branches = Branch.get_by_customer_id(customer.customer_id)
+                    for branch in customer_branches:
+                        if branch.is_active:
+                            branch.customer_name = customer.company_name  # Add customer context
+                            branches.append(branch)
+            else:
+                branches = []
+            
+            branch_list = []
+            for branch in branches:
+                branch_data = {
+                    'branch_id': branch.branch_id,
+                    'name': branch.name,
+                    'address': branch.address
+                }
+                
+                # Add customer context for vendor users
+                if current_user.role.startswith('vendor_') and hasattr(branch, 'customer_name'):
+                    branch_data['display_name'] = f"{branch.name} ({branch.customer_name})"
+                else:
+                    branch_data['display_name'] = branch.name
+                
+                branch_list.append(branch_data)
+            
+            return jsonify({
+                'success': True,
+                'branches': branch_list
+            })
+            
+        except Exception as e:
+            print(f"Get branches dropdown error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve branches'})
 
     return app
 

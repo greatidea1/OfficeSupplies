@@ -1,0 +1,617 @@
+{% extends "base.html" %}
+
+{% block title %}Product Categories - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .categories-container {
+        padding: 32px 0;
+    }
+    
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .categories-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+    }
+    
+    .categories-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .categories-list {
+        padding: 24px;
+    }
+    
+    .category-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        margin-bottom: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .category-item:hover {
+        background: var(--gray-50);
+        border-color: var(--primary-blue);
+    }
+    
+    .category-info {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .category-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--primary-blue);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 18px;
+    }
+    
+    .category-details {
+        flex: 1;
+    }
+    
+    .category-name {
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 4px;
+    }
+    
+    .category-meta {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+    
+    .category-actions {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .add-category-form {
+        background: var(--gray-50);
+        border: 2px dashed var(--gray-300);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        display: none;
+    }
+    
+    .add-category-form.show {
+        display: block;
+        animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .form-inline {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+    
+    .form-inline .form-group {
+        margin-bottom: 0;
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--gray-500);
+    }
+    
+    .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.3;
+    }
+    
+    .edit-category-inline {
+        display: none;
+        flex: 1;
+        gap: 12px;
+        align-items: center;
+    }
+    
+    .edit-category-inline input {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid var(--gray-300);
+        border-radius: 6px;
+        font-size: 0.875rem;
+    }
+    
+    .category-item.editing .category-details {
+        display: none;
+    }
+    
+    .category-item.editing .edit-category-inline {
+        display: flex;
+    }
+    
+    @media (max-width: 768px) {
+        .form-inline {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .form-inline .form-group {
+            min-width: auto;
+        }
+        
+        .category-item {
+            flex-direction: column;
+            gap: 16px;
+            align-items: flex-start;
+        }
+        
+        .category-info {
+            width: 100%;
+        }
+        
+        .category-actions {
+            width: 100%;
+            justify-content: flex-end;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="categories-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Product Categories</h1>
+                <p style="color: var(--gray-600); margin: 8px 0 0 0;">
+                    Manage product categories for better organization
+                </p>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-secondary" onclick="exportCategories()">
+                    <i class="fas fa-download"></i>
+                    Export
+                </button>
+                <button class="btn btn-primary" onclick="toggleAddForm()">
+                    <i class="fas fa-plus"></i>
+                    Add Category
+                </button>
+            </div>
+        </div>
+        
+        <!-- Categories Section -->
+        <div class="categories-section">
+            <div class="categories-header">
+                <div>
+                    <h3>Product Categories</h3>
+                    <p style="color: var(--gray-600); margin: 0;" id="categoriesInfo">Loading categories...</p>
+                </div>
+            </div>
+            
+            <div class="categories-list">
+                <!-- Add Category Form -->
+                <div class="add-category-form" id="addCategoryForm">
+                    <h4 style="margin-bottom: 16px; color: var(--gray-900);">Add New Category</h4>
+                    <form class="form-inline" id="categoryForm">
+                        <div class="form-group">
+                            <label class="form-label">Category Name</label>
+                            <input type="text" class="form-control" name="category_name" id="categoryName" placeholder="Enter category name" required>
+                            <span class="form-error"></span>
+                        </div>
+                        <div class="form-group" style="flex: 0;">
+                            <button type="button" class="btn btn-primary" onclick="addCategory()">
+                                <i class="fas fa-plus"></i>
+                                Add
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="cancelAdd()" style="margin-left: 8px;">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Categories List -->
+                <div id="categoriesContainer">
+                    <!-- Categories will be loaded here -->
+                    <div style="text-align: center; padding: 40px;">
+                        <div class="spinner"></div>
+                        Loading categories...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+
+
+<script>
+    let currentCategories = [];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCategories();
+    });
+
+    async function loadCategories() {
+        try {
+            // Try the main endpoint first
+            let response = await apiCall('/products/categories');
+            
+            // If that fails, try the simple endpoint
+            if (!response.success) {
+                console.log('Main endpoint failed, trying simple endpoint...');
+                response = await apiCall('/products/categories/simple');
+            }
+            
+            if (response.success) {
+                currentCategories = response.categories || [];
+                displayCategories();
+                updateCategoriesInfo();
+            } else {
+                console.error('Both endpoints failed:', response);
+                showEmptyState('Failed to load categories');
+            }
+        } catch (error) {
+            console.error('Error loading categories:', error);
+            showEmptyState('Error loading categories');
+        }
+    }
+
+    function displayCategories() {
+        const container = document.getElementById('categoriesContainer');
+        
+        if (currentCategories.length === 0) {
+            showEmptyState('No categories found');
+            return;
+        }
+        
+        container.innerHTML = currentCategories.map((category, index) => `
+            <div class="category-item" id="category-${index}">
+                <div class="category-info">
+                    <div class="category-icon">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                    <div class="category-details">
+                        <div class="category-name">${category}</div>
+                        <div class="category-meta">Product category</div>
+                    </div>
+                    <div class="edit-category-inline">
+                        <input type="text" value="${category}" id="edit-input-${index}">
+                        <button class="btn btn-sm btn-success" onclick="saveEdit(${index})">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="cancelEdit(${index})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="category-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="editCategory(${index})" title="Edit Category">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteCategory(${index})" title="Delete Category">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function updateCategoriesInfo() {
+        const info = document.getElementById('categoriesInfo');
+        const total = currentCategories.length;
+        
+        if (total === 0) {
+            info.textContent = 'No categories found';
+        } else {
+            info.textContent = `${total} categor${total !== 1 ? 'ies' : 'y'} available`;
+        }
+    }
+    
+    function showEmptyState(message = 'No categories found') {
+        const container = document.getElementById('categoriesContainer');
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="fas fa-tags"></i>
+                </div>
+                <h3>${message}</h3>
+                <p>Categories help organize your products for better management.</p>
+                <button class="btn btn-primary" onclick="toggleAddForm()">
+                    <i class="fas fa-plus"></i>
+                    Add First Category
+                </button>
+            </div>
+        `;
+    }
+    
+    function toggleAddForm() {
+        const form = document.getElementById('addCategoryForm');
+        const isVisible = form.classList.contains('show');
+        
+        if (isVisible) {
+            form.classList.remove('show');
+        } else {
+            form.classList.add('show');
+            document.getElementById('categoryName').focus();
+        }
+    }
+    
+    function cancelAdd() {
+        document.getElementById('addCategoryForm').classList.remove('show');
+        document.getElementById('categoryForm').reset();
+        
+        // Clear any error messages
+        const errorSpan = document.querySelector('#categoryForm .form-error');
+        if (errorSpan) {
+            errorSpan.textContent = '';
+        }
+    }
+    
+    async function addCategory() {
+        const form = document.getElementById('categoryForm');
+        const categoryName = document.getElementById('categoryName').value.trim();
+        
+        if (!categoryName) {
+            const errorSpan = document.querySelector('#categoryForm .form-error');
+            if (errorSpan) {
+                errorSpan.textContent = 'Category name is required';
+            }
+            return;
+        }
+        
+        // Check if category already exists
+        if (currentCategories.includes(categoryName)) {
+            const errorSpan = document.querySelector('#categoryForm .form-error');
+            if (errorSpan) {
+                errorSpan.textContent = 'Category already exists';
+            }
+            return;
+        }
+        
+        try {
+            const updatedCategories = [...currentCategories, categoryName];
+            
+            // Try main endpoint first
+            let response = await apiCall('/products/categories', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ categories: updatedCategories })
+            });
+            
+            // If main endpoint fails, try simple endpoint
+            if (!response.success) {
+                console.log('Main endpoint failed, trying simple endpoint...');
+                response = await apiCall('/products/categories/simple', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ categories: updatedCategories })
+                });
+            }
+            
+            if (response.success) {
+                currentCategories = updatedCategories;
+                displayCategories();
+                updateCategoriesInfo();
+                cancelAdd();
+                showNotification('Category added successfully!', 'success');
+            } else {
+                console.error('Update failed:', response);
+                showNotification(response.message || 'Failed to add category', 'error');
+            }
+        } catch (error) {
+            console.error('Error adding category:', error);
+            showNotification('Failed to add category: ' + error.message, 'error');
+        }
+    }
+    
+    function editCategory(index) {
+        const categoryItem = document.getElementById(`category-${index}`);
+        categoryItem.classList.add('editing');
+        
+        const editInput = document.getElementById(`edit-input-${index}`);
+        editInput.focus();
+        editInput.select();
+    }
+    
+    function cancelEdit(index) {
+        const categoryItem = document.getElementById(`category-${index}`);
+        categoryItem.classList.remove('editing');
+        
+        // Reset input value
+        const editInput = document.getElementById(`edit-input-${index}`);
+        editInput.value = currentCategories[index];
+    }
+    
+    async function saveEdit(index) {
+        const editInput = document.getElementById(`edit-input-${index}`);
+        const newName = editInput.value.trim();
+        
+        if (!newName) {
+            showNotification('Category name cannot be empty', 'error');
+            return;
+        }
+        
+        if (newName === currentCategories[index]) {
+            cancelEdit(index);
+            return;
+        }
+        
+        // Check if new name already exists
+        if (currentCategories.includes(newName)) {
+            showNotification('Category name already exists', 'error');
+            return;
+        }
+        
+        try {
+            const updatedCategories = [...currentCategories];
+            updatedCategories[index] = newName;
+            
+            // Try main endpoint first
+            let response = await apiCall('/products/categories', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ categories: updatedCategories })
+            });
+            
+            // If main endpoint fails, try simple endpoint
+            if (!response.success) {
+                console.log('Main endpoint failed, trying simple endpoint...');
+                response = await apiCall('/products/categories/simple', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ categories: updatedCategories })
+                });
+            }
+            
+            if (response.success) {
+                currentCategories = updatedCategories;
+                displayCategories();
+                updateCategoriesInfo();
+                showNotification('Category updated successfully!', 'success');
+            } else {
+                console.error('Update failed:', response);
+                showNotification(response.message || 'Failed to update category', 'error');
+                cancelEdit(index);
+            }
+        } catch (error) {
+            console.error('Error updating category:', error);
+            showNotification('Failed to update category: ' + error.message, 'error');
+            cancelEdit(index);
+        }
+    }
+    
+    async function deleteCategory(index) {
+        const categoryName = currentCategories[index];
+        
+        if (!confirm(`Are you sure you want to delete the category "${categoryName}"?\n\nNote: Products using this category will still retain their category, but it won't be available for new products.`)) {
+            return;
+        }
+        
+        try {
+            const updatedCategories = currentCategories.filter((_, i) => i !== index);
+            
+            // Try main endpoint first
+            let response = await apiCall('/products/categories', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ categories: updatedCategories })
+            });
+            
+            // If main endpoint fails, try simple endpoint
+            if (!response.success) {
+                console.log('Main endpoint failed, trying simple endpoint...');
+                response = await apiCall('/products/categories/simple', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ categories: updatedCategories })
+                });
+            }
+            
+            if (response.success) {
+                currentCategories = updatedCategories;
+                displayCategories();
+                updateCategoriesInfo();
+                showNotification('Category deleted successfully!', 'success');
+            } else {
+                console.error('Delete failed:', response);
+                showNotification(response.message || 'Failed to delete category', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting category:', error);
+            showNotification('Failed to delete category: ' + error.message, 'error');
+        }
+    }
+    
+    function exportCategories() {
+        if (currentCategories.length === 0) {
+            showNotification('No categories to export', 'info');
+            return;
+        }
+        
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + "Category Name\n"
+            + currentCategories.map(cat => `"${cat}"`).join('\n');
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `product_categories_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showNotification('Categories exported successfully!', 'success');
+    }
+    
+    // Handle Enter key in add form
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const addForm = document.getElementById('addCategoryForm');
+            if (addForm.classList.contains('show') && e.target.id === 'categoryName') {
+                e.preventDefault();
+                addCategory();
+            }
+        }
+    });
+</script>
+{% endblock %}

@@ -389,18 +389,22 @@ class ProductController:
             return {'success': False, 'message': 'Failed to delete product'}
     
     def get_product_categories(self):
-        """Get available product categories"""
+        """Get available product categories - FIXED FOR FIRESTORE"""
         try:
+            from datetime import datetime
             db = config.get_db()
             doc = db.collection('product_categories').document('default').get()
             
             if doc.exists:
-                return doc.to_dict().get('categories', [])
+                data = doc.to_dict()
+                categories = data.get('categories', [])
+                print(f"Retrieved {len(categories)} categories from database")
+                return categories
             else:
-                # Return default categories
-                return [
+                # Return and create default categories
+                default_categories = [
                     'Office Stationery',
-                    'Computer Accessories',
+                    'Computer Accessories', 
                     'Furniture',
                     'Office Equipment',
                     'Printing Supplies',
@@ -411,32 +415,142 @@ class ProductController:
                     'Miscellaneous'
                 ]
                 
+                # Save default categories to database
+                try:
+                    db.collection('product_categories').document('default').set({
+                        'categories': default_categories,
+                        'created_at': datetime.now(),
+                        'updated_at': datetime.now()
+                    })
+                    print("Created default categories in database")
+                except Exception as e:
+                    print(f"Error creating default categories: {e}")
+                
+                return default_categories
+                
         except Exception as e:
             print(f"Get categories error: {e}")
-            return []
+            import traceback
+            traceback.print_exc()
+            # Return default categories as fallback
+            return [
+                'Office Stationery',
+                'Computer Accessories',
+                'Furniture', 
+                'Office Equipment',
+                'Printing Supplies',
+                'Storage & Organization',
+                'Cleaning Supplies',
+                'Safety Equipment',
+                'Communication Equipment',
+                'Miscellaneous'
+            ]
     
     def update_product_categories(self, categories):
-        """Update product categories (Vendor SuperAdmin only)"""
+        """Update product categories - FIXED FOR FIRESTORE"""
         try:
+            from datetime import datetime
+            
             current_user = self.auth.get_current_user()
-            if not current_user or current_user.role != 'vendor_superadmin':
-                return {'success': False, 'message': 'Only SuperAdmin can update categories'}
+            if not current_user or current_user.role not in ['vendor_superadmin', 'vendor_admin']:
+                return {'success': False, 'message': 'Only SuperAdmin/Admin can update categories'}
+            
+            # Validate categories input
+            if not isinstance(categories, list):
+                return {'success': False, 'message': 'Categories must be a list'}
+            
+            # Clean and validate each category
+            cleaned_categories = []
+            for category in categories:
+                if isinstance(category, str) and category.strip():
+                    cleaned_categories.append(category.strip())
+            
+            if not cleaned_categories:
+                return {'success': False, 'message': 'At least one valid category is required'}
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_categories = []
+            for category in cleaned_categories:
+                if category.lower() not in seen:
+                    seen.add(category.lower())
+                    unique_categories.append(category)
+            
+            print(f"Updating categories: {unique_categories}")
             
             db = config.get_db()
             doc_ref = db.collection('product_categories').document('default')
-            doc_ref.set({
-                'categories': categories,
-                'updated_at': db.SERVER_TIMESTAMP
-            })
+            
+            # Update with timestamp - FIXED to use datetime.now()
+            update_data = {
+                'categories': unique_categories,
+                'updated_at': datetime.now(),
+                'updated_by': current_user.user_id
+            }
+            
+            # Check if document exists
+            if doc_ref.get().exists:
+                # Update existing document
+                doc_ref.update(update_data)
+            else:
+                # Create new document
+                update_data['created_at'] = datetime.now()
+                doc_ref.set(update_data)
+            
+            print("Categories updated successfully in database")
             
             return {
                 'success': True,
-                'message': 'Categories updated successfully'
+                'message': 'Categories updated successfully',
+                'categories': unique_categories
             }
             
         except Exception as e:
             print(f"Update categories error: {e}")
-            return {'success': False, 'message': 'Failed to update categories'}
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'message': f'Failed to update categories: {str(e)}'}
+        
+    # Helper method to check Firestore connection
+    def test_firestore_connection(self):
+        """Test Firestore connection and permissions"""
+        try:
+            from datetime import datetime
+            db = config.get_db()
+            
+            # Test read
+            test_doc = db.collection('product_categories').document('default').get()
+            can_read = True
+            
+            # Test write
+            try:
+                db.collection('test_connection').document('test').set({
+                    'test': True,
+                    'timestamp': datetime.now()
+                })
+                can_write = True
+                
+                # Clean up test document
+                db.collection('test_connection').document('test').delete()
+            except Exception as write_error:
+                can_write = False
+                print(f"Write test failed: {write_error}")
+            
+            return {
+                'success': True,
+                'can_read': can_read,
+                'can_write': can_write,
+                'doc_exists': test_doc.exists if can_read else False,
+                'message': 'Connection test completed'
+            }
+            
+        except Exception as e:
+            print(f"Firestore connection test error: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': 'Connection test failed'
+            }
     
     def get_customer_pricing(self, product_id, customer_id):
         """Get custom pricing for customer - FIXED VERSION"""

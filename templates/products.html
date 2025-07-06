@@ -4,7 +4,6 @@
 
 {% block extra_css %}
 <style>
-
     /* Placeholder for missing product images */
     .product-image-placeholder {
         width: 100%;
@@ -76,7 +75,7 @@
         align-items: center;
         gap: 16px;
         margin-bottom: 20px;
-        flex-wrap: wrap; /* makes it responsive */
+        flex-wrap: wrap;
     }
 
     .customer-filter-section {
@@ -550,14 +549,8 @@
                 {% endif %}
             </div>
         </div>
-        
-
-        
 
         <!-- Filters Section -->
-        
-
-        <!-- Filters Section (Other Dropdowns) -->
         <div class="filters-section">
             <div class="filters-grid">
                 <div class="filter-group">
@@ -644,9 +637,6 @@
         </div>
         {% endif %}
 
-
-
-        
         <div class="products-grid" id="productsGrid">
             <!-- Products will be loaded here -->
             <div style="grid-column: 1 / -1; padding: 40px; text-align: center;">
@@ -669,7 +659,7 @@
 </div>
 {% endif %}
 
-<!-- Add Product Modal (for vendors) - UPDATED WITHOUT RATE FIELD -->
+<!-- Add Product Modal (for vendors) -->
 {% if current_user.role.startswith('vendor_') %}
 <div class="modal" id="addProductModal">
     <div class="modal-content" style="max-width: 700px;">
@@ -691,18 +681,18 @@
                     <div class="form-group">
                         <label class="form-label">Category <span style="color: var(--secondary-red);">*</span></label>
                         <select class="form-control" name="category" required>
-                            <option value="">Select Category</option>
-                            <option value="Office Stationery">Office Stationery</option>
-                            <option value="Computer Accessories">Computer Accessories</option>
-                            <option value="Furniture">Furniture</option>
-                            <option value="Office Equipment">Office Equipment</option>
-                            <option value="Printing Supplies">Printing Supplies</option>
-                            <option value="Storage & Organization">Storage & Organization</option>
-                            <option value="Cleaning Supplies">Cleaning Supplies</option>
-                            <option value="Safety Equipment">Safety Equipment</option>
-                            <option value="Communication Equipment">Communication Equipment</option>
-                            <option value="Miscellaneous">Miscellaneous</option>
+                            <option value="">Loading categories...</option>
                         </select>
+                        <div style="margin-top: 4px;">
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="refreshProductFormCategories()" title="Refresh categories">
+                                <i class="fas fa-sync-alt"></i>
+                                Refresh
+                            </button>
+                            <a href="/categories" class="btn btn-sm btn-primary" target="_blank" title="Manage categories in new tab">
+                                <i class="fas fa-tags"></i>
+                                Manage Categories
+                            </a>
+                        </div>
                         <span class="form-error"></span>
                     </div>
                 </div>
@@ -777,7 +767,7 @@
                     <span class="form-error"></span>
                 </div>
                 
-                <!-- Update the file input in the Add Product Modal -->
+                <!-- Product Image Upload -->
                 <div class="form-group">
                     <label class="form-label">Product Image</label>
                     <input type="file" 
@@ -808,10 +798,8 @@
 {% endblock %}
 
 {% block extra_js %}
-
 <script>
-
-    // Complete JavaScript for products.html
+// Complete JavaScript for products.html - FULL VERSION
 
 let currentProducts = [];
 let filteredProducts = [];
@@ -834,6 +822,9 @@ document.addEventListener('DOMContentLoaded', function() {
     loadProducts();
     setupEventListeners();
     
+    // Load categories for product forms
+    loadCategoriesForProductForm();
+    
     if (IS_CUSTOMER) {
         loadCart();
     }
@@ -855,9 +846,10 @@ async function loadProducts() {
             console.log('Products loaded successfully:', response.products.length);
             currentProducts = response.products;
             filteredProducts = [...currentProducts];
-            categories = response.categories || [];
             
-            populateCategoryFilter();
+            // Load categories dynamically instead of using hardcoded ones
+            await loadCategoriesForProductForm();
+            
             displayProducts();
         } else {
             console.error('Failed to load products:', response);
@@ -868,6 +860,30 @@ async function loadProducts() {
         showEmptyState('Error loading products');
     }
 }
+
+// Add a function to refresh categories when user navigates back from categories page
+function refreshCategoriesFromCategoriesPage() {
+    // This can be called when user returns from the categories management page
+    console.log('Refreshing categories after category management...');
+    loadCategoriesForProductForm();
+}
+
+// Listen for focus events to refresh categories when user returns to products page
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && window.location.pathname === '/products') {
+        // Page became visible, refresh categories in case they were updated
+        console.log('Products page became visible, refreshing categories...');
+        refreshProductFormCategories();
+    }
+});
+
+// Also listen for focus events on the window
+window.addEventListener('focus', function() {
+    if (window.location.pathname === '/products') {
+        console.log('Products page gained focus, refreshing categories...');
+        refreshProductFormCategories();
+    }
+});
 
 function displayProducts() {
     const grid = document.getElementById('productsGrid');
@@ -1356,6 +1372,9 @@ async function editProduct(productId) {
             return;
         }
         
+        // Load fresh categories before creating edit modal
+        await loadCategoriesForProductForm();
+        
         // Create and show edit modal
         const modal = document.createElement('div');
         modal.className = 'modal show';
@@ -1374,10 +1393,8 @@ async function editProduct(productId) {
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Category</label>
-                                <select class="form-control" name="category" required>
-                                    ${categories.map(cat => 
-                                        `<option value="${cat}" ${cat === product.category ? 'selected' : ''}>${cat}</option>`
-                                    ).join('')}
+                                <select class="form-control" name="category" required id="editCategorySelect">
+                                    <option value="">Select Category</option>
                                 </select>
                             </div>
                         </div>
@@ -1435,6 +1452,30 @@ async function editProduct(productId) {
         `;
         
         document.body.appendChild(modal);
+        
+        // Populate category dropdown and select current category
+        setTimeout(async () => {
+            try {
+                // Get categories again to populate the edit form
+                let response = await apiCall('/products/categories');
+                if (!response.success) {
+                    response = await apiCall('/products/categories/simple');
+                }
+                
+                if (response.success && response.categories) {
+                    const editCategorySelect = document.getElementById('editCategorySelect');
+                    if (editCategorySelect) {
+                        editCategorySelect.innerHTML = '<option value="">Select Category</option>' +
+                            response.categories.map(category => 
+                                `<option value="${category}" ${category === product.category ? 'selected' : ''}>${category}</option>`
+                            ).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading categories for edit form:', error);
+            }
+        }, 100);
+        
     } catch (error) {
         console.error('Error editing product:', error);
         showNotification('Failed to load product editor', 'error');
@@ -1621,6 +1662,8 @@ function populateCategoryFilter() {
         uniqueCategories.map(category => 
             `<option value="${category}">${category}</option>`
         ).join('');
+    
+    loadCategoriesForProductForm();
 }
 
 function searchProducts() {
@@ -1700,21 +1743,64 @@ function showEmptyState(message = 'No products found') {
     `;
 }
 
+// Function to refresh categories in existing forms (useful for when categories are updated)
+function refreshProductFormCategories() {
+    console.log('Refreshing product form categories...');
+    loadCategoriesForProductForm();
+}
+
 // Add Product Modal Functions (for vendors)
-{% if current_user.role.startswith('vendor_') %}
+// Function to show the add product modal - THIS WAS MISSING!
 function showAddProductModal() {
-    document.getElementById('addProductModal').classList.add('show');
-    document.querySelector('[name="item_no"]').focus();
+    const modal = document.getElementById('addProductModal');
+    if (modal) {
+        modal.classList.add('show');
+        
+        // Focus first field
+        setTimeout(() => {
+            const firstField = document.getElementById('productItemNo');
+            if (firstField) {
+                firstField.focus();
+            }
+        }, 100);
+        
+        // Load fresh categories
+        loadCategoriesForProductForm();
+    }
 }
 
 function closeAddProductModal() {
-    document.getElementById('addProductModal').classList.remove('show');
-    document.getElementById('addProductForm').reset();
+    const modal = document.getElementById('addProductModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.getElementById('addProductForm').reset();
+        
+        // Clear image preview if it exists
+        const imagePreview = document.getElementById('imagePreview');
+        if (imagePreview) {
+            imagePreview.style.display = 'none';
+            imagePreview.innerHTML = '';
+        }
+        
+        // Reset any error messages
+        const errorSpans = document.querySelectorAll('#addProductForm .form-error');
+        errorSpans.forEach(span => {
+            span.textContent = '';
+        });
+    }
 }
 
+// Enhanced submitAddProduct function with category validation
 async function submitAddProduct() {
     const form = document.getElementById('addProductForm');
     const formData = new FormData(form);
+    
+    // Validate that a category is selected
+    const selectedCategory = formData.get('category');
+    if (!selectedCategory) {
+        showNotification('Please select a category for the product', 'error');
+        return;
+    }
     
     try {
         const response = await fetch('/api/products', {
@@ -1727,13 +1813,98 @@ async function submitAddProduct() {
         if (result.success) {
             showNotification('Product created successfully!', 'success');
             closeAddProductModal();
-            loadProducts();
+            loadProducts(); // This will also refresh categories
         } else {
             showNotification(result.message || 'Failed to create product', 'error');
         }
     } catch (error) {
         console.error('Error creating product:', error);
         showNotification('Failed to create product', 'error');
+    }
+}
+
+async function loadCategoriesForProductForm() {
+    try {
+        console.log('Loading categories for product form...');
+        
+        // Try main endpoint first
+        let response = await apiCall('/products/categories');
+        
+        // If that fails, try the simple endpoint
+        if (!response.success) {
+            console.log('Main categories endpoint failed, trying simple endpoint...');
+            response = await apiCall('/products/categories/simple');
+        }
+        
+        if (response.success && response.categories) {
+            console.log('Categories loaded:', response.categories);
+            populateProductCategoryDropdowns(response.categories);
+        } else {
+            console.error('Failed to load categories:', response);
+            // Use fallback categories
+            const fallbackCategories = [
+                'Office Stationery',
+                'Computer Accessories',
+                'Furniture',
+                'Office Equipment',
+                'Printing Supplies',
+                'Storage & Organization',
+                'Cleaning Supplies',
+                'Safety Equipment',
+                'Communication Equipment',
+                'Miscellaneous'
+            ];
+            populateProductCategoryDropdowns(fallbackCategories);
+        }
+    } catch (error) {
+        console.error('Error loading categories for product form:', error);
+        // Use fallback categories
+        const fallbackCategories = [
+            'Office Stationery',
+            'Computer Accessories',
+            'Furniture',
+            'Office Equipment',
+            'Printing Supplies',
+            'Storage & Organization',
+            'Cleaning Supplies',
+            'Safety Equipment',
+            'Communication Equipment',
+            'Miscellaneous'
+        ];
+        populateProductCategoryDropdowns(fallbackCategories);
+    }
+}
+
+// Function to populate category dropdowns in product forms
+function populateProductCategoryDropdowns(categories) {
+    // Add Product Modal category dropdown
+    const addProductCategorySelect = document.querySelector('#addProductModal [name="category"]');
+    if (addProductCategorySelect) {
+        addProductCategorySelect.innerHTML = '<option value="">Select Category</option>' +
+            categories.map(category => `<option value="${category}">${category}</option>`).join('');
+        console.log('Populated add product category dropdown with', categories.length, 'categories');
+    }
+    
+    // Edit Product Modal category dropdown (if it exists)
+    const editProductCategorySelect = document.querySelector('#editProductModal [name="category"]');
+    if (editProductCategorySelect) {
+        editProductCategorySelect.innerHTML = '<option value="">Select Category</option>' +
+            categories.map(category => `<option value="${category}">${category}</option>`).join('');
+        console.log('Populated edit product category dropdown with', categories.length, 'categories');
+    }
+    
+    // Category filter dropdown
+    const categoryFilter = document.getElementById('categoryFilter');
+    if (categoryFilter) {
+        const currentValue = categoryFilter.value; // Preserve current selection
+        categoryFilter.innerHTML = '<option value="">All Categories</option>' +
+            categories.map(category => `<option value="${category}">${category}</option>`).join('');
+        
+        // Restore previous selection if it still exists
+        if (currentValue && categories.includes(currentValue)) {
+            categoryFilter.value = currentValue;
+        }
+        console.log('Populated category filter dropdown with', categories.length, 'categories');
     }
 }
 
@@ -1772,8 +1943,13 @@ function handleImageUpload(event) {
     };
     reader.readAsDataURL(file);
 }
-{% endif %}
-    
-</script>
 
+// Add a manual refresh button function (you can add this button to your UI if needed)
+function manualRefreshCategories() {
+    console.log('Manually refreshing categories...');
+    loadCategoriesForProductForm();
+    showNotification('Categories refreshed!', 'success');
+}
+
+</script>
 {% endblock %}

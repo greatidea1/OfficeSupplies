@@ -301,6 +301,14 @@
                 </div>
                 {% endif %}
                 
+                <!-- New Branch Filter -->
+                <div class="filter-group">
+                    <label class="filter-label">Branch</label>
+                    <select class="form-control" id="branchFilter">
+                        <option value="">All Branches</option>
+                    </select>
+                </div>
+                
                 <div class="filter-group">
                     <label class="filter-label">Sort By</label>
                     <select class="form-control" id="sortFilter">
@@ -531,191 +539,225 @@
 {% block extra_js %}
 <script>
     let currentUsers = [];
-    let filteredUsers = [];
-    let availableRoles = [];
-    let customers = [];
-    let departments = [];
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        loadUsers();
-        loadAvailableRoles();
-        loadCustomers();
-        setupEventListeners();
+let filteredUsers = [];
+let availableRoles = [];
+let customers = [];
+let departments = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadUsers();
+    loadAvailableRoles();
+    loadCustomers();
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    // Search on Enter key
+    document.getElementById('searchInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchUsers();
+        }
     });
     
-    function setupEventListeners() {
-        // Search on Enter key
-        document.getElementById('searchInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                searchUsers();
-            }
-        });
-        
-        // Auto-search on filter changes
-        ['roleFilter', 'statusFilter', 'customerFilter', 'sortFilter'].forEach(id => {
-            const element = document.getElementById(id);
-            if (element) {
-                element.addEventListener('change', searchUsers);
-            }
-        });
-        
-        // Role change handler for add user form
-        document.getElementById('userRole').addEventListener('change', function() {
+    // Auto-search on filter changes
+    ['roleFilter', 'statusFilter', 'customerFilter', 'branchFilter', 'sortFilter'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('change', searchUsers);
+        }
+    });
+    
+    // Role change handler for add user form
+    const userRoleElement = document.getElementById('userRole');
+    if (userRoleElement) {
+        userRoleElement.addEventListener('change', function() {
             handleRoleChange(this.value, 'add');
         });
-        
-        // Role change handler for edit user form
-        document.getElementById('editRole').addEventListener('change', function() {
+    }
+    
+    // Role change handler for edit user form
+    const editRoleElement = document.getElementById('editRole');
+    if (editRoleElement) {
+        editRoleElement.addEventListener('change', function() {
             handleRoleChange(this.value, 'edit');
         });
-        
-        // Department selection handler to clear requirement message
-        document.getElementById('userDepartment').addEventListener('change', function() {
+    }
+    
+    // Department selection handler to clear requirement message
+    const userDepartmentElement = document.getElementById('userDepartment');
+    if (userDepartmentElement) {
+        userDepartmentElement.addEventListener('change', function() {
             updateDepartmentRequirementMessage();
         });
-        
-        // Customer change handler for department loading
-        const customerSelect = document.getElementById('customerSelection');
-        if (customerSelect) {
-            customerSelect.addEventListener('change', function() {
-                const customerId = this.value;
-                const roleSelect = document.getElementById('userRole');
-                
-                // Load departments when customer is selected and role requires it
-                if (customerId && ['customer_employee', 'customer_dept_head'].includes(roleSelect.value)) {
-                    loadDepartments(customerId, 'userDepartment');
-                }
-            });
-        }
-        
-        // Username generation from first and last name - FIXED IDs
-        const firstNameField = document.querySelector('[name="first_name"]');
-        const lastNameField = document.querySelector('[name="last_name"]');
-        
-        if (firstNameField && lastNameField) {
-            firstNameField.addEventListener('input', generateUsername);
-            lastNameField.addEventListener('input', generateUsername);
-        }
-
-        {% if current_user.role == 'customer_hr_admin' %}
-        loadBranchesForForm();
-        {% endif %}
+    }
+    
+    // Customer change handler for department loading
+    const customerSelect = document.getElementById('customerSelection');
+    if (customerSelect) {
+        customerSelect.addEventListener('change', function() {
+            const customerId = this.value;
+            const roleSelect = document.getElementById('userRole');
+            
+            // Load departments when customer is selected and role requires it
+            if (customerId && ['customer_employee', 'customer_dept_head'].includes(roleSelect.value)) {
+                loadDepartments(customerId, 'userDepartment');
+            }
+        });
+    }
+    
+    // Username generation from first and last name
+    const firstNameField = document.querySelector('[name="first_name"]');
+    const lastNameField = document.querySelector('[name="last_name"]');
+    
+    if (firstNameField && lastNameField) {
+        firstNameField.addEventListener('input', generateUsername);
+        lastNameField.addEventListener('input', generateUsername);
     }
 
     {% if current_user.role == 'customer_hr_admin' %}
-    async function loadBranchesForForm() {
-        try {
-            const response = await apiCall('/user-controller/branches?customer_id={{ current_user.customer_id }}');
-            const branchSelect = document.getElementById('userBranch');
-            const editBranchSelect = document.getElementById('editBranch');
-            
-            if (response.success && response.branches) {
-                const branchOptions = '<option value="">Select Branch</option>' +
-                    response.branches.map(branch => 
-                        `<option value="${branch.branch_id}">${branch.name}</option>`
-                    ).join('');
-                
-                if (branchSelect) {
-                    branchSelect.innerHTML = branchOptions;
-                }
-                if (editBranchSelect) {
-                    editBranchSelect.innerHTML = branchOptions;
-                }
-            }
-        } catch (error) {
-            console.error('Error loading branches for form:', error);
-        }
-    }
+    loadBranchesForForm();
     {% endif %}
+}
+
+{% if current_user.role == 'customer_hr_admin' %}
+async function loadBranchesForForm() {
+    try {
+        const response = await apiCall('/user-controller/branches?customer_id={{ current_user.customer_id }}');
+        const branchSelect = document.getElementById('userBranch');
+        const editBranchSelect = document.getElementById('editBranch');
+        
+        if (response.success && response.branches) {
+            const branchOptions = '<option value="">Select Branch</option>' +
+                response.branches.map(branch => 
+                    `<option value="${branch.branch_id}">${branch.name}</option>`
+                ).join('');
+            
+            if (branchSelect) {
+                branchSelect.innerHTML = branchOptions;
+            }
+            if (editBranchSelect) {
+                editBranchSelect.innerHTML = branchOptions;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading branches for form:', error);
+    }
+}
+{% endif %}
+
+// Add this function to load branches for filtering
+async function loadBranches() {
+    try {
+        const response = await apiCall('/branches-dropdown');
+        if (response.success && response.branches) {
+            const branchFilter = document.getElementById('branchFilter');
+            if (branchFilter) {
+                branchFilter.innerHTML = '<option value="">All Branches</option>' +
+                    response.branches.map(branch => 
+                        `<option value="${branch.branch_id}">${branch.display_name}</option>`
+                    ).join('');
+            }
+        }
+    } catch (error) {
+        console.error('Error loading branches for filter:', error);
+    }
+}
+
+function generateUsername() {
+    const firstNameField = document.querySelector('[name="first_name"]');
+    const lastNameField = document.querySelector('[name="last_name"]');
+    const usernameField = document.getElementById('generatedUsername');
     
-    function generateUsername() {
-        const firstNameField = document.querySelector('[name="first_name"]');
-        const lastNameField = document.querySelector('[name="last_name"]');
-        const usernameField = document.getElementById('generatedUsername');
-        
-        if (!firstNameField || !lastNameField || !usernameField) {
-            return;
-        }
-        
-        const firstName = firstNameField.value.trim().toLowerCase();
-        const lastName = lastNameField.value.trim().toLowerCase();
-        
-        if (firstName && lastName) {
-            // Generate username as firstname.lastname
-            let baseUsername = `${firstName}.${lastName}`;
-            
-            // Remove any special characters and spaces
-            baseUsername = baseUsername.replace(/[^a-z0-9.]/g, '');
-            
-            // Add timestamp to make it unique
-            const timestamp = Date.now().toString().slice(-4);
-            const username = `${baseUsername}${timestamp}`;
-            
-            usernameField.value = username;
-            console.log('Generated username:', username);
-        } else {
-            usernameField.value = '';
-        }
+    if (!firstNameField || !lastNameField || !usernameField) {
+        return;
     }
     
-    function updateDepartmentRequirementMessage() {
+    const firstName = firstNameField.value.trim().toLowerCase();
+    const lastName = lastNameField.value.trim().toLowerCase();
+    
+    if (firstName && lastName) {
+        // Generate username as firstname.lastname
+        let baseUsername = `${firstName}.${lastName}`;
+        
+        // Remove any special characters and spaces
+        baseUsername = baseUsername.replace(/[^a-z0-9.]/g, '');
+        
+        // Add timestamp to make it unique
+        const timestamp = Date.now().toString().slice(-4);
+        const username = `${baseUsername}${timestamp}`;
+        
+        usernameField.value = username;
+        console.log('Generated username:', username);
+    } else {
+        usernameField.value = '';
+    }
+}
+
+function updateDepartmentRequirementMessage() {
+    const departmentField = document.getElementById('userDepartment');
+    const roleField = document.getElementById('userRole');
+    
+    if (!departmentField || !roleField) return;
+    
+    const helpText = departmentField.parentNode.querySelector('.form-help');
+    if (!helpText) return;
+    
+    const role = roleField.value;
+    const needsDepartment = role === 'customer_employee' || role === 'customer_dept_head';
+    
+    if (needsDepartment) {
+        if (departmentField.value) {
+            // Department selected - show success message
+            helpText.style.color = 'var(--secondary-green)';
+            helpText.textContent = 'Department assigned';
+        } else {
+            // No department selected - show requirement
+            helpText.style.color = 'var(--secondary-red)';
+            helpText.textContent = 'Department is required for this role';
+        }
+    } else {
+        // Department not required for this role
+        helpText.style.color = 'var(--gray-500)';
+        helpText.textContent = 'Optional for this role';
+    }
+}
+
+function handleRoleChange(role, formType) {
+    const isCustomerRole = role.startsWith('customer_');
+    const needsDepartment = role === 'customer_employee' || role === 'customer_dept_head';
+    
+    if (formType === 'add') {
+        const customerGroup = document.getElementById('customerSelectionGroup');
         const departmentField = document.getElementById('userDepartment');
-        const roleField = document.getElementById('userRole');
-        const helpText = departmentField.parentNode.querySelector('.form-help');
         
-        const role = roleField.value;
-        const needsDepartment = role === 'customer_employee' || role === 'customer_dept_head';
-        
-        if (needsDepartment) {
-            if (departmentField.value) {
-                // Department selected - show success message
-                helpText.style.color = 'var(--secondary-green)';
-                helpText.textContent = 'Department assigned';
-            } else {
-                // No department selected - show requirement
-                helpText.style.color = 'var(--secondary-red)';
-                helpText.textContent = 'Department is required for this role';
-            }
-        } else {
-            // Department not required for this role
-            helpText.style.color = 'var(--gray-500)';
-            helpText.textContent = 'Optional for this role';
+        // Show customer selection for customer roles (if user is vendor)
+        {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+        if (isCustomerRole && customerGroup) {
+            customerGroup.style.display = 'block';
+            customerGroup.querySelector('select').required = true;
+        } else if (customerGroup) {
+            customerGroup.style.display = 'none';
+            customerGroup.querySelector('select').required = false;
         }
-    }
-    
-    function handleRoleChange(role, formType) {
-        const isCustomerRole = role.startsWith('customer_');
-        const needsDepartment = role === 'customer_employee' || role === 'customer_dept_head';
+        {% endif %}
         
-        if (formType === 'add') {
-            const customerGroup = document.getElementById('customerSelectionGroup');
-            const departmentField = document.getElementById('userDepartment');
-            
-            // Show customer selection for customer roles (if user is vendor)
-            {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
-            if (isCustomerRole) {
-                customerGroup.style.display = 'block';
-                customerGroup.querySelector('select').required = true;
-            } else {
-                customerGroup.style.display = 'none';
-                customerGroup.querySelector('select').required = false;
-            }
-            {% endif %}
-            
-            // Handle department requirement
+        // Handle department requirement
+        if (departmentField) {
             if (needsDepartment) {
                 departmentField.required = true;
             } else {
                 departmentField.required = false;
                 departmentField.value = '';
             }
-            
-            // Update the help message
-            updateDepartmentRequirementMessage();
-            
-        } else if (formType === 'edit') {
-            const editDepartmentGroup = document.getElementById('editDepartmentGroup');
-            
+        }
+        
+        // Update the help message
+        updateDepartmentRequirementMessage();
+        
+    } else if (formType === 'edit') {
+        const editDepartmentGroup = document.getElementById('editDepartmentGroup');
+        
+        if (editDepartmentGroup) {
             if (needsDepartment) {
                 editDepartmentGroup.style.display = 'block';
                 {% if current_user.role == 'customer_hr_admin' %}
@@ -726,276 +768,300 @@
             }
         }
     }
-    
-    async function loadUsers() {
-        try {
-            const response = await apiCall('/users');
-            const container = document.getElementById('usersContainer');
-            
-            if (response.success && response.users) {
-                currentUsers = response.users;
-                filteredUsers = [...currentUsers];
-                
-                displayUsers();
-                updateUsersInfo();
-                populateRoleFilter();
-            } else {
-                showEmptyState('No users found');
-            }
-        } catch (error) {
-            console.error('Error loading users:', error);
-            showEmptyState('Error loading users');
-        }
-    }
-    
-    async function loadAvailableRoles() {
-        try {
-            const response = await apiCall('/users');
-            if (response.success && response.available_roles) {
-                availableRoles = response.available_roles;
-                populateRoleSelectors();
-            }
-        } catch (error) {
-            console.error('Error loading available roles:', error);
-        }
-    }
-    
-    async function loadCustomers() {
-        try {
-            {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
-            const response = await apiCall('/vendor/customers-dropdown');
-            if (response.success && response.customers) {
-                customers = response.customers;
-                populateCustomerSelectors();
-            }
-            {% endif %}
-        } catch (error) {
-            console.error('Error loading customers:', error);
-        }
-    }
-    
-    async function loadDepartments(customerId, selectId) {
-        try {
-            if (!customerId) {
-                document.getElementById(selectId).innerHTML = '<option value="">Select Department</option>';
-                return;
-            }
-            
-            const response = await apiCall('/user-controller/departments?customer_id=' + customerId);
-            const select = document.getElementById(selectId);
-            
-            if (response.success && response.departments) {
-                select.innerHTML = '<option value="">Select Department</option>' +
-                    response.departments.map(dept => 
-                        `<option value="${dept.department_id}">${dept.name}</option>`
-                    ).join('');
-            }
-        } catch (error) {
-            console.error('Error loading departments:', error);
-        }
-    }
-    
-    function displayUsers() {
+}
+
+async function loadUsers() {
+    try {
+        // Use the enhanced API endpoint that includes branch information
+        const response = await apiCall('/users-with-branches');
         const container = document.getElementById('usersContainer');
         
-        if (filteredUsers.length === 0) {
+        if (response.success && response.users) {
+            currentUsers = response.users;
+            filteredUsers = [...currentUsers];
+            
+            displayUsers();
+            updateUsersInfo();
+            populateRoleFilter();
+            loadBranches(); // Load branches for filtering
+        } else {
             showEmptyState('No users found');
+        }
+    } catch (error) {
+        console.error('Error loading users:', error);
+        showEmptyState('Error loading users');
+    }
+}
+
+async function loadAvailableRoles() {
+    try {
+        const response = await apiCall('/users');
+        if (response.success && response.available_roles) {
+            availableRoles = response.available_roles;
+            populateRoleSelectors();
+        }
+    } catch (error) {
+        console.error('Error loading available roles:', error);
+    }
+}
+
+async function loadCustomers() {
+    try {
+        {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+        const response = await apiCall('/vendor/customers-dropdown');
+        if (response.success && response.customers) {
+            customers = response.customers;
+            populateCustomerSelectors();
+        }
+        {% endif %}
+    } catch (error) {
+        console.error('Error loading customers:', error);
+    }
+}
+
+async function loadDepartments(customerId, selectId) {
+    try {
+        if (!customerId) {
+            const selectElement = document.getElementById(selectId);
+            if (selectElement) {
+                selectElement.innerHTML = '<option value="">Select Department</option>';
+            }
             return;
         }
         
-        container.innerHTML = `
-            <table class="users-table">
-                <thead>
+        const response = await apiCall('/user-controller/departments?customer_id=' + customerId);
+        const select = document.getElementById(selectId);
+        
+        if (response.success && response.departments && select) {
+            select.innerHTML = '<option value="">Select Department</option>' +
+                response.departments.map(dept => 
+                    `<option value="${dept.department_id}">${dept.name}</option>`
+                ).join('');
+        }
+    } catch (error) {
+        console.error('Error loading departments:', error);
+    }
+}
+
+function displayUsers() {
+    const container = document.getElementById('usersContainer');
+    
+    if (filteredUsers.length === 0) {
+        showEmptyState('No users found');
+        return;
+    }
+    
+    container.innerHTML = `
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Organization</th>
+                    <th>Branch</th>
+                    <th>Department</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${filteredUsers.map(user => `
                     <tr>
-                        <th>User</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Organization</th>
-                        <th>Department</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${filteredUsers.map(user => `
-                        <tr>
-                            <td>
-                                <div class="user-info">
-                                    <div class="user-avatar">
-                                        ${(user.full_name || user.username).charAt(0).toUpperCase()}
-                                    </div>
-                                    <div class="user-details">
-                                        <div class="user-name">${user.full_name || user.username}</div>
-                                        <div class="user-email">${user.email}</div>
-                                    </div>
+                        <td>
+                            <div class="user-info">
+                                <div class="user-avatar">
+                                    ${(user.full_name || user.username).charAt(0).toUpperCase()}
                                 </div>
-                            </td>
-                            <td>
-                                <span class="badge badge-primary">
-                                    ${formatRole(user.role)}
-                                </span>
-                            </td>
-                            <td>
-                                <span class="badge ${user.is_active ? 'badge-success' : 'badge-danger'}">
-                                    ${user.is_active ? 'Active' : 'Inactive'}
-                                </span>
-                            </td>
-                            <td>${user.customer_name || 'Vendor'}</td>
-                            <td>${user.department_name || '-'}</td>
-                            <td>
-                                <div style="display: flex; gap: 8px;">
-                                    <button class="btn btn-sm btn-primary" onclick="viewUser('${user.user_id}')" title="View Details">
-                                        <i class="fas fa-eye"></i>
+                                <div class="user-details">
+                                    <div class="user-name">${user.full_name || user.username}</div>
+                                    <div class="user-email">${user.email}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge badge-primary">
+                                ${formatRole(user.role)}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge ${user.is_active ? 'badge-success' : 'badge-danger'}">
+                                ${user.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                        </td>
+                        <td>${user.customer_name || 'Vendor'}</td>
+                        <td>${user.branch_name || '-'}</td>
+                        <td>${user.department_name || '-'}</td>
+                        <td>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-sm btn-primary" onclick="viewUser('${user.user_id}')" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                ${user.can_edit ? `
+                                    <button class="btn btn-sm btn-secondary" onclick="editUser('${user.user_id}')" title="Edit User">
+                                        <i class="fas fa-edit"></i>
                                     </button>
-                                    ${user.can_edit ? `
-                                        <button class="btn btn-sm btn-secondary" onclick="editUser('${user.user_id}')" title="Edit User">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                    ` : ''}
-                                </div>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-    }
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function searchUsers() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const role = document.getElementById('roleFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    const customerId = document.getElementById('customerFilter')?.value || '';
+    const branchId = document.getElementById('branchFilter')?.value || '';
+    const sortBy = document.getElementById('sortFilter').value;
     
-    function searchUsers() {
-        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-        const role = document.getElementById('roleFilter').value;
-        const status = document.getElementById('statusFilter').value;
-        const customerId = document.getElementById('customerFilter')?.value || '';
-        const sortBy = document.getElementById('sortFilter').value;
+    filteredUsers = currentUsers.filter(user => {
+        // Search filter
+        const matchesSearch = !searchTerm || 
+            (user.full_name && user.full_name.toLowerCase().includes(searchTerm)) ||
+            user.username.toLowerCase().includes(searchTerm) ||
+            user.email.toLowerCase().includes(searchTerm);
         
-        filteredUsers = currentUsers.filter(user => {
-            // Search filter
-            const matchesSearch = !searchTerm || 
-                (user.full_name && user.full_name.toLowerCase().includes(searchTerm)) ||
-                user.username.toLowerCase().includes(searchTerm) ||
-                user.email.toLowerCase().includes(searchTerm);
-            
-            // Role filter
-            const matchesRole = !role || user.role === role;
-            
-            // Status filter
-            const matchesStatus = !status || 
-                (status === 'active' && user.is_active) ||
-                (status === 'inactive' && !user.is_active);
-            
-            // Customer filter
-            const matchesCustomer = !customerId || user.customer_id === customerId;
-            
-            return matchesSearch && matchesRole && matchesStatus && matchesCustomer;
-        });
+        // Role filter
+        const matchesRole = !role || user.role === role;
         
-        // Apply sorting
-        filteredUsers.sort((a, b) => {
-            switch (sortBy) {
-                case 'name_asc': 
-                    return (a.full_name || a.username).localeCompare(b.full_name || b.username);
-                case 'name_desc': 
-                    return (b.full_name || b.username).localeCompare(a.full_name || a.username);
-                case 'created_desc': 
-                    return new Date(b.created_at) - new Date(a.created_at);
-                case 'created_asc': 
-                    return new Date(a.created_at) - new Date(b.created_at);
-                default: 
-                    return 0;
-            }
-        });
+        // Status filter
+        const matchesStatus = !status || 
+            (status === 'active' && user.is_active) ||
+            (status === 'inactive' && !user.is_active);
         
-        displayUsers();
-        updateUsersInfo();
-    }
+        // Customer filter
+        const matchesCustomer = !customerId || user.customer_id === customerId;
+        
+        // Branch filter
+        const matchesBranch = !branchId || user.branch_id === branchId;
+        
+        return matchesSearch && matchesRole && matchesStatus && matchesCustomer && matchesBranch;
+    });
     
-    function clearFilters() {
-        document.getElementById('searchInput').value = '';
-        document.getElementById('roleFilter').value = '';
-        document.getElementById('statusFilter').value = '';
-        if (document.getElementById('customerFilter')) {
-            document.getElementById('customerFilter').value = '';
+    // Apply sorting
+    filteredUsers.sort((a, b) => {
+        switch (sortBy) {
+            case 'name_asc': 
+                return (a.full_name || a.username).localeCompare(b.full_name || b.username);
+            case 'name_desc': 
+                return (b.full_name || b.username).localeCompare(a.full_name || a.username);
+            case 'created_desc': 
+                return new Date(b.created_at) - new Date(a.created_at);
+            case 'created_asc': 
+                return new Date(a.created_at) - new Date(b.created_at);
+            default: 
+                return 0;
         }
-        document.getElementById('sortFilter').value = 'name_asc';
-        
-        searchUsers();
-    }
+    });
     
-    function updateUsersInfo() {
-        const info = document.getElementById('usersInfo');
-        const total = filteredUsers.length;
-        
-        if (total === 0) {
-            info.textContent = 'No users found';
-        } else {
-            info.textContent = `Showing ${total} user${total !== 1 ? 's' : ''}`;
-        }
+    displayUsers();
+    updateUsersInfo();
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('roleFilter').value = '';
+    document.getElementById('statusFilter').value = '';
+    if (document.getElementById('customerFilter')) {
+        document.getElementById('customerFilter').value = '';
     }
-    
-    function showEmptyState(message) {
-        const container = document.getElementById('usersContainer');
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-users" style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;"></i>
-                <h3>${message}</h3>
-                <p>Users will appear here when added.</p>
-            </div>
-        `;
+    if (document.getElementById('branchFilter')) {
+        document.getElementById('branchFilter').value = '';
     }
+    document.getElementById('sortFilter').value = 'name_asc';
     
-    function populateRoleFilter() {
-        const roleFilter = document.getElementById('roleFilter');
-        const uniqueRoles = [...new Set(currentUsers.map(user => user.role))];
-        
-        roleFilter.innerHTML = '<option value="">All Roles</option>' +
-            uniqueRoles.map(role => 
-                `<option value="${role}">${formatRole(role)}</option>`
-            ).join('');
+    searchUsers();
+}
+
+function updateUsersInfo() {
+    const info = document.getElementById('usersInfo');
+    const total = filteredUsers.length;
+    
+    if (total === 0) {
+        info.textContent = 'No users found';
+    } else {
+        info.textContent = `Showing ${total} user${total !== 1 ? 's' : ''}`;
     }
+}
+
+function showEmptyState(message) {
+    const container = document.getElementById('usersContainer');
+    container.innerHTML = `
+        <div class="empty-state">
+            <i class="fas fa-users" style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;"></i>
+            <h3>${message}</h3>
+            <p>Users will appear here when added.</p>
+        </div>
+    `;
+}
+
+function populateRoleFilter() {
+    const roleFilter = document.getElementById('roleFilter');
+    if (!roleFilter) return;
     
-    function populateRoleSelectors() {
-        const addRoleSelect = document.getElementById('userRole');
-        const editRoleSelect = document.getElementById('editRole');
-        
-        const roleOptions = availableRoles.map(role => 
-            `<option value="${role.value}">${role.label}</option>`
+    const uniqueRoles = [...new Set(currentUsers.map(user => user.role))];
+    
+    roleFilter.innerHTML = '<option value="">All Roles</option>' +
+        uniqueRoles.map(role => 
+            `<option value="${role}">${formatRole(role)}</option>`
         ).join('');
-        
+}
+
+function populateRoleSelectors() {
+    const addRoleSelect = document.getElementById('userRole');
+    const editRoleSelect = document.getElementById('editRole');
+    
+    if (!availableRoles.length) return;
+    
+    const roleOptions = availableRoles.map(role => 
+        `<option value="${role.value}">${role.label}</option>`
+    ).join('');
+    
+    if (addRoleSelect) {
         addRoleSelect.innerHTML = '<option value="">Select Role</option>' + roleOptions;
+    }
+    if (editRoleSelect) {
         editRoleSelect.innerHTML = '<option value="">Select Role</option>' + roleOptions;
     }
+}
+
+function populateCustomerSelectors() {
+    const customerFilter = document.getElementById('customerFilter');
+    const customerSelection = document.getElementById('customerSelection');
     
-    function populateCustomerSelectors() {
-        const customerFilter = document.getElementById('customerFilter');
-        const customerSelection = document.getElementById('customerSelection');
-        
-        const customerOptions = customers.map(customer => 
-            `<option value="${customer.customer_id}">${customer.company_name}</option>`
-        ).join('');
-        
-        if (customerFilter) {
-            customerFilter.innerHTML = '<option value="">All Customers</option>' + customerOptions;
-        }
-        
-        if (customerSelection) {
-            customerSelection.innerHTML = '<option value="">Select Customer</option>' + customerOptions;
-        }
+    const customerOptions = customers.map(customer => 
+        `<option value="${customer.customer_id}">${customer.company_name}</option>`
+    ).join('');
+    
+    if (customerFilter) {
+        customerFilter.innerHTML = '<option value="">All Customers</option>' + customerOptions;
     }
     
-    function formatRole(role) {
-        const roleMap = {
-            'vendor_superadmin': 'Vendor Super Admin',
-            'vendor_admin': 'Vendor Admin',
-            'vendor_normal': 'Vendor User',
-            'customer_hr_admin': 'HR Admin',
-            'customer_dept_head': 'Department Head',
-            'customer_employee': 'Employee'
-        };
-        return roleMap[role] || role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    if (customerSelection) {
+        customerSelection.innerHTML = '<option value="">Select Customer</option>' + customerOptions;
     }
-    
-    // Modal Functions
-    function showAddUserModal() {
-        const modal = document.getElementById('addUserModal');
+}
+
+function formatRole(role) {
+    const roleMap = {
+        'vendor_superadmin': 'Vendor Super Admin',
+        'vendor_admin': 'Vendor Admin',
+        'vendor_normal': 'Vendor User',
+        'customer_hr_admin': 'HR Admin',
+        'customer_dept_head': 'Department Head',
+        'customer_employee': 'Employee'
+    };
+    return roleMap[role] || role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+// Modal Functions
+function showAddUserModal() {
+    const modal = document.getElementById('addUserModal');
+    if (modal) {
         modal.classList.add('show');
         
         // Focus first field
@@ -1011,9 +1077,11 @@
         loadDepartmentsForForm();
         {% endif %}
     }
-    
-    function closeAddUserModal() {
-        const modal = document.getElementById('addUserModal');
+}
+
+function closeAddUserModal() {
+    const modal = document.getElementById('addUserModal');
+    if (modal) {
         modal.classList.remove('show');
         
         // Reset form
@@ -1034,372 +1102,387 @@
             customerGroup.style.display = 'none';
         }
     }
+}
 
-    async function loadDepartmentsForForm() {
-        try {
-            const response = await apiCall('/user-controller/departments?customer_id={{ current_user.customer_id }}');
-            const departmentSelect = document.getElementById('userDepartment');
-            
-            if (response.success && response.departments) {
-                departmentSelect.innerHTML = '<option value="">Select Department</option>' +
-                    response.departments.map(dept => 
-                        `<option value="${dept.department_id}">${dept.name}</option>`
-                    ).join('');
-                console.log('Loaded departments:', response.departments.length);
-            } else {
-                console.error('Failed to load departments:', response.message);
+async function loadDepartmentsForForm() {
+    try {
+        const response = await apiCall('/user-controller/departments?customer_id={{ current_user.customer_id }}');
+        const departmentSelect = document.getElementById('userDepartment');
+        
+        if (response.success && response.departments && departmentSelect) {
+            departmentSelect.innerHTML = '<option value="">Select Department</option>' +
+                response.departments.map(dept => 
+                    `<option value="${dept.department_id}">${dept.name}</option>`
+                ).join('');
+            console.log('Loaded departments:', response.departments.length);
+        } else {
+            console.error('Failed to load departments:', response.message);
+            if (departmentSelect) {
                 departmentSelect.innerHTML = '<option value="">No departments available</option>';
             }
-        } catch (error) {
-            console.error('Error loading departments for form:', error);
+        }
+    } catch (error) {
+        console.error('Error loading departments for form:', error);
+    }
+}
+
+async function submitAddUser() {
+    console.log('submitAddUser called');
+    
+    // Get form fields directly by name attribute
+    const firstNameField = document.querySelector('#addUserModal [name="first_name"]');
+    const lastNameField = document.querySelector('#addUserModal [name="last_name"]');
+    const emailField = document.querySelector('#addUserModal [name="email"]');
+    const roleField = document.querySelector('#addUserModal [name="role"]');
+    const passwordField = document.querySelector('#addUserModal [name="password"]');
+    const usernameField = document.getElementById('generatedUsername');
+    const departmentField = document.querySelector('#addUserModal [name="department_id"]');
+    const customerField = document.querySelector('#addUserModal [name="customer_id"]');
+    const sendEmailField = document.querySelector('#addUserModal [name="send_email"]');
+    
+    // Validate required fields
+    if (!firstNameField?.value || !lastNameField?.value || !emailField?.value || !roleField?.value || !passwordField?.value) {
+        showNotification('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    // Generate username if not already generated
+    if (!usernameField?.value) {
+        const firstName = firstNameField.value.trim().toLowerCase();
+        const lastName = lastNameField.value.trim().toLowerCase();
+        const baseUsername = `${firstName}.${lastName}`.replace(/[^a-z0-9.]/g, '');
+        const timestamp = Date.now().toString().slice(-4);
+        const username = `${baseUsername}${timestamp}`;
+        
+        if (usernameField) {
+            usernameField.value = username;
         }
     }
     
-    async function submitAddUser() {
-        console.log('submitAddUser called');
+    try {
+        const userData = {
+            first_name: firstNameField.value.trim(),
+            last_name: lastNameField.value.trim(),
+            full_name: `${firstNameField.value.trim()} ${lastNameField.value.trim()}`,
+            username: usernameField?.value || `${firstNameField.value.trim().toLowerCase()}.${lastNameField.value.trim().toLowerCase()}${Date.now().toString().slice(-4)}`,
+            email: emailField.value.trim(),
+            role: roleField.value,
+            password: passwordField.value,
+            send_email: sendEmailField?.checked || false
+        };
         
-        // Get form fields directly by name attribute
-        const firstNameField = document.querySelector('#addUserModal [name="first_name"]');
-        const lastNameField = document.querySelector('#addUserModal [name="last_name"]');
-        const emailField = document.querySelector('#addUserModal [name="email"]');
-        const roleField = document.querySelector('#addUserModal [name="role"]');
-        const passwordField = document.querySelector('#addUserModal [name="password"]');
-        const usernameField = document.getElementById('generatedUsername');
-        const departmentField = document.querySelector('#addUserModal [name="department_id"]');
-        const customerField = document.querySelector('#addUserModal [name="customer_id"]');
-        const sendEmailField = document.querySelector('#addUserModal [name="send_email"]');
-        
-        // Validate required fields
-        if (!firstNameField?.value || !lastNameField?.value || !emailField?.value || !roleField?.value || !passwordField?.value) {
-            showNotification('Please fill in all required fields', 'error');
-            return;
+        // Add customer_id if selected
+        if (customerField?.value) {
+            userData.customer_id = customerField.value;
         }
         
-        // Generate username if not already generated
-        if (!usernameField?.value) {
-            const firstName = firstNameField.value.trim().toLowerCase();
-            const lastName = lastNameField.value.trim().toLowerCase();
-            const baseUsername = `${firstName}.${lastName}`.replace(/[^a-z0-9.]/g, '');
-            const timestamp = Date.now().toString().slice(-4);
-            const username = `${baseUsername}${timestamp}`;
-            
-            if (usernameField) {
-                usernameField.value = username;
-            }
+        // Add department_id if selected
+        if (departmentField?.value) {
+            userData.department_id = departmentField.value;
         }
-        
-        try {
-            const userData = {
-                first_name: firstNameField.value.trim(),
-                last_name: lastNameField.value.trim(),
-                full_name: `${firstNameField.value.trim()} ${lastNameField.value.trim()}`,
-                username: usernameField?.value || `${firstNameField.value.trim().toLowerCase()}.${lastNameField.value.trim().toLowerCase()}${Date.now().toString().slice(-4)}`,
-                email: emailField.value.trim(),
-                role: roleField.value,
-                password: passwordField.value,
-                send_email: sendEmailField?.checked || false
-            };
-            
-            // Add customer_id if selected
-            if (customerField?.value) {
-                userData.customer_id = customerField.value;
-            }
-            
-            // Add department_id if selected
-            if (departmentField?.value) {
-                userData.department_id = departmentField.value;
-            }
 
-            // Add branch_id if selected
+        // Add branch_id if selected
+        {% if current_user.role == 'customer_hr_admin' %}
+        const branchField = document.querySelector('#addUserModal [name="branch_id"]');
+        if (branchField?.value) {
+            userData.branch_id = branchField.value;
+        }
+        {% endif %}
+        
+        console.log('Submitting user data:', userData);
+        
+        const response = await apiCall('/users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userData)
+        });
+        
+        console.log('API response:', response);
+        
+        if (response.success) {
+            showNotification('User created successfully!', 'success');
+            closeAddUserModal();
+            loadUsers();
+        } else {
+            showNotification(response.message || 'Failed to create user', 'error');
+        }
+    } catch (error) {
+        console.error('Error creating user:', error);
+        showNotification('Failed to create user: ' + error.message, 'error');
+    }
+}
+
+// FIXED: editUser function with proper API call
+async function editUser(userId) {
+    try {
+        const response = await apiCall(`/users/${userId}`);
+    
+        if (response.success) {
+            const user = response.user;
+            
+            // Populate edit form
+            document.getElementById('editUserId').value = user.user_id;
+            document.getElementById('editFullName').value = user.full_name || '';
+            document.getElementById('editEmail').value = user.email;
+            document.getElementById('editRole').value = user.role;
+            document.getElementById('editStatus').value = user.is_active.toString();
+
+            // Handle branch selection
             {% if current_user.role == 'customer_hr_admin' %}
-            const branchField = document.querySelector('#addUserModal [name="branch_id"]');
-            if (branchField?.value) {
-                userData.branch_id = branchField.value;
+            const editBranchSelect = document.getElementById('editBranch');
+            if (editBranchSelect && user.branch_id) {
+                editBranchSelect.value = user.branch_id;
             }
             {% endif %}
             
-            console.log('Submitting user data:', userData);
-            
-            const response = await apiCall('/users', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(userData)
-            });
-            
-            console.log('API response:', response);
-            
-            if (response.success) {
-                showNotification('User created successfully!', 'success');
-                closeAddUserModal();
-                loadUsers();
-            } else {
-                showNotification(response.message || 'Failed to create user', 'error');
+            // Handle department selection for employees
+            if (user.role === 'customer_employee' && user.department_id) {
+                await loadDepartments(user.customer_id, 'editDepartment');
+                document.getElementById('editDepartment').value = user.department_id;
             }
-        } catch (error) {
-            console.error('Error creating user:', error);
-            showNotification('Failed to create user: ' + error.message, 'error');
+            
+            handleRoleChange(user.role, 'edit');
+            
+            document.getElementById('editUserModal').classList.add('show');
+        } else {
+            showNotification(response.message || 'Failed to load user details', 'error');
         }
+    } catch (error) {
+        console.error('Error loading user details:', error);
+        showNotification('Failed to load user details', 'error');
     }
-    
-    // FIXED: editUser function with proper API call
-    async function editUser(userId) {
-        try {
-            const response = await apiCall(`/users/${userId}`);
-        
-            if (response.success) {
-                const user = response.user;
-                
-                // Populate edit form
-                document.getElementById('editUserId').value = user.user_id;
-                document.getElementById('editFullName').value = user.full_name || '';
-                document.getElementById('editEmail').value = user.email;
-                document.getElementById('editRole').value = user.role;
-                document.getElementById('editStatus').value = user.is_active.toString();
+}
 
-                // Handle branch selection
-                {% if current_user.role == 'customer_hr_admin' %}
-                const editBranchSelect = document.getElementById('editBranch');
-                if (editBranchSelect && user.branch_id) {
-                    editBranchSelect.value = user.branch_id;
-                }
-                {% endif %}
-                
-                // Handle department selection for employees
-                if (user.role === 'customer_employee' && user.department_id) {
-                    await loadDepartments(user.customer_id, 'editDepartment');
-                    document.getElementById('editDepartment').value = user.department_id;
-                }
-                
-                handleRoleChange(user.role, 'edit');
-                
-                document.getElementById('editUserModal').classList.add('show');
-            } else {
-                showNotification(response.message || 'Failed to load user details', 'error');
-            }
-        } catch (error) {
-            console.error('Error loading user details:', error);
-            showNotification('Failed to load user details', 'error');
-        }
-    }
-    
-    function closeEditUserModal() {
-        document.getElementById('editUserModal').classList.remove('show');
-        document.getElementById('editUserForm').reset();
-        document.getElementById('editDepartmentGroup').style.display = 'none';
-    }
-    
-    async function submitEditUser() {
+function closeEditUserModal() {
+    const modal = document.getElementById('editUserModal');
+    if (modal) {
+        modal.classList.remove('show');
         const form = document.getElementById('editUserForm');
-        const formData = new FormData(form);
-        const userId = formData.get('user_id');
-        
-        if (!validateForm(form)) {
-            return;
+        if (form) {
+            form.reset();
         }
-        
-        try {
-            const userData = {
-                full_name: formData.get('full_name'),
-                email: formData.get('email'),
-                role: formData.get('role'),
-                is_active: formData.get('is_active') === 'true'
-            };
-            
-            // Add department_id if selected
-            if (formData.get('department_id')) {
-                userData.department_id = formData.get('department_id');
-            }
+        const editDepartmentGroup = document.getElementById('editDepartmentGroup');
+        if (editDepartmentGroup) {
+            editDepartmentGroup.style.display = 'none';
+        }
+    }
+}
 
-            // Add branch_id if selected
-            {% if current_user.role == 'customer_hr_admin' %}
-            if (formData.get('branch_id')) {
-                userData.branch_id = formData.get('branch_id');
-            }
-            {% endif %}
-            
-            const response = await apiCall(`/users/${userId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(userData)
-            });
-            
-            if (response.success) {
-                showNotification('User updated successfully!', 'success');
-                closeEditUserModal();
-                loadUsers();
-            } else {
-                showNotification(response.message || 'Failed to update user', 'error');
-            }
-        } catch (error) {
-            console.error('Error updating user:', error);
-            showNotification('Failed to update user', 'error');
-        }
+async function submitEditUser() {
+    const form = document.getElementById('editUserForm');
+    const formData = new FormData(form);
+    const userId = formData.get('user_id');
+    
+    if (!validateForm(form)) {
+        return;
     }
     
-    async function resetUserPassword() {
-        const userId = document.getElementById('editUserId').value;
+    try {
+        const userData = {
+            full_name: formData.get('full_name'),
+            email: formData.get('email'),
+            role: formData.get('role'),
+            is_active: formData.get('is_active') === 'true'
+        };
         
-        if (!confirm('Are you sure you want to reset this user\'s password?')) {
-            return;
+        // Add department_id if selected
+        if (formData.get('department_id')) {
+            userData.department_id = formData.get('department_id');
         }
+
+        // Add branch_id if selected
+        {% if current_user.role == 'customer_hr_admin' %}
+        if (formData.get('branch_id')) {
+            userData.branch_id = formData.get('branch_id');
+        }
+        {% endif %}
         
-        try {
-            const response = await apiCall(`/users/${userId}/reset-password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ send_email: true })
-            });
-            
-            if (response.success) {
-                const tempPassword = response.temp_password;
-    
-                // Copy to clipboard
-                await navigator.clipboard.writeText(tempPassword);
-    
-                showNotification(
-                    'Password reset successfully! Temporary password copied to clipboard.',
-                    'success'
-                );
-            } else {
-                showNotification(response.message || 'Failed to reset password', 'error');
-            }
-        } catch (error) {
-            console.error('Error resetting password:', error);
-            showNotification('Failed to reset password', 'error');
+        const response = await apiCall(`/users/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userData)
+        });
+        
+        if (response.success) {
+            showNotification('User updated successfully!', 'success');
+            closeEditUserModal();
+            loadUsers();
+        } else {
+            showNotification(response.message || 'Failed to update user', 'error');
         }
+    } catch (error) {
+        console.error('Error updating user:', error);
+        showNotification('Failed to update user', 'error');
+    }
+}
+
+async function resetUserPassword() {
+    const userId = document.getElementById('editUserId').value;
+    
+    if (!confirm('Are you sure you want to reset this user\'s password?')) {
+        return;
     }
     
-    
-    // FIXED: viewUser function with proper implementation
-    async function viewUser(userId) {
-        try {
-            const response = await apiCall(`/users/${userId}`);
+    try {
+        const response = await apiCall(`/users/${userId}/reset-password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ send_email: true })
+        });
+        
+        if (response.success) {
+            const tempPassword = response.temp_password;
+
+            // Copy to clipboard
+            await navigator.clipboard.writeText(tempPassword);
+
+            showNotification(
+                'Password reset successfully! Temporary password copied to clipboard.',
+                'success'
+            );
+        } else {
+            showNotification(response.message || 'Failed to reset password', 'error');
+        }
+    } catch (error) {
+        console.error('Error resetting password:', error);
+        showNotification('Failed to reset password', 'error');
+    }
+}
+
+// FIXED: viewUser function with proper implementation
+async function viewUser(userId) {
+    try {
+        const response = await apiCall(`/users/${userId}`);
+        
+        if (response.success) {
+            const user = response.user;
             
-            if (response.success) {
-                const user = response.user;
+            document.getElementById('userDetailsTitle').textContent = `${user.full_name || user.username} - Details`;
+            document.getElementById('userDetailsBody').innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 16px;">User Information</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div><strong>Full Name:</strong> ${user.full_name || 'Not set'}</div>
+                        <div><strong>Username:</strong> ${user.username}</div>
+                        <div><strong>Email:</strong> ${user.email}</div>
+                        <div><strong>Role:</strong> 
+                            <span class="badge badge-primary">${formatRole(user.role)}</span>
+                        </div>
+                        <div><strong>Status:</strong> 
+                            <span class="badge ${user.is_active ? 'badge-success' : 'badge-danger'}">
+                                ${user.is_active ? 'Active ✅' : 'Inactive ❌'}
+                            </span>
+                        </div>
+                        <div><strong>Organization:</strong> ${user.customer_name || 'Vendor'}</div>
+                        <div><strong>Branch:</strong> ${user.branch_name || 'Not assigned'}</div>
+                        <div><strong>Department:</strong> ${user.department_name || 'Not assigned'}</div>
+                        <div><strong>Last Login:</strong> ${user.last_login ? formatDateTime(user.last_login) : 'Never'}</div>
+                    </div>
+                </div>
                 
-                document.getElementById('userDetailsTitle').textContent = `${user.full_name || user.username} - Details`;
-                document.getElementById('userDetailsBody').innerHTML = `
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="margin-bottom: 16px;">User Information</h4>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                            <div><strong>Full Name:</strong> ${user.full_name || 'Not set'}</div>
-                            <div><strong>Username:</strong> ${user.username}</div>
-                            <div><strong>Email:</strong> ${user.email}</div>
-                            <div><strong>Role:</strong> 
-                                <span class="badge badge-primary">${formatRole(user.role)}</span>
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 16px;">Account Status</h4>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                        <div style="text-align: center; padding: 12px; background: var(--gray-50); border-radius: 8px;">
+                        <div style="font-size: 0.9rem; color: var(--gray-600);">Login Status</div>
+                            <div style="font-size: 1rem; font-weight: 300; color: ${user.is_first_login ? 'var(--secondary-orange)' : 'var(--secondary-green)'};">
+                                ${user.is_first_login ? 'First Login' : 'Logged In Before'}
                             </div>
-                            <div><strong>Status:</strong> 
-                                <span class="badge ${user.is_active ? 'badge-success' : 'badge-danger'}">
-                                    ${user.is_active ? 'Active ✅' : 'Inactive ❌'}
-                                </span>
+                            
+                        </div>
+                        <div style="text-align: center; padding: 12px; background: var(--gray-50); border-radius: 8px;">
+                        <div style="font-size: 0.9rem; color: var(--gray-600);">Password Reset</div>
+                            <div style="font-size: 1rem; font-weight: 300; color: ${user.password_reset_required ? 'var(--secondary-red)' : 'var(--secondary-green)'};">
+                                ${user.password_reset_required ? 'Required' : 'Not Required'}
                             </div>
-                            <div><strong>Organization:</strong> ${user.customer_name || 'Vendor'}</div>
-                            <div><strong>Department:</strong> ${user.department_name || 'Not assigned'}</div>
-                            <div><strong>Last Login:</strong> ${user.last_login ? formatDateTime(user.last_login) : 'Never'}</div>
+                            
                         </div>
                     </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="margin-bottom: 16px;">Account Status</h4>
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
-                            <div style="text-align: center; padding: 12px; background: var(--gray-50); border-radius: 8px;">
-                            <div style="font-size: 0.9rem; color: var(--gray-600);">Login Status</div>
-                                <div style="font-size: 1rem; font-weight: 300; color: ${user.is_first_login ? 'var(--secondary-orange)' : 'var(--secondary-green)'};">
-                                    ${user.is_first_login ? 'First Login' : 'Logged In Before'}
-                                </div>
-                                
-                            </div>
-                            <div style="text-align: center; padding: 12px; background: var(--gray-50); border-radius: 8px;">
-                            <div style="font-size: 0.9rem; color: var(--gray-600);">Password Reset</div>
-                                <div style="font-size: 1rem; font-weight: 300; color: ${user.password_reset_required ? 'var(--secondary-red)' : 'var(--secondary-green)'};">
-                                    ${user.password_reset_required ? 'Required' : 'Not Required'}
-                                </div>
-                                
-                            </div>
-                        </div>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 16px;">Timestamps</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div><strong>Created:</strong> ${formatDateTime(user.created_at)}</div>
+                        <div><strong>Last Updated:</strong> ${formatDateTime(user.updated_at)}</div>
                     </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="margin-bottom: 16px;">Timestamps</h4>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                            <div><strong>Created:</strong> ${formatDateTime(user.created_at)}</div>
-                            <div><strong>Last Updated:</strong> ${formatDateTime(user.updated_at)}</div>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px; justify-content: center;">
-                        ${user.can_edit ? `
-                            <button class="btn btn-primary" onclick="closeUserDetailsModal(); editUser('${user.user_id}')">
-                                <i class="fas fa-edit"></i>
-                                Edit User
-                            </button>
-                        ` : ''}
-                        <button class="btn btn-secondary" onclick="closeUserDetailsModal()">
-                            <i class="fas fa-times"></i>
-                            Close
+                </div>
+                
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    ${user.can_edit ? `
+                        <button class="btn btn-primary" onclick="closeUserDetailsModal(); editUser('${user.user_id}')">
+                            <i class="fas fa-edit"></i>
+                            Edit User
                         </button>
-                    </div>
+                    ` : ''}
+                    <button class="btn btn-secondary" onclick="closeUserDetailsModal()">
+                        <i class="fas fa-times"></i>
+                        Close
+                    </button>
+                </div>
 
-                `;
-                
-                document.getElementById('userDetailsModal').classList.add('show');
-            } else {
-                showNotification(response.message || 'Failed to load user details', 'error');
-            }
-        } catch (error) {
-            console.error('Error loading user details:', error);
-            showNotification('Failed to load user details', 'error');
-        }
-    }
-    
-    function closeUserDetailsModal() {
-        document.getElementById('userDetailsModal').classList.remove('show');
-    }
-    
-    function validateForm(form) {
-        const requiredFields = form.querySelectorAll('[required]');
-        let isValid = true;
-        
-        requiredFields.forEach(field => {
-            const errorSpan = field.parentNode.querySelector('.form-error');
+            `;
             
-            if (!field.value.trim()) {
-                if (errorSpan) {
-                    errorSpan.textContent = `${field.name.replace('_', ' ')} is required`;
-                    errorSpan.style.display = 'block';
-                }
-                field.style.borderColor = 'var(--secondary-red)';
-                isValid = false;
-            } else {
-                if (errorSpan) {
-                    errorSpan.textContent = '';
-                    errorSpan.style.display = 'none';
-                }
-                field.style.borderColor = 'var(--gray-300)';
-            }
-        });
-        
-        return isValid;
+            document.getElementById('userDetailsModal').classList.add('show');
+        } else {
+            showNotification(response.message || 'Failed to load user details', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading user details:', error);
+        showNotification('Failed to load user details', 'error');
     }
+}
+
+function closeUserDetailsModal() {
+    const modal = document.getElementById('userDetailsModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+}
+
+function validateForm(form) {
+    const requiredFields = form.querySelectorAll('[required]');
+    let isValid = true;
     
-    // Helper function to format datetime
-    function formatDateTime(dateString) {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleString('en-IN', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
+    requiredFields.forEach(field => {
+        const errorSpan = field.parentNode.querySelector('.form-error');
+        
+        if (!field.value.trim()) {
+            if (errorSpan) {
+                errorSpan.textContent = `${field.name.replace('_', ' ')} is required`;
+                errorSpan.style.display = 'block';
+            }
+            field.style.borderColor = 'var(--secondary-red)';
+            isValid = false;
+        } else {
+            if (errorSpan) {
+                errorSpan.textContent = '';
+                errorSpan.style.display = 'none';
+            }
+            field.style.borderColor = 'var(--gray-300)';
+        }
+    });
+    
+    return isValid;
+}
+
+// Helper function to format datetime
+function formatDateTime(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-IN', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
 </script>
 {% endblock %}
