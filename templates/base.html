@@ -104,7 +104,7 @@
         .container {
             max-width: var(--container-max-width);
             margin: 0 auto;
-            padding: 0 10px;  /* controls the spacing of the entire page/layout */
+            /* padding: 0 10px;   controls the spacing of the entire page/layout */
         }
         
         /* Typography */
@@ -125,6 +125,33 @@
         }
         
         /* Buttons */
+
+        .user-button {
+            display: flex;
+            align-items: center;
+            border: none;
+            background: none;
+            cursor: pointer;
+            padding: 8px;
+            gap: 8px;
+        }
+        
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .user-icon {
+            font-size: 30px;
+            margin-bottom: 2px;
+        }
+        
+        .user-name {
+            padding: 10px;
+            font-size: 15px;
+        }
+
         .btn {
             display: inline-flex;
             align-items: center;
@@ -468,7 +495,7 @@
         .navbar-nav {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 15px;
         }
         
         .nav-link {
@@ -731,7 +758,7 @@
                     
                     <!-- Orders -->
                     <a href="{{ url_for('orders') }}" class="nav-link">
-                        <i class="fas fa-shopping-cart"></i>
+                        <i class="fas fa-box-open"></i>
                         <span>Orders</span>
                     </a>
                     
@@ -774,11 +801,13 @@
                     
                     <!-- User Menu -->
                     <div class="dropdown">
-                        <button class="dropdown-toggle">
-                            <i class="fas fa-user-circle"></i>
-                            {{ current_user.full_name or current_user.username }}
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
+                        <button class="dropdown-toggle user-button">
+                            <div class="user-info">
+                              <i class="fas fa-user-circle user-icon"></i>
+                              <span class="user-name">{{ current_user.full_name or current_user.username }}</span>
+                            </div>
+                            <i class="fas fa-chevron-down chevron-icon"></i>
+                          </button>                                                
                         <div class="dropdown-menu">
                             <a href="{{ url_for('profile') }}" class="dropdown-item">
                                 <i class="fas fa-user"></i>
