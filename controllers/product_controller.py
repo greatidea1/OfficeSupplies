@@ -214,7 +214,7 @@ class ProductController:
             return None
 
     def create_product(self):
-        """Create new product (Vendor only) - FIXED VERSION WITHOUT PRICE REQUIREMENT"""
+        """Create new product (Vendor only) - UPDATED WITH AUTO ITEM NUMBER"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or not current_user.role.startswith('vendor_'):
@@ -226,20 +226,20 @@ class ProductController:
             else:
                 data = request.get_json()
             
-            # Validate required fields (price removed from requirements)
-            required_fields = ['item_no', 'product_name', 'category', 'quantity']
+            # Validate required fields (item_no removed from requirements)
+            required_fields = ['product_name', 'category', 'quantity']
             for field in required_fields:
                 if field not in data or not data[field]:
                     return {'success': False, 'message': f'{field.replace("_", " ").title()} is required'}
             
-            # Check if item number already exists
-            existing_product = Product.get_by_item_no(data['item_no'])
-            if existing_product:
-                return {'success': False, 'message': 'Item number already exists'}
+            # Generate auto item number
+            item_no = self.generate_item_number()
+            if not item_no:
+                return {'success': False, 'message': 'Failed to generate item number'}
             
             # Create new product
             product = Product()
-            product.item_no = data['item_no']
+            product.item_no = item_no  # Use auto-generated item number
             product.category = data['category']
             product.product_name = data['product_name']
             product.product_make = data.get('product_make', '')
@@ -268,8 +268,9 @@ class ProductController:
                 
                 return {
                     'success': True,
-                    'message': 'Product created successfully',
-                    'product_id': product.product_id
+                    'message': f'Product created successfully with Item Number: {item_no}',
+                    'product_id': product.product_id,
+                    'item_no': item_no
                 }
             else:
                 return {'success': False, 'message': 'Failed to create product'}
@@ -279,6 +280,51 @@ class ProductController:
             import traceback
             traceback.print_exc()
             return {'success': False, 'message': 'Failed to create product'}
+        
+    def generate_item_number(self):
+        """Generate auto-incremented item number in format itxxxxx"""
+        try:
+            from config import config
+            from datetime import datetime
+            
+            db = config.get_db()
+            
+            # Get the current counter from a dedicated collection
+            counter_doc_ref = db.collection('counters').document('item_number')
+            counter_doc = counter_doc_ref.get()
+            
+            if counter_doc.exists:
+                # Get current counter value
+                current_counter = counter_doc.to_dict().get('value', 0)
+                new_counter = current_counter + 1
+            else:
+                # Initialize counter if it doesn't exist
+                new_counter = 1
+            
+            # Update the counter
+            counter_doc_ref.set({
+                'value': new_counter,
+                'updated_at': datetime.now()
+            })
+            
+            # Generate item number in format itxxxxx
+            item_no = f"it{new_counter}"
+            
+            # Double-check that this item number doesn't already exist
+            existing_product = Product.get_by_item_no(item_no)
+            if existing_product:
+                # If it exists, try the next number
+                print(f"Item number {item_no} already exists, trying next number")
+                return self.generate_item_number()
+            
+            print(f"Generated item number: {item_no}")
+            return item_no
+            
+        except Exception as e:
+            print(f"Error generating item number: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
     
     def get_product(self, product_id):
         """Get single product details"""

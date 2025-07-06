@@ -165,7 +165,7 @@
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        margin-bottom: 16px;
+        margin-bottom: 5px;
     }
     
     .product-name {
@@ -205,8 +205,8 @@
     
     /* Updated pricing styles for editable rates */
     .product-price-section {
-        margin-bottom: 16px;
-        padding: 12px;
+        margin-bottom: 5px;
+        padding: 5px;
         background: var(--gray-50);
         border-radius: 8px;
         border: 2px solid transparent;
@@ -671,11 +671,14 @@
             <form id="addProductForm" enctype="multipart/form-data">
                 <!-- Basic Product Information -->
                 <div class="form-row">
+                    <!-- Item Number Auto-Generated Info -->
                     <div class="form-group">
-                        <label class="form-label">Item Number <span style="color: var(--secondary-red);">*</span></label>
-                        <input type="text" class="form-control" name="item_no" id="productItemNo" required>
-                        <span class="form-help">Unique identifier for the product</span>
-                        <span class="form-error"></span>
+                        <label class="form-label">Item Number</label>
+                        <div style="padding: 12px; background: var(--gray-50); border: 1px solid var(--gray-300); border-radius: 8px; color: var(--gray-600);">
+                            <i class="fas fa-magic"></i>
+                            Auto-generated (itXXXXX format)
+                        </div>
+                        <span class="form-help">Item number will be automatically assigned when product is created</span>
                     </div>
                     
                     <div class="form-group">
@@ -1039,43 +1042,71 @@ function displayCustomerProducts() {
 function displayVendorProducts() {
     const grid = document.getElementById('productsGrid');
     
-    grid.innerHTML = filteredProducts.map(product => `
-        <div class="product-card">
-            <div class="product-header">
-                <div>
-                    <div class="product-category">${product.category}</div>
-                    <div class="product-name">${product.product_name}</div>
-                </div>
-                ${getStockIndicator(product)}
-            </div>
-            
-            <div class="product-details">
-                ${product.product_make ? `
-                    <div class="product-info-row">
-                        <span class="product-info-label">Make:</span>
-                        <span class="product-info-value">${product.product_make}</span>
+    grid.innerHTML = filteredProducts.map(product => {
+        // Handle product image
+        let productImage = '';
+        if (product.image_urls && product.image_urls.length > 0) {
+            productImage = product.image_urls[0];
+            if (productImage && !productImage.startsWith('http') && !productImage.startsWith('/uploads/')) {
+                productImage = `/uploads/products/${productImage}`;
+            }
+        }
+        
+        return `
+            <div class="product-card">
+                <div class="product-header">
+                    <div>
+                        <div class="product-category">${product.category}</div>
+                        <div class="product-name">${product.product_name}</div>
                     </div>
-                ` : ''}
-                ${product.product_model ? `
+                    ${getStockIndicator(product)}
+                </div>
+                
+                <!-- Product Image for Vendor -->
+                <div style="text-align: center; margin-bottom: 16px;">
+                    ${productImage ? `
+                        <img src="${productImage}" 
+                             alt="${product.product_name}" 
+                             style="max-width: 100%; max-height: 150px; object-fit: cover; border-radius: 8px; border: 1px solid var(--gray-200);"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div style="display: none; width: 100%; height: 150px; background: linear-gradient(135deg, var(--gray-100), var(--gray-200)); border-radius: 8px; align-items: center; justify-content: center; color: var(--gray-500); font-size: 36px; border: 1px solid var(--gray-200);">
+                            <i class="fas fa-image"></i>
+                        </div>
+                    ` : `
+                        <div style="width: 100%; height: 150px; background: linear-gradient(135deg, var(--gray-100), var(--gray-200)); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--gray-500); font-size: 36px; border: 1px solid var(--gray-200);">
+                            <i class="fas fa-image"></i>
+                        </div>
+                    `}
+                </div>
+                
+                <div class="product-details">
+                    ${product.product_make ? `
+                        <div class="product-info-row">
+                            <span class="product-info-label">Make:</span>
+                            <span class="product-info-value">${product.product_make}</span>
+                        </div>
+                    ` : ''}
+                    ${product.product_model ? `
+                        <div class="product-info-row">
+                            <span class="product-info-label">Model:</span>
+                            <span class="product-info-value">${product.product_model}</span>
+                        </div>
+                    ` : ''}
                     <div class="product-info-row">
-                        <span class="product-info-label">Model:</span>
-                        <span class="product-info-value">${product.product_model}</span>
+                        <span class="product-info-label">Item No:</span>
+                        <span class="product-info-value" style="font-family: monospace; background: var(--gray-100); padding: 2px 6px; border-radius: 4px;">${product.item_no}</span>
                     </div>
-                ` : ''}
-                <div class="product-info-row">
-                    <span class="product-info-label">Item No:</span>
-                    <span class="product-info-value">${product.item_no}</span>
+                    <div class="product-info-row">
+                        <span class="product-info-label">Stock:</span>
+                        <span class="product-info-value">${product.quantity} units</span>
+                    </div>
                 </div>
-                <div class="product-info-row">
-                    <span class="product-info-label">Stock:</span>
-                    <span class="product-info-value">${product.quantity} units</span>
-                </div>
+                
+                ${getPriceSection(product)}
+                ${getProductActions(product)}
             </div>
-            
-            ${getPriceSection(product)}
-            ${getProductActions(product)}
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function getStockIndicator(product) {
@@ -1756,9 +1787,9 @@ function showAddProductModal() {
     if (modal) {
         modal.classList.add('show');
         
-        // Focus first field
+        // Focus first field (now product name since item number is auto-generated)
         setTimeout(() => {
-            const firstField = document.getElementById('productItemNo');
+            const firstField = document.querySelector('#addProductModal [name="product_name"]');
             if (firstField) {
                 firstField.focus();
             }
@@ -1802,6 +1833,9 @@ async function submitAddProduct() {
         return;
     }
     
+    // Remove item_no from formData since it will be auto-generated
+    formData.delete('item_no');
+    
     try {
         const response = await fetch('/api/products', {
             method: 'POST',
@@ -1811,7 +1845,7 @@ async function submitAddProduct() {
         const result = await response.json();
         
         if (result.success) {
-            showNotification('Product created successfully!', 'success');
+            showNotification(`Product created successfully! Item Number: ${result.item_no}`, 'success');
             closeAddProductModal();
             loadProducts(); // This will also refresh categories
         } else {
