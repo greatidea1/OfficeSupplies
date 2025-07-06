@@ -1010,12 +1010,18 @@
         });
         
         {% if current_user and current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
-        // Customer selector functionality
+        // Customer selector functionality - FIXED VERSION
         async function loadCustomerSelector() {
             try {
+                // Only load if customerSelector element exists (not on all pages)
+                const selector = document.getElementById('customerSelector');
+                if (!selector) {
+                    console.log('Customer selector not found on this page - skipping');
+                    return;
+                }
+                
                 const response = await apiCall('/vendor/customers-dropdown');
                 if (response.success) {
-                    const selector = document.getElementById('customerSelector');
                     selector.innerHTML = '<option value="">All Customers</option>';
                     
                     response.customers.forEach(customer => {

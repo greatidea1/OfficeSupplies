@@ -137,6 +137,69 @@
         margin-bottom: 16px;
     }
     
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+        width: auto;
+    }
+    
+    .email-config-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 0.875rem;
+    }
+    
+    .email-config-status.complete {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--secondary-green);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    
+    .email-config-status.incomplete {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--secondary-orange);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+    
+    .email-suggestions {
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 8px;
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+    
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+    }
+    
     @media (max-width: 768px) {
         .settings-layout {
             grid-template-columns: 1fr;
@@ -145,6 +208,10 @@
         
         .settings-sidebar {
             order: 2;
+        }
+        
+        .form-row {
+            grid-template-columns: 1fr;
         }
     }
 </style>
@@ -214,19 +281,17 @@
                                 <input type="text" class="form-control" name="full_name" value="{{ current_user.full_name or '' }}">
                             </div>
                             
-                            {% if current_user.role.startswith('customer_') %}
                             <div class="form-group">
                                 <label class="form-label">Email Address</label>
-                                <input type="email" class="form-control" name="email" value="{{ current_user.email }}">
-                                <span class="form-help">You can update your email address</span>
+                                <input type="email" class="form-control" name="email" value="{{ current_user.email }}" id="profileEmailField">
+                                <span class="form-help">
+                                    {% if current_user.role.startswith('customer_') %}
+                                    You can update your email address
+                                    {% else %}
+                                    Email cannot be changed for vendor users
+                                    {% endif %}
+                                </span>
                             </div>
-                            {% else %}
-                            <div class="form-group">
-                                <label class="form-label">Email Address</label>
-                                <input type="email" class="form-control" value="{{ current_user.email }}" disabled>
-                                <span class="form-help">Email cannot be changed</span>
-                            </div>
-                            {% endif %}
                             
                             <div class="form-group">
                                 <label class="form-label">Username</label>
@@ -253,7 +318,7 @@
                             <div class="form-group">
                                 <label class="form-label">New Password</label>
                                 <input type="password" class="form-control" name="new_password" required minlength="8">
-                                <span class="form-help">Minimum 8 characters</span>
+                                <span class="form-help">Minimum 8 characters with uppercase, lowercase, and numbers</span>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Confirm New Password</label>
@@ -281,22 +346,104 @@
                     </div>
                 </div>
                 
-                <!-- Email Configuration Section -->
+                <!-- Enhanced Email Configuration Section -->
                 <div class="settings-section" id="email">
                     <div class="section-header">
                         <h2 class="section-title">Email Configuration</h2>
                         <p class="section-description">Configure SMTP settings for email notifications</p>
                     </div>
-                    <div class="section-body">
-                        <div class="settings-grid">
-                            <div class="setting-card">
-                                <div class="setting-title">Email Status</div>
-                                <div class="setting-description">Current email configuration status</div>
-                                <span class="badge badge-warning" id="emailStatus">Not Configured</span>
-                                <button class="btn btn-sm btn-primary" onclick="testEmail()" style="margin-top: 12px;">
-                                    <i class="fas fa-paper-plane"></i>
-                                    Test Email
+                    <div class="section-body" style="position: relative;">
+                        <div id="emailLoadingOverlay" class="loading-overlay" style="display: none;">
+                            <div class="spinner"></div>
+                        </div>
+                        
+                        <!-- Email Configuration Status -->
+                        <div id="emailConfigStatus" class="email-config-status incomplete">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Email configuration is incomplete</span>
+                        </div>
+                        
+                        <!-- Email Configuration Form -->
+                        <form id="emailConfigForm">
+                            <div class="form-group">
+                                <label class="form-label">Email Address *</label>
+                                <input type="email" class="form-control" name="email_address" id="emailAddressField" required>
+                                <span class="form-help">This email will be used as the sender address and automatically set in your profile</span>
+                                <div id="emailSuggestions" class="email-suggestions" style="display: none;"></div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">SMTP Server URL/IP *</label>
+                                    <input type="text" class="form-control" name="email_server_url" placeholder="smtp.gmail.com" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Port *</label>
+                                    <input type="number" class="form-control" name="email_port" placeholder="587" min="1" max="65535" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Username *</label>
+                                    <input type="text" class="form-control" name="email_username" placeholder="Usually same as email address" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Password *</label>
+                                    <input type="password" class="form-control" name="email_password" placeholder="Email account password" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Display Name (From)</label>
+                                    <input type="text" class="form-control" name="email_from_name" placeholder="Office Supplies System">
+                                    <span class="form-help">Name displayed in the "From" field</span>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Connection Timeout (seconds)</label>
+                                    <input type="number" class="form-control" name="email_timeout" placeholder="30" min="5" max="300">
+                                </div>
+                            </div>
+                            
+                            <!-- Security Options -->
+                            <div class="form-group">
+                                <label class="form-label">Security & Encryption</label>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="email_use_tls" name="email_use_tls" checked>
+                                    <label for="email_use_tls">Use TLS (STARTTLS) - Recommended for most providers</label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="email_use_ssl" name="email_use_ssl">
+                                    <label for="email_use_ssl">Use SSL (Direct SSL connection) - Usually port 465</label>
+                                </div>
+                                <span class="form-help">Most modern email providers use TLS on port 587. SSL is typically used on port 465.</span>
+                            </div>
+                            
+                            <div style="display: flex; gap: 12px; align-items: center; margin-top: 24px;">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i>
+                                    Save Configuration
                                 </button>
+                                <button type="button" class="btn btn-secondary" onclick="testEmailConnection()" id="testConnectionBtn">
+                                    <i class="fas fa-plug"></i>
+                                    Test Connection
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="sendTestEmail()" id="testEmailBtn">
+                                    <i class="fas fa-paper-plane"></i>
+                                    Send Test Email
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <!-- Email Provider Help -->
+                        <div class="setting-card" style="margin-top: 24px;">
+                            <div class="setting-title">Common Email Provider Settings</div>
+                            <div style="font-size: 0.875rem; color: var(--gray-600);">
+                                <strong>Gmail:</strong> smtp.gmail.com, Port 587, TLS enabled (requires App Password)<br>
+                                <strong>Outlook/Hotmail:</strong> smtp-mail.outlook.com, Port 587, TLS enabled<br>
+                                <strong>Yahoo:</strong> smtp.mail.yahoo.com, Port 587, TLS enabled<br>
+                                <strong>Custom/Business:</strong> Contact your email provider for SMTP settings
                             </div>
                         </div>
                     </div>
@@ -337,11 +484,19 @@
     document.addEventListener('DOMContentLoaded', function() {
         {% if current_user.role == 'vendor_superadmin' %}
         loadVendorSettings();
+        loadEmailConfiguration();
         {% endif %}
         
         // Handle form submissions
         document.getElementById('profileForm').addEventListener('submit', handleProfileUpdate);
         document.getElementById('passwordForm').addEventListener('submit', handlePasswordChange);
+        
+        {% if current_user.role == 'vendor_superadmin' %}
+        document.getElementById('emailConfigForm').addEventListener('submit', handleEmailConfigUpdate);
+        
+        // Add email suggestions on email field change
+        document.getElementById('emailAddressField').addEventListener('input', handleEmailAddressChange);
+        {% endif %}
     });
     
     function showSection(sectionName) {
@@ -370,6 +525,11 @@
             full_name: formData.get('full_name')
         };
         
+        // Add email for customer users
+        {% if current_user.role.startswith('customer_') %}
+        profileData.email = formData.get('email');
+        {% endif %}
+        
         try {
             const response = await apiCall('/profile', {
                 method: 'PUT',
@@ -378,6 +538,14 @@
             
             if (response.success) {
                 showNotification('Profile updated successfully!', 'success');
+                
+                // Update email field in email configuration if it exists and user is superadmin
+                {% if current_user.role == 'vendor_superadmin' %}
+                const emailConfigField = document.getElementById('emailAddressField');
+                if (emailConfigField && profileData.email) {
+                    emailConfigField.value = profileData.email;
+                }
+                {% endif %}
             } else {
                 showNotification(response.message || 'Failed to update profile', 'error');
             }
@@ -451,17 +619,195 @@
                 `;
                 
                 document.getElementById('vendorForm').addEventListener('submit', handleVendorUpdate);
-                
-                // Update email status
-                const emailStatus = document.getElementById('emailStatus');
-                if (settings.email_address) {
-                    emailStatus.textContent = 'Configured';
-                    emailStatus.className = 'badge badge-success';
-                }
             }
         } catch (error) {
             console.error('Error loading vendor settings:', error);
         }
+    }
+    
+    async function loadEmailConfiguration() {
+        try {
+            const response = await apiCall('/vendor/settings');
+            
+            if (response.success) {
+                const settings = response.settings;
+                const form = document.getElementById('emailConfigForm');
+                
+                // Populate form fields
+                if (settings.email_address) form.email_address.value = settings.email_address;
+                if (settings.email_server_url) form.email_server_url.value = settings.email_server_url;
+                if (settings.email_port) form.email_port.value = settings.email_port;
+                if (settings.email_username) form.email_username.value = settings.email_username;
+                if (settings.email_from_name) form.email_from_name.value = settings.email_from_name;
+                if (settings.email_timeout) form.email_timeout.value = settings.email_timeout;
+                
+                // Set checkboxes
+                form.email_use_tls.checked = settings.email_use_tls !== false;
+                form.email_use_ssl.checked = settings.email_use_ssl === true;
+                
+                // Update status
+                updateEmailConfigStatus(settings);
+            }
+        } catch (error) {
+            console.error('Error loading email configuration:', error);
+        }
+    }
+    
+    function updateEmailConfigStatus(settings) {
+        const statusDiv = document.getElementById('emailConfigStatus');
+        const isComplete = settings.email_address && settings.email_password && 
+                          settings.email_server_url && settings.email_username;
+        
+        if (isComplete) {
+            statusDiv.className = 'email-config-status complete';
+            statusDiv.innerHTML = '<i class="fas fa-check-circle"></i><span>Email configuration is complete and ready</span>';
+        } else {
+            statusDiv.className = 'email-config-status incomplete';
+            statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>Email configuration is incomplete</span>';
+        }
+    }
+    
+    async function handleEmailConfigUpdate(e) {
+        e.preventDefault();
+        showLoadingOverlay(true);
+        
+        const formData = new FormData(e.target);
+        const emailData = Object.fromEntries(formData.entries());
+        
+        // Convert checkboxes to boolean
+        emailData.email_use_tls = formData.has('email_use_tls');
+        emailData.email_use_ssl = formData.has('email_use_ssl');
+        
+        try {
+            const response = await apiCall('/vendor/settings', {
+                method: 'PUT',
+                body: JSON.stringify(emailData)
+            });
+            
+            if (response.success) {
+                showNotification('Email configuration updated successfully!', 'success');
+                
+                // Update profile email if vendor is superadmin and email address changed
+                if (emailData.email_address) {
+                    const profileEmailField = document.getElementById('profileEmailField');
+                    if (profileEmailField) {
+                        profileEmailField.value = emailData.email_address;
+                        
+                        // Update profile in backend
+                        await apiCall('/profile', {
+                            method: 'PUT',
+                            body: JSON.stringify({ email: emailData.email_address })
+                        });
+                    }
+                }
+                
+                // Update status
+                updateEmailConfigStatus(emailData);
+                
+            } else {
+                showNotification(response.message || 'Failed to update email configuration', 'error');
+            }
+        } catch (error) {
+            showNotification('Failed to update email configuration', 'error');
+        } finally {
+            showLoadingOverlay(false);
+        }
+    }
+    
+    function handleEmailAddressChange(e) {
+        const email = e.target.value;
+        const suggestionsDiv = document.getElementById('emailSuggestions');
+        
+        if (email && email.includes('@')) {
+            // Show email provider suggestions
+            getSuggestionsForEmail(email);
+        } else {
+            suggestionsDiv.style.display = 'none';
+        }
+    }
+    
+    async function getSuggestionsForEmail(email) {
+        try {
+            const response = await apiCall(`/vendor/email-suggestions?email=${encodeURIComponent(email)}`);
+            const suggestionsDiv = document.getElementById('emailSuggestions');
+            
+            if (response.success && response.suggestions) {
+                const suggestions = response.suggestions;
+                let html = '<strong>Suggested settings for this email provider:</strong><br>';
+                
+                if (suggestions.server_url) {
+                    html += `Server: ${suggestions.server_url}<br>`;
+                    document.getElementById('emailConfigForm').email_server_url.value = suggestions.server_url;
+                }
+                if (suggestions.port_tls) {
+                    html += `Port: ${suggestions.port_tls} (TLS)<br>`;
+                    document.getElementById('emailConfigForm').email_port.value = suggestions.port_tls;
+                    document.getElementById('email_use_tls').checked = true;
+                    document.getElementById('email_use_ssl').checked = false;
+                }
+                if (suggestions.note) {
+                    html += `<em>${suggestions.note}</em>`;
+                }
+                
+                suggestionsDiv.innerHTML = html;
+                suggestionsDiv.style.display = 'block';
+            } else {
+                suggestionsDiv.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Error getting email suggestions:', error);
+        }
+    }
+    
+    async function testEmailConnection() {
+        const btn = document.getElementById('testConnectionBtn');
+        const originalText = btn.innerHTML;
+        
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+        btn.disabled = true;
+        
+        try {
+            const response = await apiCall('/vendor/test-connection', { method: 'POST' });
+            
+            if (response.success) {
+                showNotification('Connection test successful!', 'success');
+            } else {
+                showNotification(response.message || 'Connection test failed', 'error');
+            }
+        } catch (error) {
+            showNotification('Connection test failed', 'error');
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+    
+    async function sendTestEmail() {
+        const btn = document.getElementById('testEmailBtn');
+        const originalText = btn.innerHTML;
+        
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        btn.disabled = true;
+        
+        try {
+            const response = await apiCall('/vendor/test-email', { method: 'POST' });
+            
+            if (response.success) {
+                showNotification('Test email sent successfully! Check your inbox.', 'success');
+            } else {
+                showNotification(response.message || 'Failed to send test email', 'error');
+            }
+        } catch (error) {
+            showNotification('Failed to send test email', 'error');
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+    
+    function showLoadingOverlay(show) {
+        const overlay = document.getElementById('emailLoadingOverlay');
+        overlay.style.display = show ? 'flex' : 'none';
     }
     
     async function handleVendorUpdate(e) {
@@ -483,20 +829,6 @@
             }
         } catch (error) {
             showNotification('Failed to update vendor settings', 'error');
-        }
-    }
-    
-    async function testEmail() {
-        try {
-            const response = await apiCall('/vendor/test-email', { method: 'POST' });
-            
-            if (response.success) {
-                showNotification('Test email sent successfully!', 'success');
-            } else {
-                showNotification(response.message || 'Failed to send test email', 'error');
-            }
-        } catch (error) {
-            showNotification('Failed to test email configuration', 'error');
         }
     }
     {% endif %}

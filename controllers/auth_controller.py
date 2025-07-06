@@ -420,6 +420,7 @@ class AuthController:
         except Exception as e:
             print(f"Welcome email error: {e}")
             return False
+        
     
     def send_order_notification(self, order, notification_type, recipient_email):
         """Send order-related email notifications"""
@@ -477,6 +478,196 @@ class AuthController:
         except Exception as e:
             print(f"Order notification email error: {e}")
             return False
+    
+    def send_email_notification(self, to_email, subject, body, is_html=False):
+        """Send email notification using enhanced vendor email settings - FIXED VERSION"""
+        try:
+            settings = VendorSettings.get_settings()
+            
+            # Validate email configuration
+            if not settings.email_address or not settings.email_password:
+                print("Email configuration incomplete: Missing email address or password")
+                return False
+                
+            if not settings.email_server_url:
+                print("Email configuration incomplete: Missing server URL")
+                return False
+            
+            # Create message
+            message = MIMEMultipart("alternative")
+            message["Subject"] = subject
+            
+            # Set From field with display name if configured
+            if getattr(settings, 'email_from_name', None):
+                message["From"] = f"{settings.email_from_name} <{settings.email_address}>"
+            else:
+                message["From"] = settings.email_address
+                
+            message["To"] = to_email
+            
+            # Add body to email - Fix HTML formatting issues
+            if is_html:
+                # Clean the HTML body to avoid formatting issues
+                cleaned_body = body.replace('\n', '').replace('  ', ' ')
+                body_part = MIMEText(cleaned_body, "html", "utf-8")
+            else:
+                body_part = MIMEText(body, "plain", "utf-8")
+            
+            message.attach(body_part)
+            
+            # Create SMTP connection with enhanced configuration
+            try:
+                # Use SSL or TLS based on configuration
+                if getattr(settings, 'email_use_ssl', False):
+                    # Direct SSL connection (usually port 465)
+                    context = ssl.create_default_context()
+                    server = smtplib.SMTP_SSL(
+                        settings.email_server_url, 
+                        settings.email_port or 465,
+                        timeout=getattr(settings, 'email_timeout', 30),
+                        context=context
+                    )
+                else:
+                    # Regular connection, optionally with STARTTLS
+                    server = smtplib.SMTP(
+                        settings.email_server_url, 
+                        settings.email_port or 587,
+                        timeout=getattr(settings, 'email_timeout', 30)
+                    )
+                    
+                    if settings.email_use_tls:
+                        context = ssl.create_default_context()
+                        server.starttls(context=context)
+                
+                # Authenticate
+                server.login(
+                    settings.email_username or settings.email_address, 
+                    settings.email_password
+                )
+                
+                # Send email
+                server.sendmail(settings.email_address, to_email, message.as_string())
+                server.quit()
+                
+                print(f"Email sent successfully to {to_email}")
+                return True
+                
+            except smtplib.SMTPAuthenticationError as e:
+                print(f"SMTP Authentication failed: {e}")
+                return False
+            except smtplib.SMTPConnectError as e:
+                print(f"SMTP Connection failed: {e}")
+                return False
+            except smtplib.SMTPRecipientsRefused as e:
+                print(f"SMTP Recipients refused: {e}")
+                return False
+            except Exception as e:
+                print(f"SMTP Error: {e}")
+                return False
+                
+        except Exception as e:
+            print(f"Email sending error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+        
+    def test_smtp_connection(self):
+        """Test SMTP connection without sending email"""
+        try:
+            settings = VendorSettings.get_settings()
+            
+            if not settings.email_server_url:
+                return {'success': False, 'message': 'Server URL is required'}
+            
+            try:
+                if settings.email_use_ssl:
+                    context = ssl.create_default_context()
+                    server = smtplib.SMTP_SSL(
+                        settings.email_server_url, 
+                        settings.email_port or 465,
+                        timeout=settings.email_timeout or 30,
+                        context=context
+                    )
+                else:
+                    server = smtplib.SMTP(
+                        settings.email_server_url, 
+                        settings.email_port or 587,
+                        timeout=settings.email_timeout or 30
+                    )
+                    
+                    if settings.email_use_tls:
+                        context = ssl.create_default_context()
+                        server.starttls(context=context)
+                
+                # Test authentication if credentials provided
+                if settings.email_username and settings.email_password:
+                    server.login(
+                        settings.email_username or settings.email_address, 
+                        settings.email_password
+                    )
+                
+                server.quit()
+                return {'success': True, 'message': 'SMTP connection successful'}
+                
+            except smtplib.SMTPAuthenticationError:
+                return {'success': False, 'message': 'Authentication failed - check username/password'}
+            except smtplib.SMTPConnectError:
+                return {'success': False, 'message': 'Connection failed - check server URL and port'}
+            except Exception as e:
+                return {'success': False, 'message': f'Connection test failed: {str(e)}'}
+                
+        except Exception as e:
+            return {'success': False, 'message': f'Test failed: {str(e)}'}
 
+    def get_email_server_suggestions(self, email_address):
+        """Get email server suggestions based on email domain"""
+        if not email_address or '@' not in email_address:
+            return {}
+        
+        domain = email_address.split('@')[1].lower()
+        
+        # Common email provider configurations
+        provider_configs = {
+            'gmail.com': {
+                'server_url': 'smtp.gmail.com',
+                'port_ssl': 465,
+                'port_tls': 587,
+                'use_tls': True,
+                'use_ssl': False,
+                'note': 'For Gmail, you may need to use App Passwords instead of your regular password'
+            },
+            'outlook.com': {
+                'server_url': 'smtp-mail.outlook.com',
+                'port_ssl': 587,
+                'port_tls': 587,
+                'use_tls': True,
+                'use_ssl': False
+            },
+            'hotmail.com': {
+                'server_url': 'smtp-mail.outlook.com',
+                'port_ssl': 587,
+                'port_tls': 587,
+                'use_tls': True,
+                'use_ssl': False
+            },
+            'yahoo.com': {
+                'server_url': 'smtp.mail.yahoo.com',
+                'port_ssl': 465,
+                'port_tls': 587,
+                'use_tls': True,
+                'use_ssl': False
+            },
+            'icloud.com': {
+                'server_url': 'smtp.mail.me.com',
+                'port_ssl': 587,
+                'port_tls': 587,
+                'use_tls': True,
+                'use_ssl': False
+            }
+        }
+        
+        return provider_configs.get(domain, {
+            'note': 'Please contact your email provider for SMTP configuration details'
+        })
 # Global auth controller instance
 auth_controller = AuthController()

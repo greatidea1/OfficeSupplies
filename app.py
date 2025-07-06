@@ -1796,7 +1796,6 @@ def create_app():
                 'cwd': os.getcwd()
             })
         
-    # Add this route to app.py
 
     @app.route('/cart')
     @login_required
@@ -1804,8 +1803,80 @@ def create_app():
     def cart():
         """Shopping cart page for customer users"""
         return render_template('cart.html')
+    
+    @app.route('/api/vendor/test-connection', methods=['POST'])
+    @login_required
+    @role_required('vendor_superadmin')
+    def api_test_smtp_connection():
+        """API: Test SMTP connection without sending email"""
+        try:
+            current_user = auth_controller.get_current_user()
+            if not current_user or current_user.role != 'vendor_superadmin':
+                return jsonify({'success': False, 'message': 'Only SuperAdmin can test connection'})
+            
+            result = auth_controller.test_smtp_connection()
+            return jsonify(result)
+            
+        except Exception as e:
+            print(f"Test SMTP connection error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to test connection'})
+
+    @app.route('/api/vendor/email-suggestions')
+    @login_required
+    @role_required('vendor_superadmin')
+    def api_email_suggestions():
+        """API: Get email configuration suggestions based on email domain"""
+        try:
+            current_user = auth_controller.get_current_user()
+            if not current_user or current_user.role != 'vendor_superadmin':
+                return jsonify({'success': False, 'message': 'Access denied'})
+            
+            email = request.args.get('email', '')
+            suggestions = auth_controller.get_email_server_suggestions(email)
+            
+            return jsonify({
+                'success': True,
+                'suggestions': suggestions
+            })
+            
+        except Exception as e:
+            print(f"Email suggestions error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to get email suggestions'})
+
+    @app.route('/api/vendor/validate-email-config')
+    @login_required
+    @role_required('vendor_superadmin')
+    def api_validate_email_config():
+        """API: Validate email configuration completeness"""
+        try:
+            result = vendor_controller.validate_email_configuration()
+            return jsonify(result)
+            
+        except Exception as e:
+            print(f"Validate email config error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to validate email configuration'})
+
+    @app.route('/api/vendor/email-config-status')
+    @login_required
+    @role_required('vendor_superadmin')
+    def api_email_config_status():
+        """API: Get email configuration status"""
+        try:
+            from models import VendorSettings
+            settings = VendorSettings.get_settings()
+            status = settings.get_email_config_status()
+            
+            return jsonify({
+                'success': True,
+                'status': status
+            })
+            
+        except Exception as e:
+            print(f"Email config status error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to get email configuration status'})
 
     return app
+
 
 # Create Flask app instance
 app = create_app()

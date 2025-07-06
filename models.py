@@ -861,7 +861,7 @@ class Department(BaseModel):
             return []
 
 class VendorSettings(BaseModel):
-    """Vendor settings model for system configuration"""
+    """Vendor settings model for system configuration with enhanced email settings"""
     
     def __init__(self):
         super().__init__()
@@ -872,12 +872,17 @@ class VendorSettings(BaseModel):
         self.primary_contact_phone = None
         self.alternate_contact_name = None
         self.alternate_contact_phone = None
+        
+        # Email Configuration Fields
         self.email_address = None
         self.email_username = None
         self.email_password = None
         self.email_server_url = None
         self.email_port = 587
         self.email_use_tls = True
+        self.email_use_ssl = False
+        self.email_timeout = 30
+        self.email_from_name = None  # Display name for "From" field
     
     def save(self):
         """Save vendor settings to Firebase"""
@@ -917,5 +922,47 @@ class VendorSettings(BaseModel):
             settings.company_name = "Office Supplies Vendor"
             settings.email_port = 587
             settings.email_use_tls = True
+            settings.email_use_ssl = False
+            settings.email_timeout = 30
             settings.save()
         return settings
+    
+    def get_email_config_status(self):
+        """Get email configuration status"""
+        required_fields = [
+            self.email_address,
+            self.email_password,
+            self.email_server_url,
+            self.email_username
+        ]
+        
+        configured_fields = sum(1 for field in required_fields if field)
+        total_fields = len(required_fields)
+        
+        return {
+            'is_complete': configured_fields == total_fields,
+            'configured_fields': configured_fields,
+            'total_fields': total_fields,
+            'completion_percentage': (configured_fields / total_fields) * 100
+        }
+    
+    def validate_email_settings(self):
+        """Validate email settings format"""
+        errors = []
+        
+        if self.email_address:
+            if '@' not in self.email_address:
+                errors.append('Invalid email address format')
+        
+        if self.email_port:
+            if not (1 <= self.email_port <= 65535):
+                errors.append('Port must be between 1 and 65535')
+        
+        if self.email_timeout:
+            if self.email_timeout < 1:
+                errors.append('Timeout must be at least 1 second')
+        
+        return {
+            'is_valid': len(errors) == 0,
+            'errors': errors
+        }
