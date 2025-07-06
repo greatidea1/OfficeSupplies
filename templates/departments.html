@@ -13,8 +13,8 @@
         align-items: center;
         gap: 12px;
         margin-bottom: 20px;
-        padding: 16px 20px;
-        background: linear-gradient(135deg, var(--secondary-green), #059669);
+        padding: 10px 20px;
+        background: linear-gradient(135deg, var(--secondary-green),rgb(122, 200, 176));
         color: white;
         border-radius: 12px;
         box-shadow: var(--shadow);
@@ -91,7 +91,7 @@
     }
     
     .department-header {
-        padding: 24px;
+        padding: 14px;
         border-bottom: 1px solid var(--gray-200);
         background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
         color: white;
@@ -122,14 +122,14 @@
     }
     
     .department-body {
-        padding: 24px;
+        padding: 14px;
     }
     
     .department-stats {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 16px;
-        margin-bottom: 20px;
+        gap: 10px;
+        margin-bottom: 10px;
     }
     
     .department-stat {
@@ -140,7 +140,7 @@
     }
     
     .stat-number {
-        font-size: 1.5rem;
+        font-size: 1.1rem;
         font-weight: 600;
         color: var(--primary-blue);
         margin-bottom: 4px;
@@ -378,11 +378,11 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 12px;
-        max-height: 300px;
+        max-height: 200px;
         overflow-y: auto;
         border: 1px solid var(--gray-200);
         border-radius: 8px;
-        padding: 16px;
+        padding: 10px;
     }
     
     .user-checkbox {
@@ -427,7 +427,7 @@
     }
     
     .section-body {
-        padding: 24px;
+        padding: 10px;
     }
     
     .unassigned-users-grid {
@@ -882,8 +882,8 @@
         
         if (unassignedUsers.length === 0) {
             grid.innerHTML = `
-                <div style="text-align: center; padding: 20px; color: var(--gray-500); grid-column: 1 / -1;">
-                    <i class="fas fa-users-slash" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                <div style="text-align: center; padding: 5px; color: var(--gray-500); grid-column: 1 / -1;">
+                    <i class="fas fa-users-slash" style="font-size: 32px; margin-bottom: 16px; opacity: 0.3;"></i>
                     <div>All users are assigned to departments</div>
                 </div>
             `;

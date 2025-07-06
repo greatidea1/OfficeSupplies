@@ -479,16 +479,7 @@ a:hover {
 }
 
 /* Badge Component */
-.badge {
-    display: inline-flex;
-    align-items: center;
-    padding: var(--space-1) var(--space-3);
-    border-radius: var(--radius-xl);
-    font-size: 0.75rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
+
 
 .badge-primary {
     background: rgba(37, 99, 235, 0.1);
