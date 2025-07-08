@@ -60,6 +60,13 @@
         margin-bottom: 4px;
     }
     
+    .location-pincode {
+        font-size: 0.875rem;
+        color: var(--primary-blue);
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+    
     .location-status {
         margin-left: 16px;
     }
@@ -109,6 +116,12 @@
         opacity: 0.3;
     }
     
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    
     @media (max-width: 768px) {
         .locations-grid {
             grid-template-columns: 1fr;
@@ -117,6 +130,10 @@
         
         .location-card {
             padding: 20px;
+        }
+        
+        .form-row {
+            grid-template-columns: 1fr;
         }
     }
 </style>
@@ -163,25 +180,34 @@
 
         <div class="modal-body">
             <form id="addLocationForm">
-                <div class="form-group">
-                    <label class="form-label">Location Name <span style="color: var(--secondary-red);">*</span></label>
-                    <input type="text" class="form-control" name="name" required placeholder="e.g., Downtown Store, Main Branch">
-                    <span class="form-error"></span>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Location Name <span style="color: var(--secondary-red);">*</span></label>
+                        <input type="text" class="form-control" name="name" required placeholder="e.g., Downtown Store, Main Branch">
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Pincode <span style="color: var(--secondary-red);">*</span></label>
+                        <input type="text" class="form-control" name="pincode" maxlength="6" pattern="[0-9]{6}" placeholder="123456" required>
+                        <span class="form-help">Enter 6-digit pincode</span>
+                        <span class="form-error"></span>
+                    </div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Address <span style="color: var(--secondary-red);">*</span></label>
-                    <textarea class="form-control" name="address" rows="3" required placeholder="Complete address with city, state, pincode"></textarea>
+                    <textarea class="form-control" name="address" rows="3" required placeholder="Complete address with city, state"></textarea>
                     <span class="form-error"></span>
                 </div>
 
-                <div class="form-row" style="display: flex; gap: 16px;">
-                    <div class="form-group" style="flex: 1;">
+                <div class="form-row">
+                    <div class="form-group">
                         <label class="form-label">Phone Number</label>
                         <input type="tel" class="form-control" name="phone" placeholder="Contact number">
                         <span class="form-error"></span>
                     </div>
-                    <div class="form-group" style="flex: 1;">
+                    <div class="form-group">
                         <label class="form-label">Manager Name</label>
                         <input type="text" class="form-control" name="manager_name" placeholder="Store manager">
                         <span class="form-error"></span>
@@ -218,10 +244,19 @@
             <form id="editLocationForm">
                 <input type="hidden" id="editLocationId">
                 
-                <div class="form-group">
-                    <label class="form-label">Location Name <span style="color: var(--secondary-red);">*</span></label>
-                    <input type="text" class="form-control" name="name" required>
-                    <span class="form-error"></span>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Location Name <span style="color: var(--secondary-red);">*</span></label>
+                        <input type="text" class="form-control" name="name" required>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Pincode <span style="color: var(--secondary-red);">*</span></label>
+                        <input type="text" class="form-control" name="pincode" maxlength="6" pattern="[0-9]{6}" placeholder="123456" required>
+                        <span class="form-help">Enter 6-digit pincode</span>
+                        <span class="form-error"></span>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -230,13 +265,13 @@
                     <span class="form-error"></span>
                 </div>
 
-                <div class="form-row" style="display: flex; gap: 16px;">
-                    <div class="form-group" style="flex: 1;">
+                <div class="form-row">
+                    <div class="form-group">
                         <label class="form-label">Phone Number</label>
                         <input type="tel" class="form-control" name="phone">
                         <span class="form-error"></span>
                     </div>
-                    <div class="form-group" style="flex: 1;">
+                    <div class="form-group">
                         <label class="form-label">Manager Name</label>
                         <input type="text" class="form-control" name="manager_name">
                         <span class="form-error"></span>
@@ -278,6 +313,19 @@ let currentLocations = [];
 
 document.addEventListener('DOMContentLoaded', function() {
     loadLocations();
+    
+    // Add input validation for pincode fields
+    document.querySelectorAll('input[name="pincode"]').forEach(input => {
+        input.addEventListener('input', function(e) {
+            // Only allow numbers
+            this.value = this.value.replace(/[^0-9]/g, '');
+            
+            // Limit to 6 digits
+            if (this.value.length > 6) {
+                this.value = this.value.slice(0, 6);
+            }
+        });
+    });
 });
 
 async function loadLocations() {
@@ -309,6 +357,7 @@ function displayLocations() {
             <div class="location-header">
                 <div>
                     <div class="location-name">${location.name}</div>
+                    ${location.pincode ? `<div class="location-pincode">📍 ${location.pincode}</div>` : ''}
                 </div>
                 <div class="location-status">
                     ${getStatusBadge(location.is_active ? 'active' : 'inactive')}
@@ -403,9 +452,14 @@ async function submitAddLocation() {
     const form = document.getElementById('addLocationForm');
     const formData = new FormData(form);
     
+    if (!validateForm(form)) {
+        return;
+    }
+    
     const locationData = {
         name: formData.get('name'),
         address: formData.get('address'),
+        pincode: formData.get('pincode'),
         phone: formData.get('phone'),
         manager_name: formData.get('manager_name'),
         description: formData.get('description')
@@ -443,6 +497,7 @@ async function editLocation(locationId) {
         document.getElementById('editLocationId').value = locationId;
         document.querySelector('#editLocationForm [name="name"]').value = location.name;
         document.querySelector('#editLocationForm [name="address"]').value = location.address || '';
+        document.querySelector('#editLocationForm [name="pincode"]').value = location.pincode || '';
         document.querySelector('#editLocationForm [name="phone"]').value = location.phone || '';
         document.querySelector('#editLocationForm [name="manager_name"]').value = location.manager_name || '';
         document.querySelector('#editLocationForm [name="description"]').value = location.description || '';
@@ -477,9 +532,14 @@ async function submitEditLocation() {
     const formData = new FormData(form);
     const locationId = document.getElementById('editLocationId').value;
     
+    if (!validateForm(form)) {
+        return;
+    }
+    
     const updateData = {
         name: formData.get('name'),
         address: formData.get('address'),
+        pincode: formData.get('pincode'),
         phone: formData.get('phone'),
         manager_name: formData.get('manager_name'),
         description: formData.get('description')
@@ -531,6 +591,7 @@ async function viewLocationDetails(locationId) {
                     <div style="margin-bottom: 20px;">
                         <h4 style="margin-bottom: 16px;">${location.name}</h4>
                         <div style="display: grid; gap: 12px;">
+                            ${location.pincode ? `<div><strong>Pincode:</strong> ${location.pincode}</div>` : ''}
                             <div><strong>Address:</strong><br>${location.address}</div>
                             ${location.phone ? `<div><strong>Phone:</strong> ${location.phone}</div>` : ''}
                             ${location.manager_name ? `<div><strong>Manager:</strong> ${location.manager_name}</div>` : ''}
@@ -586,6 +647,49 @@ function getStatusBadge(status) {
     
     const config = statusConfig[status] || { class: 'badge-gray', label: status };
     return `<span class="badge ${config.class}">${config.label}</span>`;
+}
+
+function validateForm(form) {
+    const requiredFields = form.querySelectorAll('[required]');
+    let isValid = true;
+    
+    requiredFields.forEach(field => {
+        const errorSpan = field.parentNode.querySelector('.form-error');
+        
+        if (!field.value.trim()) {
+            if (errorSpan) {
+                errorSpan.textContent = `${field.name.replace('_', ' ')} is required`;
+                errorSpan.style.display = 'block';
+            }
+            field.style.borderColor = 'var(--secondary-red)';
+            isValid = false;
+        } else if (field.name === 'pincode') {
+            // Additional validation for pincode
+            const pincode = field.value.trim();
+            if (!pincode.match(/^[0-9]{6}$/)) {
+                if (errorSpan) {
+                    errorSpan.textContent = 'Pincode must be exactly 6 digits';
+                    errorSpan.style.display = 'block';
+                }
+                field.style.borderColor = 'var(--secondary-red)';
+                isValid = false;
+            } else {
+                if (errorSpan) {
+                    errorSpan.textContent = '';
+                    errorSpan.style.display = 'none';
+                }
+                field.style.borderColor = 'var(--gray-300)';
+            }
+        } else {
+            if (errorSpan) {
+                errorSpan.textContent = '';
+                errorSpan.style.display = 'none';
+            }
+            field.style.borderColor = 'var(--gray-300)';
+        }
+    });
+    
+    return isValid;
 }
 </script>
 {% endblock %}

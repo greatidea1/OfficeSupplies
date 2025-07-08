@@ -60,6 +60,7 @@ class Location(BaseModel):
         self.location_id = str(uuid.uuid4())
         self.name = None
         self.address = None
+        self.pincode = None  # NEW FIELD: 6-digit pincode
         self.phone = None
         self.manager_name = None
         self.description = None

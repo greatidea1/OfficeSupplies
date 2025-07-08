@@ -43,10 +43,15 @@ class LocationController:
             data = request.get_json()
             
             # Validate required fields
-            required_fields = ['name', 'address']
+            required_fields = ['name', 'address', 'pincode']
             for field in required_fields:
                 if field not in data or not data[field].strip():
                     return {'success': False, 'message': f'{field.replace("_", " ").title()} is required'}
+            
+            # Validate pincode (6 digits only)
+            pincode = data['pincode'].strip()
+            if not pincode.isdigit() or len(pincode) != 6:
+                return {'success': False, 'message': 'Pincode must be exactly 6 digits'}
             
             # Check if location name already exists
             existing_location = Location.get_by_name(data['name'].strip())
@@ -57,6 +62,7 @@ class LocationController:
             location = Location()
             location.name = data['name'].strip()
             location.address = data['address'].strip()
+            location.pincode = pincode
             location.phone = data.get('phone', '').strip()
             location.manager_name = data.get('manager_name', '').strip()
             location.description = data.get('description', '').strip()
@@ -107,13 +113,21 @@ class LocationController:
             
             data = request.get_json()
             
+            # Validate pincode if provided
+            if 'pincode' in data and data['pincode']:
+                pincode = data['pincode'].strip()
+                if not pincode.isdigit() or len(pincode) != 6:
+                    return {'success': False, 'message': 'Pincode must be exactly 6 digits'}
+            
             # Update allowed fields
-            updateable_fields = ['name', 'address', 'phone', 'manager_name', 'description', 'is_active']
+            updateable_fields = ['name', 'address', 'pincode', 'phone', 'manager_name', 'description', 'is_active']
             
             for field in updateable_fields:
                 if field in data:
                     if field == 'is_active':
                         setattr(location, field, bool(data[field]))
+                    elif field == 'pincode' and data[field]:
+                        setattr(location, field, data[field].strip())
                     else:
                         setattr(location, field, data[field].strip() if isinstance(data[field], str) else data[field])
             
@@ -168,7 +182,7 @@ class LocationController:
             return {'success': False, 'message': 'Failed to delete location'}
     
     def get_locations_dropdown(self):
-        """Get locations for dropdown selection"""
+        """Get locations for dropdown selection with pincode display"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or not current_user.role.startswith('vendor_'):
@@ -178,9 +192,16 @@ class LocationController:
             
             location_list = []
             for location in locations:
+                # Include pincode in display name
+                display_name = location.name
+                if hasattr(location, 'pincode') and location.pincode:
+                    display_name += f" ({location.pincode})"
+                
                 location_list.append({
                     'location_id': location.location_id,
-                    'name': location.name
+                    'name': location.name,
+                    'display_name': display_name,
+                    'pincode': getattr(location, 'pincode', None)
                 })
             
             return {
