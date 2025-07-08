@@ -79,7 +79,7 @@
     }
 
     .customer-filter-section {
-        width: 300px;
+        width: 260px;
     }
 
     .filters-section {
@@ -95,6 +95,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
         gap: 16px;
+        margin-bottom: 20px;
     }
     
     .filter-group {
@@ -112,8 +113,8 @@
     
     .products-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 24px;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
     }
     
     .product-card {
@@ -291,6 +292,7 @@
         justify-content: space-between;
         gap: 20px;
         flex-wrap: wrap; /* Optional: helps responsiveness */
+
         margin-bottom: 20px;
     }
     
@@ -302,12 +304,11 @@
 
     .no-customer-message {
         background-color: #fff3cd;
-        border: 1px solid #ffeeba;
         color: #856404;
         flex-grow: 1;
         color: #666;
         padding: 12px;
-        font-size: 14px;
+        font-size: 16px;
         border-radius: 8px;
         display: flex;
         align-items: center;
@@ -327,7 +328,6 @@
         border-radius: 6px;
         font-size: 0.875rem; /* Matches .filter-label */
         padding: 12px;
-        height: 40px;
         width: 100%;
         box-sizing: border-box;
         transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -580,68 +580,6 @@
 
         <!-- Filters Section -->
         <div class="filters-section">
-            <div class="filters-grid">
-                <div class="filter-group">
-                    <label class="filter-label">Category</label>
-                    <select class="form-control" id="categoryFilter">
-                        <option value="">All Categories</option>
-                    </select>
-                </div>
-
-                {% if current_user.role.startswith('vendor_') %}
-                <div class="filter-group">
-                    <label class="filter-label">Location</label>
-                    <select class="form-control" id="locationFilter">
-                        <option value="">All Locations</option>
-                    </select>
-                </div>
-                {% endif %}
-
-                <div class="filter-group">
-                    <label class="filter-label">Price Range</label>
-                    <select class="form-control" id="priceFilter">
-                        <option value="">All Prices</option>
-                        <option value="0-100">₹0 - ₹100</option>
-                        <option value="100-500">₹100 - ₹500</option>
-                        <option value="500-1000">₹500 - ₹1,000</option>
-                        <option value="1000+">₹1,000+</option>
-                    </select>
-                </div>
-
-                {% if current_user.role.startswith('vendor_') %}
-                <div class="filter-group">
-                    <label class="filter-label">Stock Status</label>
-                    <select class="form-control" id="stockFilter">
-                        <option value="">All Stock</option>
-                        <option value="in-stock">In Stock</option>
-                        <option value="low-stock">Low Stock</option>
-                        <option value="out-of-stock">Out of Stock</option>
-                    </select>
-                </div>
-                {% endif %}
-
-                <div class="filter-group">
-                    <label class="filter-label">Sort By</label>
-                    <select class="form-control" id="sortFilter">
-                        <option value="name_asc">Name (A-Z)</option>
-                        <option value="name_desc">Name (Z-A)</option>
-                        <option value="price_asc">Price (Low to High)</option>
-                        <option value="price_desc">Price (High to Low)</option>
-                        {% if current_user.role.startswith('vendor_') %}
-                        <option value="stock_asc">Stock (Low to High)</option>
-                        <option value="stock_desc">Stock (High to Low)</option>
-                        {% endif %}
-                    </select>
-                </div>
-                <!-- Clear Filters Button -->
-                <div class="filter-group" style="display: flex; align-items: end;">
-                    <button class="btn btn-secondary" onclick="clearFilters()" style="padding: 12px; width: 100%; margin-top: auto;">
-                        <i class="fas fa-times"></i>
-                        Clear Filters
-                    </button>
-                </div>
-            </div>
-
             {% if current_user.role.startswith('vendor_') %}
             <div class="filter-toolbar">
                 <!-- Customer dropdown -->
@@ -675,15 +613,99 @@
             </div>
             {% endif %}
 
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label class="filter-label">Category</label>
+                    <select class="form-control" id="categoryFilter">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
 
-        <div class="products-grid" id="productsGrid">
-            <!-- Products will be loaded here -->
-            <div style="grid-column: 1 / -1; padding: 40px; text-align: center;">
-                <div class="spinner"></div>
-                Loading products...
+                {% if current_user.role.startswith('vendor_') %}
+                <div class="filter-group">
+                    <label class="filter-label">Location</label>
+                    <select class="form-control" id="locationFilter">
+                        <option value="">All Locations</option>
+                    </select>
+                </div>
+                {% endif %}
+
+                <div class="filter-group">
+                    <label class="filter-label">Price Range</label>
+                    <select class="form-control" id="priceFilter">
+                        <option value="">All Prices</option>
+                        <option value="0-100">₹0 - ₹100</option>
+                        <option value="100-500">₹100 - ₹500</option>
+                        <option value="500-1000">₹500 - ₹1,000</option>
+                        <option value="1000+">₹1,000+</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Stock Status</label>
+                    <select class="form-control" id="stockFilter">
+                        <option value="">All Stock</option>
+                        <option value="in-stock">In Stock</option>
+                        <option value="low-stock">Low Stock</option>
+                        <option value="out-of-stock">Out of Stock</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Sort By</label>
+                    <select class="form-control" id="sortFilter">
+                        <option value="name_asc">Name (A-Z)</option>
+                        <option value="name_desc">Name (Z-A)</option>
+                        <option value="price_asc">Price (Low to High)</option>
+                        <option value="price_desc">Price (High to Low)</option>
+                        {% if current_user.role.startswith('vendor_') %}
+                        <option value="stock_asc">Stock (Low to High)</option>
+                        <option value="stock_desc">Stock (High to Low)</option>
+                        {% elif current_user.role.startswith('customer_') %}
+                        <option value="stock_asc">Stock (Low to High)</option>
+                        <option value="stock_desc">Stock (High to Low)</option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- Search Field for Customer Users -->
+                {% if current_user.role.startswith('customer_') %}
+                <div class="filter-group">
+                    <label class="filter-label">Search</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="searchInput" 
+                            placeholder="Search products..."
+                            style="min-height: 40px; width: 170px;"
+                        >
+
+                        <button class="btn btn-primary" onclick="searchProducts()" style="padding: 12px; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                            <i class="fas fa-search"></i>
+                            <span>Search</span>
+                        </button>                        
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Clear Filters Button -->
+                <div class="filter-group" style="display: flex; align-items: end;">
+                    <button class="btn btn-secondary" onclick="clearFilters()" style="padding: 12px; width: 150px; margin-top: auto;">
+                        <i class="fas fa-times"></i>
+                        Clear Filters
+                    </button>
+                </div>
+            </div>
+
+            <div class="products-grid" id="productsGrid">
+                <!-- Products will be loaded here -->
+                <div style="grid-column: 1 / -1; padding: 40px; text-align: center;">
+                    <div class="spinner"></div>
+                    Loading products...
+                </div>
             </div>
         </div>
-    </div>
 </div>
 
 <!-- Cart Summary (for customers) -->
@@ -1112,10 +1134,17 @@ function displayCustomerProducts() {
                         <span style="color: var(--gray-600); font-size: 0.875rem;">Item No:</span>
                         <span style="font-weight: 500; color: var(--gray-900); font-size: 0.875rem;">${product.item_no}</span>
                     </div>
+
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: var(--gray-600); font-size: 0.875rem;">Stock:</span>
+                        <span style="font-weight: 500; color: ${product.quantity > 10 ? 'var(--secondary-green)' : product.quantity > 0 ? 'var(--secondary-orange)' : 'var(--secondary-red)'}; font-size: 0.875rem;">
+                            ${product.quantity > 0 ? `${product.quantity} units` : 'Out of Stock'}
+                        </span>
+                    </div>
                 </div>
                 
                 <!-- Price Section -->
-                <div style="background: var(--gray-50); padding: 2px; border-radius: 8px; margin-bottom: 16px; text-align: center;">
+                <div style="background: var(--gray-50); padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align: center;">
                     <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary-blue); margin-bottom: 4px;">
                         ₹${effectivePrice.toLocaleString('en-IN')}
                         ${product.custom_price ? '<span style="font-size: 0.75rem; color: var(--secondary-green); margin-left: 8px;">Special Price</span>' : ''}
@@ -1125,44 +1154,37 @@ function displayCustomerProducts() {
                     </div>
                 </div>
                 
-                <!-- Action Section -->
-                <div onclick="event.stopPropagation()" style="display: flex; gap: 12px;">
-                    <!-- Qty Section -->
-                    <div style="flex: 1; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; align-items: center;">
-                        <div style="font-size: 0.75rem; font-weight: 600; color: var(--gray-600); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Quantity</div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <button onclick="changeQuantity('${product.product_id}', -1)" 
-                                    ${isOutOfStock ? 'disabled' : ''} 
-                                    style="width: 28px; height: 28px; border: 1px solid var(--gray-300); background: white; border-radius: 4px; cursor: ${isOutOfStock ? 'not-allowed' : 'pointer'}; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">
-                                <i class="fas fa-minus"></i>
-                            </button>
-                            <input type="number" 
-                                   id="qty_${product.product_id}" 
-                                   value="1" 
-                                   min="1" 
-                                   max="${product.quantity}" 
-                                   ${isOutOfStock ? 'disabled' : ''} 
-                                   style="width: 50px; padding: 6px; border: 1px solid var(--gray-300); border-radius: 4px; text-align: center; font-size: 0.875rem; font-weight: 600;">
-                            <button onclick="changeQuantity('${product.product_id}', 1)" 
-                                    ${isOutOfStock ? 'disabled' : ''} 
-                                    style="width: 28px; height: 28px; border: 1px solid var(--gray-300); background: white; border-radius: 4px; cursor: ${isOutOfStock ? 'not-allowed' : 'pointer'}; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- +Cart Section -->
-                    <div style="flex: 1;">
-                        <button onclick="addToCart('${product.product_id}')" 
+                <!-- Compact Action Section -->
+                <div onclick="event.stopPropagation()" style="display: flex; gap: 8px; align-items: center;">
+                    <!-- Simplified Quantity Controls -->
+                    <div style="display: flex; align-items: center; gap: 6px; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 6px; padding: 4px;">
+                        <button onclick="changeQuantity('${product.product_id}', -1)" 
                                 ${isOutOfStock ? 'disabled' : ''} 
-                                data-price="${effectivePrice}" 
-                                style="width: 100%; height: 100%; background: ${isOutOfStock ? 'var(--gray-400)' : 'var(--primary-sky-blue)'}; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: ${isOutOfStock ? 'not-allowed' : 'pointer'}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: all 0.3s ease;">
-                            <i class="fas fa-cart-plus" style="font-size: 1.25rem;"></i>
-                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
-                                ${isOutOfStock ? 'Out of Stock' : '+Cart'}
-                            </span>
+                                style="width: 24px; height: 24px; border: none; background: white; border-radius: 3px; cursor: ${isOutOfStock ? 'not-allowed' : 'pointer'}; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <input type="number" 
+                               id="qty_${product.product_id}" 
+                               value="1" 
+                               min="1" 
+                               max="${product.quantity}" 
+                               ${isOutOfStock ? 'disabled' : ''} 
+                               style="width: 40px; padding: 4px; border: none; text-align: center; font-size: 0.875rem; font-weight: 600; background: transparent;">
+                        <button onclick="changeQuantity('${product.product_id}', 1)" 
+                                ${isOutOfStock ? 'disabled' : ''} 
+                                style="width: 24px; height: 24px; border: none; background: white; border-radius: 3px; cursor: ${isOutOfStock ? 'not-allowed' : 'pointer'}; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                            <i class="fas fa-plus"></i>
                         </button>
                     </div>
+                    
+                    <!-- Compact Add to Cart Button -->
+                    <button onclick="addToCart('${product.product_id}')" 
+                            ${isOutOfStock ? 'disabled' : ''} 
+                            data-price="${effectivePrice}" 
+                            style="flex: 1; height: 36px; background: ${isOutOfStock ? 'var(--gray-400)' : '#f6d110'}; color: var(--gray-800); border: none; border-radius: 20px; font-weight: 600; cursor: ${isOutOfStock ? 'not-allowed' : 'pointer'}; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.875rem;">
+                            <i class="fas fa-cart-plus" style="font-size: 1rem;"></i>
+                            ${isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
+                    </button>
                 </div>
             </div>
         `;
@@ -1390,7 +1412,7 @@ function updatePriceIndicator(productId) {
             </div>
             <div class="product-gst">+ ${product.gst_rate || 18}% GST</div>
             <button class="btn btn-sm btn-warning" onclick="editCustomerPrice('${productId}', ${customPrice})" style="margin-top: 8px;">
-                Edit ✍🏻
+                Edit Price ✍🏻
             </button>
         `;
     } else if (selectedCustomerId) {
@@ -1644,9 +1666,7 @@ async function editProduct(productId) {
                         <label class="form-label">Add/Change Product Image</label>
                         <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 8px;">
                             <input type="file" class="form-control" name="product_image" accept="image/*" onchange="handleEditImageUpload(event)" style="flex: 1;">
-                            <button type="button" class="btn btn-primary" onclick="document.querySelector('#editProductForm [name=\\"product_image\\"]').click()">
-                                <i class="fas fa-upload"></i> Browse
-                            </button>
+                            
                         </div>
                         <span class="form-help">Max size: 16MB. JPEG, PNG, etc. New image will replace the current one.</span>
                         <span class="form-error" id="editImageError"></span>
@@ -2109,8 +2129,8 @@ function applyFilters() {
             }
         }
         
-        // Stock filter (vendor only)
-        if (match && stockFilter && IS_VENDOR) {
+        // Stock filter (both vendors and customers)
+        if (match && stockFilter) {
             const quantity = product.quantity || 0;
             const lowStockThreshold = product.low_stock_threshold || 10;
             
@@ -2153,7 +2173,7 @@ function applyFilters() {
     
     console.log(`Filtered ${currentProducts.length} products down to ${filteredProducts.length}`);
     
-    // Apply sorting
+    // Apply sorting (both vendors and customers can sort by stock)
     console.log('Applying sort:', sortBy);
     if (sortBy === 'name_asc') {
         filteredProducts.sort((a, b) => a.product_name.localeCompare(b.product_name));
@@ -2163,9 +2183,11 @@ function applyFilters() {
         filteredProducts.sort((a, b) => (a.custom_price || a.price || 0) - (b.custom_price || b.price || 0));
     } else if (sortBy === 'price_desc') {
         filteredProducts.sort((a, b) => (b.custom_price || b.price || 0) - (a.custom_price || a.price || 0));
-    } else if (sortBy === 'stock_asc' && IS_VENDOR) {
+    } else if (sortBy === 'stock_asc') {
+        // Allow both vendors and customers to sort by stock
         filteredProducts.sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
-    } else if (sortBy === 'stock_desc' && IS_VENDOR) {
+    } else if (sortBy === 'stock_desc') {
+        // Allow both vendors and customers to sort by stock
         filteredProducts.sort((a, b) => (b.quantity || 0) - (a.quantity || 0));
     }
     
