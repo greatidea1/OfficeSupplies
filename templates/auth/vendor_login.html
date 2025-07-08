@@ -62,6 +62,16 @@
             grid-template-columns: 1fr 1fr;
             min-height: 600px;
         }
+
+        .login-left.vendor-portal {
+            padding: 40px 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 24px; /* space between each block */
+            background-color:rgb(230, 235, 235); /* optional light background */
+            color: #333;
+        }
         
         .login-left {
             background: var(--primary-green-dark);
@@ -73,17 +83,6 @@
             color: white;
             position: relative;
             overflow: hidden;
-        }
-        
-        .login-left::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="vendorGrain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.05"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.05"/><circle cx="50" cy="50" r="0.5" fill="white" opacity="0.03"/></pattern></defs><rect width="100" height="100" fill="url(%23vendorGrain)"/></svg>');
-            animation: float 25s ease-in-out infinite;
         }
         
         @keyframes float {
@@ -117,15 +116,22 @@
         }
         
         .vendor-badge {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.875rem;
+            font-size: 18px;
             font-weight: 600;
-            margin-bottom: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            position: relative;
-            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .login-logo i {
+            font-size: 48px;
+            color: #007BFF;
+        }
+        
+        .login-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 0;
         }
         
         .login-right {
@@ -146,6 +152,25 @@
             color: var(--gray-600);
             margin-bottom: 32px;
             font-size: 1rem;
+        }
+
+        .portal-description {
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 0;
+        }
+        
+        .portal-features {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .portal-features div {
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .form-group {
@@ -384,25 +409,26 @@
         
             <!-- Title -->
             <h1 class="login-title">Vendor Dashboard</h1>
-        
+
             <!-- Description -->
             <p class="portal-description">
-                A centralized portal for vendors to manage customer relationships, update product catalogs, track inventory, and fulfill orders efficiently across the supply chain.
+                A centralized portal for vendors to manage customer relationships, 
+                update product catalogs, track inventory, and fulfill orders efficiently 
+                across the supply chain.
             </p>
-        
-            <!-- Feature List (no bullets) -->
-            <ul class="portal-features no-bullets">
-                <li><i class="fas fa-check-circle"></i> Register and manage customers</li>
-                <li><i class="fas fa-check-circle"></i> Maintain product listings and details</li>
-                <li><i class="fas fa-check-circle"></i> Handle order processing and delivery</li>
-                <li><i class="fas fa-check-circle"></i> Monitor and manage inventory levels</li>
-                <li><i class="fas fa-check-circle"></i> Access reports and performance analytics</li>
-                <li><i class="fas fa-check-circle"></i> Manage users and admin controls</li>
-            </ul>
-        </div>
-        
-        
 
+            <!-- Feature List (No Bullets, Checkmarks Only, Selectable Text) -->
+            <div class="portal-features" style="user-select: text;">
+                <div><i class="fas fa-check-circle"></i> Register and manage customers</div>
+                <div><i class="fas fa-check-circle"></i> Maintain product listings and details</div>
+                <div><i class="fas fa-check-circle"></i> Handle order processing and delivery</div>
+                <div><i class="fas fa-check-circle"></i> Monitor and manage inventory levels</div>
+                <div><i class="fas fa-check-circle"></i> Access reports and performance analytics</div>
+                <div><i class="fas fa-check-circle"></i> Manage users and admin controls</div>
+            </div>
+
+
+        </div>
         <!-- Right Side - Login Form -->
         <div class="login-right">
             <h2 class="login-form-title">Vendor Login</h2>
@@ -410,9 +436,18 @@
             
             <!-- Alert Container -->
             <div id="alertContainer"></div>
+
+            <div class="security-note">
+                <i class="fas fa-info-circle"></i>
+                This is a secure vendor portal. All activities are logged and monitored.
+            </div>
+
+            <div class="divider">
+            </div>
             
             <form id="loginForm">
                 <div class="form-group">
+                    
                     <label class="form-label">Username</label>
                     <div class="input-group">
                         <i class="input-icon fas fa-user-tie"></i>
@@ -455,22 +490,13 @@
                     </div>
                 </button>
                 
-                <div class="security-note">
-                    <i class="fas fa-info-circle"></i>
-                    This is a secure vendor portal. All activities are logged and monitored.
-                </div>
+
             </form>
             
             <div class="divider">
-                <span>or</span>
             </div>
             
-            <div class="login-links">
-                <a href="/login" class="login-link">
-                    <i class="fas fa-users"></i>
-                    Customer Portal Login
-                </a>
-            </div>
+
         </div>
     </div>
     
