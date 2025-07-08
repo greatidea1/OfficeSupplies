@@ -659,145 +659,138 @@
 </div>
 {% endif %}
 
-<!-- Add Product Modal (for vendors) -->
 {% if current_user.role.startswith('vendor_') %}
 <div class="modal" id="addProductModal">
-    <div class="modal-content" style="max-width: 700px;">
-        <div class="modal-header">
-            <h3 class="modal-title">Add New Product</h3>
-            <button class="modal-close" onclick="closeAddProductModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <form id="addProductForm" enctype="multipart/form-data">
-                <!-- Basic Product Information -->
-                <div class="form-row">
-                    <!-- Item Number Auto-Generated Info -->
-                    <div class="form-group">
-                        <label class="form-label">Item Number</label>
-                        <div style="padding: 12px; background: var(--gray-50); border: 1px solid var(--gray-300); border-radius: 8px; color: var(--gray-600);">
-                            <i class="fas fa-magic"></i>
-                            Auto-generated (itXXXXX format)
-                        </div>
-                        <span class="form-help">Item number will be automatically assigned when product is created</span>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Category <span style="color: var(--secondary-red);">*</span></label>
-                        <select class="form-control" name="category" required>
-                            <option value="">Loading categories...</option>
-                        </select>
-                        <div style="margin-top: 4px;">
-                            <button type="button" class="btn btn-sm btn-secondary" onclick="refreshProductFormCategories()" title="Refresh categories">
-                                <i class="fas fa-sync-alt"></i>
-                                Refresh
-                            </button>
-                            <a href="/categories" class="btn btn-sm btn-primary" target="_blank" title="Manage categories in new tab">
-                                <i class="fas fa-tags"></i>
-                                Manage Categories
-                            </a>
-                        </div>
-                        <span class="form-error"></span>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Product Name <span style="color: var(--secondary-red);">*</span></label>
-                    <input type="text" class="form-control" name="product_name" required>
-                    <span class="form-error"></span>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Make/Manufacturer</label>
-                        <input type="text" class="form-control" name="product_make">
-                        <span class="form-error"></span>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Model</label>
-                        <input type="text" class="form-control" name="product_model">
-                        <span class="form-error"></span>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Description/Details</label>
-                    <textarea class="form-control" name="description" rows="3" placeholder="Product description, features, specifications..."></textarea>
-                    <span class="form-error"></span>
-                </div>
-                
-                <!-- Stock Information -->
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Quantity <span style="color: var(--secondary-red);">*</span></label>
-                        <input type="number" class="form-control" name="quantity" min="0" required>
-                        <span class="form-help">Number of units in stock</span>
-                        <span class="form-error"></span>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Low Stock Threshold</label>
-                        <input type="number" class="form-control" name="low_stock_threshold" value="10" min="0">
-                        <span class="form-help">Alert when stock falls below this number</span>
-                        <span class="form-error"></span>
-                    </div>
-                </div>
-                
-                <!-- Note about pricing -->
-                <div class="form-group">
-                    <div style="background: rgba(37, 99, 235, 0.1); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 8px; padding: 16px; color: var(--primary-blue);">
-                        <i class="fas fa-info-circle"></i>
-                        <strong>Pricing:</strong> After creating the product, set customer-specific pricing using the pricing editor on the products page.
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">GST Rate (%)</label>
-                    <select class="form-control" name="gst_rate">
-                        <option value="0">0% (Exempt)</option>
-                        <option value="5">5%</option>
-                        <option value="12">12%</option>
-                        <option value="18" selected>18%</option>
-                        <option value="28">28%</option>
-                    </select>
-                    <span class="form-error"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">HSN Code</label>
-                    <input type="text" class="form-control" name="hsn_code" placeholder="e.g., 84713000">
-                    <span class="form-help">Harmonized System of Nomenclature code for tax classification</span>
-                    <span class="form-error"></span>
-                </div>
-                
-                <!-- Product Image Upload -->
-                <div class="form-group">
-                    <label class="form-label">Product Image</label>
-                    <input type="file" 
-                        class="form-control" 
-                        name="product_image" 
-                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/tiff,image/svg+xml,image/x-icon,image/avif,image/jfif" 
-                        onchange="handleImageUpload(event)">
-                    <span class="form-help">Upload product image (All image formats supported - JPEG, PNG, GIF, WebP, BMP, TIFF, SVG, ICO, AVIF - max 16MB). Images will be automatically resized to 800x800 pixels.</span>
-                    <span class="form-error" id="imageError"></span>
-                    
-                    <!-- Image Preview -->
-                    <div id="imagePreview" style="margin-top: 12px; padding: 12px; border: 1px solid var(--gray-200); border-radius: 8px; display: none;">
-                        <!-- Preview will be inserted here -->
-                    </div>
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeAddProductModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="submitAddProduct()">
-                <i class="fas fa-plus"></i>
-                Create Product
-            </button>
-        </div>
+  <div class="modal-content" style="max-width: 700px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Add New Product</h3>
+      <button class="modal-close" onclick="closeAddProductModal()">&times;</button>
     </div>
+
+    <div class="modal-body">
+      <form id="addProductForm" enctype="multipart/form-data">
+
+        <!-- Item Number and Category -->
+        <div class="form-row" style="display: flex; gap: 16px;">
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Item Number</label>
+            <div style="padding: 12px; background: var(--gray-50); border: 1px solid var(--gray-300); border-radius: 8px; color: var(--gray-600);">
+              <i class="fas fa-magic"></i>
+              Auto-generated (itXXXXX format)
+            </div>
+            <span class="form-help">Item number is auto-assigned</span>
+          </div>
+
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Category <span style="color: var(--secondary-red);">*</span></label>
+            <select class="form-control" name="category" required>
+              <option value="">Loading categories...</option>
+            </select>
+            <div style="margin-top: 4px;">
+              <button type="button" class="btn btn-sm btn-secondary" onclick="refreshProductFormCategories()">
+                <i class="fas fa-sync-alt"></i> Refresh
+              </button>
+              <a href="/categories" class="btn btn-sm btn-primary" target="_blank">
+                <i class="fas fa-tags"></i> Manage
+              </a>
+            </div>
+            <span class="form-error"></span>
+          </div>
+        </div>
+
+        <!-- Name, Make, Model -->
+        <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Product Name <span style="color: var(--secondary-red);">*</span></label>
+            <input type="text" class="form-control" name="product_name" required>
+            <span class="form-error"></span>
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Make/Manufacturer</label>
+            <input type="text" class="form-control" name="product_make">
+            <span class="form-error"></span>
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Model</label>
+            <input type="text" class="form-control" name="product_model">
+            <span class="form-error"></span>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="form-label">Description/Details</label>
+          <textarea class="form-control" name="description" rows="3" placeholder="Product description, features, specifications..."></textarea>
+          <span class="form-error"></span>
+        </div>
+
+        <!-- Quantity & Low Stock -->
+        <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Quantity <span style="color: var(--secondary-red);">*</span></label>
+            <input type="number" class="form-control" name="quantity" min="0" required>
+            <span class="form-help">Units in stock</span>
+            <span class="form-error"></span>
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Low Stock Threshold</label>
+            <input type="number" class="form-control" name="low_stock_threshold" value="10" min="0">
+            <span class="form-help">Alert below this level</span>
+            <span class="form-error"></span>
+          </div>
+        </div>
+
+        <!-- GST and HSN -->
+        <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">GST Rate (%)</label>
+            <select class="form-control" name="gst_rate">
+              <option value="0">0% (Exempt)</option>
+              <option value="5">5%</option>
+              <option value="12">12%</option>
+              <option value="18" selected>18%</option>
+              <option value="28">28%</option>
+            </select>
+            <span class="form-error"></span>
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">HSN Code</label>
+            <input type="text" class="form-control" name="hsn_code" placeholder="e.g., 84713000">
+            <span class="form-help">Tax classification code</span>
+            <span class="form-error"></span>
+          </div>
+        </div>
+
+        <!-- Info -->
+        <div class="form-group" style="margin-top: 16px;">
+          <div style="background: rgba(37, 99, 235, 0.1); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 8px; padding: 16px; color: var(--primary-blue);">
+            <i class="fas fa-info-circle"></i>
+            <strong>Pricing:</strong> Set customer-specific pricing after product creation using the pricing editor.
+          </div>
+        </div>
+
+        <!-- Product Image -->
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="form-label">Product Image</label>
+          <input type="file" class="form-control" name="product_image" accept="image/*" onchange="handleImageUpload(event)">
+          <span class="form-help">Max size: 16MB. JPEG, PNG, etc. Auto-resized to 800×800px.</span>
+          <span class="form-error" id="imageError"></span>
+
+          <div id="imagePreview" style="margin-top: 12px; padding: 12px; border: 1px solid var(--gray-200); border-radius: 8px; display: none;"></div>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAddProductModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAddProduct()">
+        <i class="fas fa-plus"></i> Create Product
+      </button>
+    </div>
+  </div>
 </div>
 {% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1415,71 +1408,79 @@ async function editProduct(productId) {
                     <h3 class="modal-title">Edit Product</h3>
                     <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
                 </div>
+
                 <div class="modal-body">
                     <form id="editProductForm">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Product Name</label>
-                                <input type="text" class="form-control" name="product_name" value="${product.product_name}" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Category</label>
-                                <select class="form-control" name="category" required id="editCategorySelect">
-                                    <option value="">Select Category</option>
-                                </select>
-                            </div>
+
+                    <!-- Category (Full Width) -->
+                    <div class="form-group">
+                        <label class="form-label">Category</label>
+                        <select class="form-control" name="category" required id="editCategorySelect">
+                        <option value="">Select Category</option>
+                        </select>
+                    </div>
+
+                    <!-- Name, Make, Model (Side-by-Side) -->
+                    <div class="form-row" style="display: flex; gap: 16px;">
+                        <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Product Name</label>
+                        <input type="text" class="form-control" name="product_name" value="${product.product_name}" required>
                         </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Make</label>
-                                <input type="text" class="form-control" name="product_make" value="${product.product_make || ''}">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Model</label>
-                                <input type="text" class="form-control" name="product_model" value="${product.product_model || ''}">
-                            </div>
+                        <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Make</label>
+                        <input type="text" class="form-control" name="product_make" value="${product.product_make || ''}">
                         </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" name="description" rows="3">${product.description || ''}</textarea>
+                        <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Model</label>
+                        <input type="text" class="form-control" name="product_model" value="${product.product_model || ''}">
                         </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Base Price (₹)</label>
-                                <input type="number" class="form-control" name="price" value="${product.price || 0}" min="0" step="0.01">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Stock Quantity</label>
-                                <input type="number" class="form-control" name="quantity" value="${product.quantity}" min="0" required>
-                            </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3">${product.description || ''}</textarea>
+                    </div>
+
+                    <!-- Price and Quantity (Side-by-Side) -->
+                    <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
+                        <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Base Price (₹)</label>
+                        <input type="number" class="form-control" name="price" value="${product.price || 0}" min="0" step="0.01">
                         </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">GST Rate (%)</label>
-                                <select class="form-control" name="gst_rate">
-                                    <option value="0" ${product.gst_rate === 0 ? 'selected' : ''}>0%</option>
-                                    <option value="5" ${product.gst_rate === 5 ? 'selected' : ''}>5%</option>
-                                    <option value="12" ${product.gst_rate === 12 ? 'selected' : ''}>12%</option>
-                                    <option value="18" ${product.gst_rate === 18 ? 'selected' : ''}>18%</option>
-                                    <option value="28" ${product.gst_rate === 28 ? 'selected' : ''}>28%</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">HSN Code</label>
-                                <input type="text" class="form-control" name="hsn_code" value="${product.hsn_code || ''}">
-                            </div>
+                        <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Stock Quantity</label>
+                        <input type="number" class="form-control" name="quantity" value="${product.quantity}" min="0" required>
                         </div>
+                    </div>
+
+                    <!-- GST and HSN (Side-by-Side) -->
+                    <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
+                        <div class="form-group" style="flex: 1;">
+                        <label class="form-label">GST Rate (%)</label>
+                        <select class="form-control" name="gst_rate">
+                            <option value="0" ${product.gst_rate === 0 ? 'selected' : ''}>0%</option>
+                            <option value="5" ${product.gst_rate === 5 ? 'selected' : ''}>5%</option>
+                            <option value="12" ${product.gst_rate === 12 ? 'selected' : ''}>12%</option>
+                            <option value="18" ${product.gst_rate === 18 ? 'selected' : ''}>18%</option>
+                            <option value="28" ${product.gst_rate === 28 ? 'selected' : ''}>28%</option>
+                        </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                        <label class="form-label">HSN Code</label>
+                        <input type="text" class="form-control" name="hsn_code" value="${product.hsn_code || ''}">
+                        </div>
+                    </div>
+
                     </form>
                 </div>
+
                 <div class="modal-footer">
                     <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
                     <button class="btn btn-primary" onclick="saveProductChanges('${productId}', this.closest('.modal'))">Save Changes</button>
                 </div>
-            </div>
+                </div>
+
         `;
         
         document.body.appendChild(modal);
