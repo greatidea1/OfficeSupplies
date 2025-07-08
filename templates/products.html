@@ -108,22 +108,7 @@
         color: var(--gray-700);
         font-size: 0.875rem;
     }
-    
-    .search-section {
-        margin-top: 16px;
-        display: flex;
-        gap: 12px;
-        align-items: center;
-    }
-    
-    .search-input {
-        flex: 1;
-        min-width: 250px;
-        padding: 12px 16px;
-        border: 1px solid var(--gray-300);
-        border-radius: 8px;
-        font-size: 0.875rem;
-    }
+
     
     .products-grid {
         display: grid;
@@ -300,18 +285,61 @@
         margin-bottom: 8px;
     }
     
+    .filter-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        flex-wrap: wrap; /* Optional: helps responsiveness */
+        margin-bottom: 20px;
+    }
+    
+    .customer-filter-section select {
+        min-width: 220px;
+    }
+    
+
+
     .no-customer-message {
-        flex: 1;
         background-color: #fff3cd;
         border: 1px solid #ffeeba;
-        padding: 12px 16px;
-        border-radius: 6px;
         color: #856404;
+        flex-grow: 1;
+        color: #666;
+        padding: 12px;
         font-size: 14px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         gap: 8px;
     }
+    
+    .search-section {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .search-input {
+        background: white;
+        color: black;
+        border: 1px solid var(--gray-300);
+        border-radius: 6px;
+        font-size: 0.875rem; /* Matches .filter-label */
+        padding: 12px;
+        height: 40px;
+        width: 100%;
+        box-sizing: border-box;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: var(--input-shadow, none);
+    }
+    
+    .search-input:focus {
+        border-color: var(--secondary-green);
+        box-shadow: 0 0 0 2px rgba(2, 71, 200, 0.1); /* subtle focus */
+        outline: none;
+    }
+        
     
     .product-stock {
         display: flex;
@@ -605,27 +633,48 @@
                         {% endif %}
                     </select>
                 </div>
-            </div>
-
-        {% if current_user.role.startswith('vendor_') %}
-        <!-- Wrapper for left-right alignment -->
-        <div class="customer-filter-wrapper">
-            <!-- Left side: Customer dropdown -->
-            <div class="customer-filter-section">
-                <div class="filter-group">
-                    <select class="form-control" id="customerFilterProducts">
-                        <option value="">Select Customer to Edit Pricing</option>
-                    </select>
+                <!-- Clear Filters Button -->
+                <div class="filter-group" style="display: flex; align-items: end;">
+                    <button class="btn btn-secondary" onclick="clearFilters()" style="padding: 12px; width: 100%; margin-top: auto;">
+                        <i class="fas fa-times"></i>
+                        Clear Filters
+                    </button>
                 </div>
             </div>
 
-            <!-- Right side: Info message -->
-            <div class="no-customer-message" id="noCustomerMessage">
-                <i class="fas fa-arrow-circle-left"></i>
-                Select a customer from the dropdown to view and edit customer-specific pricing
+            {% if current_user.role.startswith('vendor_') %}
+            <div class="filter-toolbar">
+                <!-- Customer dropdown -->
+                <div class="customer-filter-section">
+                    <div class="filter-group">
+                        <select class="form-control" id="customerFilterProducts">
+                            <option value="">Select Customer to Edit Pricing</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Info message -->
+                <div class="no-customer-message" id="noCustomerMessage">
+                    <i class="fas fa-arrow-circle-left"></i>
+                    Select a customer from the dropdown to view and edit customer-specific pricing
+                </div>
+
+                <!-- Search section -->
+                <div class="search-section">
+                    <input 
+                        type="text" 
+                        class="search-input" 
+                        id="searchInput" 
+                        placeholder="Search products by name, make, model..."
+                    >
+                    <button class="btn btn-primary" onclick="searchProducts()">
+                        <i class="fas fa-search"></i>
+                        Search
+                    </button>
+                </div>
             </div>
-        </div>
-        {% endif %}
+            {% endif %}
+
 
         <div class="products-grid" id="productsGrid">
             <!-- Products will be loaded here -->
@@ -820,28 +869,30 @@ console.log('User role:', USER_ROLE);
 console.log('Is customer:', IS_CUSTOMER);
 console.log('Is vendor:', IS_VENDOR);
 
+// Update the DOMContentLoaded event listener with proper sequencing
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing products page');
+    console.log('User role:', USER_ROLE);
+    console.log('Is vendor:', IS_VENDOR);
+    console.log('Is customer:', IS_CUSTOMER);
     
-    // Initialize everything
+    // Setup event listeners first
+    setupEventListeners();
+    
+    // Initialize everything in proper sequence
     Promise.all([
         loadProducts(),
         loadCategoriesForProductForm(),
-        IS_VENDOR ? loadLocationsForProductForm() : Promise.resolve()
+        IS_VENDOR ? loadLocationsForProductForm() : Promise.resolve(),
+        IS_VENDOR ? setupCustomerPricingSystem() : Promise.resolve()
     ]).then(() => {
-        console.log('All initial data loaded');
+        console.log('All initial data loaded successfully');
     }).catch(error => {
         console.error('Error during initialization:', error);
     });
     
-    setupEventListeners();
-    
     if (IS_CUSTOMER) {
         loadCart();
-    }
-    
-    if (IS_VENDOR) {
-        setupCustomerPricingSystem();
     }
 });
 
@@ -927,7 +978,10 @@ async function loadProducts() {
             currentProducts = response.products;
             filteredProducts = [...currentProducts];
             
-            // Load categories and locations for filters
+            // Populate category filter with products data
+            populateCategoryFilter();
+            
+            // Load categories and locations for forms
             await Promise.all([
                 loadCategoriesForProductForm(),
                 IS_VENDOR ? loadLocationsForProductForm() : Promise.resolve()
@@ -1244,11 +1298,17 @@ async function setupCustomerPricingSystem() {
     if (!IS_VENDOR) return;
     
     try {
+        console.log('Setting up customer pricing system...');
+        
         // Load customers for the dropdown
         const response = await apiCall('/vendor/customers-dropdown');
-        if (response.success) {
+        console.log('Customers dropdown response:', response);
+        
+        if (response.success && response.customers) {
             const customerFilter = document.getElementById('customerFilterProducts');
             if (customerFilter) {
+                console.log('Populating customer filter with', response.customers.length, 'customers');
+                
                 customerFilter.innerHTML = '<option value="">Select Customer to Edit Pricing</option>' +
                     response.customers.map(customer => 
                         `<option value="${customer.customer_id}">${customer.company_name}</option>`
@@ -1256,6 +1316,7 @@ async function setupCustomerPricingSystem() {
                 
                 // Handle customer selection change
                 customerFilter.addEventListener('change', function() {
+                    console.log('Customer selection changed to:', this.value);
                     selectedCustomerId = this.value;
                     if (selectedCustomerId) {
                         loadCustomerPricing();
@@ -1268,7 +1329,13 @@ async function setupCustomerPricingSystem() {
                         });
                     }
                 });
+                
+                console.log('Customer pricing system setup complete');
+            } else {
+                console.log('Customer filter element not found - probably not on vendor page');
             }
+        } else {
+            console.error('Failed to load customers for dropdown:', response);
         }
     } catch (error) {
         console.error('Error setting up customer pricing system:', error);
@@ -1490,6 +1557,15 @@ async function editProduct(productId) {
         await loadCategoriesForProductForm();
         await loadLocationsForProductForm();
         
+        // Determine current image URL
+        let currentImageUrl = '';
+        if (product.image_urls && product.image_urls.length > 0) {
+            currentImageUrl = product.image_urls[0];
+            if (!currentImageUrl.startsWith('http') && !currentImageUrl.startsWith('/uploads/')) {
+                currentImageUrl = '/uploads/products/' + currentImageUrl;
+            }
+        }
+        
         // Create and show edit modal
         const modal = document.createElement('div');
         modal.className = 'modal show';
@@ -1501,7 +1577,7 @@ async function editProduct(productId) {
                 </div>
 
                 <div class="modal-body">
-                    <form id="editProductForm">
+                    <form id="editProductForm" enctype="multipart/form-data">
 
                     <!-- Category and Location (Side-by-Side) -->
                     <div class="form-row" style="display: flex; gap: 16px;">
@@ -1539,6 +1615,44 @@ async function editProduct(productId) {
                     <div class="form-group" style="margin-top: 16px;">
                         <label class="form-label">Description</label>
                         <textarea class="form-control" name="description" rows="3">${product.description || ''}</textarea>
+                    </div>
+
+                    <!-- Current Product Image -->
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label class="form-label">Current Product Image</label>
+                        <div id="currentImageContainer" style="border: 1px solid var(--gray-200); border-radius: 8px; padding: 16px; text-align: center; background: var(--gray-50);">
+                            ${currentImageUrl ? `
+                                <img src="${currentImageUrl}" 
+                                     alt="${product.product_name}" 
+                                     style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid var(--gray-200);"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <div style="display: none; color: var(--gray-500); padding: 20px;">
+                                    <i class="fas fa-image" style="font-size: 48px; margin-bottom: 8px;"></i><br>
+                                    Image not available
+                                </div>
+                            ` : `
+                                <div style="color: var(--gray-500); padding: 20px;">
+                                    <i class="fas fa-image" style="font-size: 48px; margin-bottom: 8px;"></i><br>
+                                    No image uploaded
+                                </div>
+                            `}
+                        </div>
+                    </div>
+
+                    <!-- Add/Change Image -->
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label class="form-label">Add/Change Product Image</label>
+                        <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 8px;">
+                            <input type="file" class="form-control" name="product_image" accept="image/*" onchange="handleEditImageUpload(event)" style="flex: 1;">
+                            <button type="button" class="btn btn-primary" onclick="document.querySelector('#editProductForm [name=\\"product_image\\"]').click()">
+                                <i class="fas fa-upload"></i> Browse
+                            </button>
+                        </div>
+                        <span class="form-help">Max size: 16MB. JPEG, PNG, etc. New image will replace the current one.</span>
+                        <span class="form-error" id="editImageError"></span>
+
+                        <!-- Hidden preview section (not used anymore but keeping for compatibility) -->
+                        <div id="editImagePreview" style="display: none;"></div>
                     </div>
 
                     <!-- Price and Quantity (Side-by-Side) -->
@@ -1621,6 +1735,55 @@ async function editProduct(productId) {
     }
 }
 
+// Add image upload handler for edit form
+function handleEditImageUpload(event) {
+    const file = event.target.files[0];
+    const preview = document.getElementById('editImagePreview');
+    const errorSpan = document.getElementById('editImageError');
+    const currentImageContainer = document.getElementById('currentImageContainer');
+    
+    if (!file) {
+        preview.style.display = 'none';
+        return;
+    }
+    
+    // Validate file size (16MB max)
+    if (file.size > 16 * 1024 * 1024) {
+        errorSpan.textContent = 'File size must be less than 16MB';
+        event.target.value = '';
+        preview.style.display = 'none';
+        return;
+    }
+    
+    // Clear any errors
+    errorSpan.textContent = '';
+    
+    // Show preview in the Current Product Image section
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        // Update the current image container to show the new image
+        currentImageContainer.innerHTML = `
+            <div style="position: relative;">
+                <img src="${e.target.result}" 
+                     alt="New Product Image" 
+                     style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid var(--gray-200);">
+                <div style="position: absolute; top: 8px; right: 8px; background: var(--secondary-green); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
+                    NEW
+                </div>
+            </div>
+            <div style="margin-top: 8px; font-size: 0.875rem; color: var(--secondary-green); font-weight: 500;">
+                <i class="fas fa-check-circle"></i> New image selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)
+            </div>
+        `;
+        
+        // Hide the separate preview section since we're showing it in current image
+        preview.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+
+
+
 // Add refresh function for locations (called by refresh button)
 function refreshProductFormLocations() {
     console.log('Manually refreshing product form locations...');
@@ -1632,35 +1795,66 @@ function refreshProductFormLocations() {
     });
 }
 
+// Update the saveProductChanges function to handle FormData with image upload
 async function saveProductChanges(productId, modal) {
     try {
         const form = modal.querySelector('#editProductForm');
         const formData = new FormData(form);
         
-        const updateData = {
-            product_name: formData.get('product_name'),
-            category: formData.get('category'),
-            product_make: formData.get('product_make'),
-            product_model: formData.get('product_model'),
-            description: formData.get('description'),
-            price: parseFloat(formData.get('price')) || 0,
-            quantity: parseInt(formData.get('quantity')) || 0,
-            gst_rate: parseFloat(formData.get('gst_rate')) || 18,
-            hsn_code: formData.get('hsn_code')
-        };
+        // Check if image file is selected
+        const imageFile = formData.get('product_image');
+        const hasImage = imageFile && imageFile.size > 0;
         
-        const response = await apiCall(`/products/${productId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData)
-        });
-        
-        if (response.success) {
-            showNotification('Product updated successfully!', 'success');
-            modal.remove();
-            loadProducts(); // Reload products
+        if (hasImage) {
+            // Use FormData for multipart upload
+            console.log('Updating product with image upload...');
+            
+            const response = await fetch(`/api/products/${productId}`, {
+                method: 'PUT',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Product updated successfully!', 'success');
+                modal.remove();
+                loadProducts(); // Reload products to show updated data
+            } else {
+                showNotification(result.message || 'Failed to update product', 'error');
+            }
         } else {
-            showNotification(response.message || 'Failed to update product', 'error');
+            // Use JSON for regular update (no image)
+            console.log('Updating product without image...');
+            
+            const updateData = {
+                product_name: formData.get('product_name'),
+                category: formData.get('category'),
+                location_id: formData.get('location_id'), // Make sure location_id is included
+                product_make: formData.get('product_make'),
+                product_model: formData.get('product_model'),
+                description: formData.get('description'),
+                price: parseFloat(formData.get('price')) || 0,
+                quantity: parseInt(formData.get('quantity')) || 0,
+                gst_rate: parseFloat(formData.get('gst_rate')) || 18,
+                hsn_code: formData.get('hsn_code')
+            };
+            
+            console.log('Update data:', updateData); // Debug log
+            
+            const response = await apiCall(`/products/${productId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+            });
+            
+            if (response.success) {
+                showNotification('Product updated successfully!', 'success');
+                modal.remove();
+                loadProducts(); // Reload products to show updated data
+            } else {
+                showNotification(response.message || 'Failed to update product', 'error');
+            }
         }
     } catch (error) {
         console.error('Error saving product changes:', error);
@@ -1787,13 +1981,23 @@ function viewCart() {
 }
 
 // Other helper functions
+// Fix the setupEventListeners function
 function setupEventListeners() {
-    document.getElementById('searchInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            searchProducts();
-        }
-    });
+    console.log('Setting up event listeners...');
     
+    // Search input event listener
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                console.log('Search triggered by Enter key');
+                searchProducts();
+            }
+        });
+        console.log('Search input listener added');
+    }
+    
+    // Filter dropdown event listeners
     const filterElements = ['categoryFilter', 'priceFilter', 'stockFilter', 'sortFilter'];
     if (IS_VENDOR) {
         filterElements.push('locationFilter');
@@ -1802,38 +2006,60 @@ function setupEventListeners() {
     filterElements.forEach(id => {
         const element = document.getElementById(id);
         if (element) {
-            element.addEventListener('change', searchProducts);
+            element.addEventListener('change', function() {
+                console.log(`Filter ${id} changed to:`, this.value);
+                searchProducts();
+            });
+            console.log(`Added listener for ${id}`);
+        } else {
+            console.log(`Filter element ${id} not found`);
         }
     });
+    
+    console.log('Event listeners setup complete');
 }
 
 // Update the populateCategoryFilter function to also handle locations
 function populateCategoryFilter() {
     const categoryFilter = document.getElementById('categoryFilter');
-    if (!categoryFilter) return;
+    if (!categoryFilter) {
+        console.log('Category filter element not found');
+        return;
+    }
     
-    const uniqueCategories = [...new Set(currentProducts.map(p => p.category))];
+    // Get unique categories from current products
+    const uniqueCategories = [...new Set(currentProducts.map(p => p.category).filter(cat => cat))];
+    console.log('Unique categories found:', uniqueCategories);
+    
+    const currentValue = categoryFilter.value; // Preserve current selection
     
     categoryFilter.innerHTML = '<option value="">All Categories</option>' +
         uniqueCategories.map(category => 
             `<option value="${category}">${category}</option>`
         ).join('');
     
-    // Also reload locations when categories are refreshed
-    if (IS_VENDOR) {
-        loadLocationsForProductForm();
+    // Restore previous selection if it still exists
+    if (currentValue && uniqueCategories.includes(currentValue)) {
+        categoryFilter.value = currentValue;
     }
+    
+    console.log('Category filter populated with', uniqueCategories.length, 'categories');
 }
 
+// Make sure searchProducts calls applyFilters
 function searchProducts() {
+    console.log('Search products triggered');
     applyFilters();
 }
 
 function applyFilters() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const category = document.getElementById('categoryFilter').value;
-    const priceRange = document.getElementById('priceFilter').value;
-    const sortBy = document.getElementById('sortFilter').value;
+    console.log('Applying filters...');
+    
+    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+    const category = document.getElementById('categoryFilter')?.value || '';
+    const priceRange = document.getElementById('priceFilter')?.value || '';
+    const stockFilter = document.getElementById('stockFilter')?.value || '';
+    const sortBy = document.getElementById('sortFilter')?.value || 'name_asc';
     
     // Get location filter for vendors
     let locationId = '';
@@ -1842,63 +2068,131 @@ function applyFilters() {
         locationId = locationFilter ? locationFilter.value : '';
     }
     
-    // Filter logic
-    filteredProducts = currentProducts.filter(product => {
-        // Search filter
-        const matchesSearch = !searchTerm || 
-            product.product_name.toLowerCase().includes(searchTerm) ||
-            (product.product_make && product.product_make.toLowerCase().includes(searchTerm)) ||
-            (product.product_model && product.product_model.toLowerCase().includes(searchTerm));
-        
-        // Category filter
-        const matchesCategory = !category || product.category === category;
-        
-        // Location filter (vendor only)
-        const matchesLocation = !locationId || product.location_id === locationId;
-        
-        // Price filter
-        let matchesPrice = true;
-        if (priceRange) {
-            const price = product.custom_price || product.price || 0;
-            if (priceRange === '0-100') matchesPrice = price < 100;
-            else if (priceRange === '100-500') matchesPrice = price >= 100 && price < 500;
-            else if (priceRange === '500-1000') matchesPrice = price >= 500 && price < 1000;
-            else if (priceRange === '1000+') matchesPrice = price >= 1000;
-        }
-        
-        return matchesSearch && matchesCategory && matchesLocation && matchesPrice;
+    console.log('Filter values:', {
+        searchTerm,
+        category,
+        priceRange,
+        stockFilter,
+        locationId,
+        sortBy
     });
     
+    // Start with all products
+    filteredProducts = currentProducts.filter(product => {
+        let match = true;
+        
+        // Search filter
+        if (searchTerm) {
+            const searchMatch = 
+                product.product_name.toLowerCase().includes(searchTerm) ||
+                (product.product_make && product.product_make.toLowerCase().includes(searchTerm)) ||
+                (product.product_model && product.product_model.toLowerCase().includes(searchTerm)) ||
+                (product.category && product.category.toLowerCase().includes(searchTerm)) ||
+                (product.description && product.description.toLowerCase().includes(searchTerm));
+            
+            if (!searchMatch) {
+                match = false;
+            }
+        }
+        
+        // Category filter
+        if (match && category) {
+            if (product.category !== category) {
+                match = false;
+            }
+        }
+        
+        // Location filter (vendor only)
+        if (match && locationId && IS_VENDOR) {
+            if (product.location_id !== locationId) {
+                match = false;
+            }
+        }
+        
+        // Stock filter (vendor only)
+        if (match && stockFilter && IS_VENDOR) {
+            const quantity = product.quantity || 0;
+            const lowStockThreshold = product.low_stock_threshold || 10;
+            
+            let stockMatch = true;
+            if (stockFilter === 'in-stock') {
+                stockMatch = quantity > lowStockThreshold;
+            } else if (stockFilter === 'low-stock') {
+                stockMatch = quantity > 0 && quantity <= lowStockThreshold;
+            } else if (stockFilter === 'out-of-stock') {
+                stockMatch = quantity === 0;
+            }
+            
+            if (!stockMatch) {
+                match = false;
+            }
+        }
+        
+        // Price filter
+        if (match && priceRange) {
+            const price = product.custom_price || product.price || 0;
+            let priceMatch = true;
+            
+            if (priceRange === '0-100') {
+                priceMatch = price < 100;
+            } else if (priceRange === '100-500') {
+                priceMatch = price >= 100 && price < 500;
+            } else if (priceRange === '500-1000') {
+                priceMatch = price >= 500 && price < 1000;
+            } else if (priceRange === '1000+') {
+                priceMatch = price >= 1000;
+            }
+            
+            if (!priceMatch) {
+                match = false;
+            }
+        }
+        
+        return match;
+    });
+    
+    console.log(`Filtered ${currentProducts.length} products down to ${filteredProducts.length}`);
+    
     // Apply sorting
+    console.log('Applying sort:', sortBy);
     if (sortBy === 'name_asc') {
         filteredProducts.sort((a, b) => a.product_name.localeCompare(b.product_name));
     } else if (sortBy === 'name_desc') {
         filteredProducts.sort((a, b) => b.product_name.localeCompare(a.product_name));
     } else if (sortBy === 'price_asc') {
-        filteredProducts.sort((a, b) => (a.custom_price || a.price) - (b.custom_price || b.price));
+        filteredProducts.sort((a, b) => (a.custom_price || a.price || 0) - (b.custom_price || b.price || 0));
     } else if (sortBy === 'price_desc') {
-        filteredProducts.sort((a, b) => (b.custom_price || b.price) - (a.custom_price || a.price));
-    } else if (sortBy === 'stock_asc') {
-        filteredProducts.sort((a, b) => a.quantity - b.quantity);
-    } else if (sortBy === 'stock_desc') {
-        filteredProducts.sort((a, b) => b.quantity - a.quantity);
+        filteredProducts.sort((a, b) => (b.custom_price || b.price || 0) - (a.custom_price || a.price || 0));
+    } else if (sortBy === 'stock_asc' && IS_VENDOR) {
+        filteredProducts.sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
+    } else if (sortBy === 'stock_desc' && IS_VENDOR) {
+        filteredProducts.sort((a, b) => (b.quantity || 0) - (a.quantity || 0));
     }
     
+    console.log('Filters and sorting applied, displaying products...');
     displayProducts();
 }
 
 // Update the clearFilters function to include location filter
 function clearFilters() {
-    document.getElementById('searchInput').value = '';
-    document.getElementById('categoryFilter').value = '';
-    document.getElementById('priceFilter').value = '';
-    if (document.getElementById('stockFilter')) {
-        document.getElementById('stockFilter').value = '';
-    }
-    if (document.getElementById('locationFilter')) {
-        document.getElementById('locationFilter').value = '';
-    }
-    document.getElementById('sortFilter').value = 'name_asc';
+    console.log('Clearing all filters...');
+    
+    const elements = [
+        { id: 'searchInput', value: '' },
+        { id: 'categoryFilter', value: '' },
+        { id: 'priceFilter', value: '' },
+        { id: 'stockFilter', value: '' },
+        { id: 'locationFilter', value: '' },
+        { id: 'sortFilter', value: 'name_asc' }
+    ];
+    
+    elements.forEach(({ id, value }) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.value = value;
+            console.log(`Cleared ${id} to ${value}`);
+        }
+    });
     
     searchProducts();
 }

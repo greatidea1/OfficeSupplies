@@ -1112,7 +1112,7 @@ def create_app():
     @login_required
     @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
     def api_update_product(product_id):
-        """API: Update product base information (without pricing)"""
+        """API: Update product with support for both JSON and multipart form data"""
         return jsonify(product_controller.update_product(product_id))
     
     @app.route('/api/products/<product_id>', methods=['DELETE'])

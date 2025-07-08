@@ -403,7 +403,7 @@ class ProductController:
             return {'success': False, 'message': 'Failed to retrieve product'}
     
     def update_product(self, product_id):
-        """Update existing product (Vendor only) - UPDATED WITH LOCATION SUPPORT"""
+        """Update existing product (Vendor only) - FIXED WITH IMAGE UPLOAD AND LOCATION SAVE"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or not current_user.role.startswith('vendor_'):
@@ -413,9 +413,19 @@ class ProductController:
             if not product:
                 return {'success': False, 'message': 'Product not found'}
             
-            data = request.get_json() if request.is_json else request.form.to_dict()
+            # Handle both form data (with image) and JSON
+            if request.content_type and request.content_type.startswith('multipart/form-data'):
+                print("Processing multipart form data (with potential image upload)")
+                data = request.form.to_dict()
+                has_image = 'product_image' in request.files and request.files['product_image'].filename
+            else:
+                print("Processing JSON data (no image)")
+                data = request.get_json()
+                has_image = False
             
-            # Update allowed fields (location_id added)
+            print(f"Update data received: {data}")
+            
+            # Update allowed fields (location_id included)
             updateable_fields = [
                 'category', 'product_name', 'product_make', 'product_model',
                 'description', 'price', 'quantity', 'gst_rate', 'hsn_code',
@@ -423,18 +433,23 @@ class ProductController:
             ]
             
             for field in updateable_fields:
-                if field in data:
+                if field in data and data[field] is not None:
                     if field == 'location_id':
                         # Validate location exists
-                        from models import Location
-                        location = Location.get_by_id(data[field])
-                        if not location:
-                            return {'success': False, 'message': 'Invalid location selected'}
-                        setattr(product, field, data[field])
+                        if data[field]:  # Only validate if not empty
+                            from models import Location
+                            location = Location.get_by_id(data[field])
+                            if not location:
+                                return {'success': False, 'message': 'Invalid location selected'}
+                            print(f"Setting location_id to: {data[field]}")
+                            setattr(product, field, data[field])
+                        else:
+                            print("Location ID is empty, setting to None")
+                            setattr(product, field, None)
                     elif field in ['price', 'gst_rate']:
-                        setattr(product, field, float(data[field]))
+                        setattr(product, field, float(data[field]) if data[field] else 0.0)
                     elif field in ['quantity', 'low_stock_threshold']:
-                        setattr(product, field, int(data[field]))
+                        setattr(product, field, int(data[field]) if data[field] else 0)
                     elif field == 'is_active':
                         setattr(product, field, bool(data[field]))
                     else:
@@ -444,16 +459,34 @@ class ProductController:
             if 'specifications' in data:
                 product.product_specifications = data['specifications']
             
+            # Handle image upload for multipart requests
+            if has_image:
+                print("Processing image upload...")
+                file = request.files['product_image']
+                if file and file.filename:
+                    image_url = self.upload_product_image(file, product.product_id)
+                    if image_url:
+                        product.image_urls = [image_url]
+                        print(f"Image uploaded successfully: {image_url}")
+                    else:
+                        return {'success': False, 'message': 'Failed to upload product image'}
+            
+            # Save the updated product
+            print("Saving updated product...")
             if product.save():
+                print("Product updated successfully in database")
                 return {
                     'success': True,
                     'message': 'Product updated successfully'
                 }
             else:
+                print("Failed to save product to database")
                 return {'success': False, 'message': 'Failed to update product'}
                 
         except Exception as e:
             print(f"Update product error: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': 'Failed to update product'}
     
     def delete_product(self, product_id):
