@@ -11,7 +11,7 @@ class ProductController:
         self.auth = auth_controller
     
     def get_products(self):
-        """Get products list with customer-specific pricing - FIXED FOR VENDORS"""
+        """Get products list with customer-specific pricing - UPDATED WITH LOCATION FILTER"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -22,6 +22,7 @@ class ProductController:
             # Get query parameters with defaults
             search = request.args.get('search', '') if request.args else ''
             category = request.args.get('category', '') if request.args else ''
+            location_id = request.args.get('location_id', '') if request.args else ''
             sort_by = request.args.get('sort', 'name_asc') if request.args else 'name_asc'
             
             try:
@@ -31,26 +32,53 @@ class ProductController:
                 page = 1
                 per_page = 50
             
-            # Get all active products
+            # Get products with location filter
             try:
-                if search or category:
-                    products = Product.search_products(search, category)
+                if location_id:
+                    products = Product.get_all_active_with_location(location_id)
                 else:
                     products = Product.get_all_active()
                 
-                print(f"Found {len(products)} active products")
+                # Apply search and category filters
+                if search or category:
+                    filtered_products = []
+                    for product in products:
+                        match = True
+                        
+                        # Search filter
+                        if search:
+                            search_lower = search.lower()
+                            match = (
+                                search_lower in (product.product_name or '').lower() or
+                                search_lower in (product.product_make or '').lower() or
+                                search_lower in (product.product_model or '').lower() or
+                                search_lower in (product.category or '').lower() or
+                                search_lower in (product.description or '').lower()
+                            )
+                        
+                        # Category filter
+                        if match and category:
+                            match = product.category == category
+                        
+                        if match:
+                            filtered_products.append(product)
+                    
+                    products = filtered_products
+                
+                print(f"Found {len(products)} products after filtering")
                 
             except Exception as e:
                 print(f"Error fetching products: {e}")
                 return {'success': False, 'message': 'Failed to fetch products from database'}
             
+            # Rest of the method remains the same...
             if not products:
                 return {
                     'success': True,
                     'products': [],
                     'categories': [],
                     'pagination': {'page': 1, 'per_page': per_page, 'total': 0, 'pages': 0},
-                    'filters': {'search': search, 'category': category, 'sort_by': sort_by}
+                    'filters': {'search': search, 'category': category, 'location_id': location_id, 'sort_by': sort_by}
                 }
             
             # Apply sorting
@@ -69,7 +97,6 @@ class ProductController:
                     products.sort(key=lambda p: p.quantity or 0, reverse=True)
             except Exception as e:
                 print(f"Error sorting products: {e}")
-                # Continue without sorting
             
             # Apply pagination
             total_products = len(products)
@@ -96,6 +123,13 @@ class ProductController:
                     product_dict['gst_amount'] = (base_price * gst_rate) / 100
                     product_dict['price_including_gst'] = base_price + product_dict['gst_amount']
                     
+                    # Add location name if location_id exists
+                    if product_dict.get('location_id'):
+                        from models import Location
+                        location = Location.get_by_id(product_dict['location_id'])
+                        if location:
+                            product_dict['location_name'] = location.name
+                    
                     # For customer users, get their custom pricing
                     if current_user.role.startswith('customer_') and current_user.customer_id:
                         try:
@@ -110,7 +144,6 @@ class ProductController:
                     
                     # For vendor users, always include the product (they manage all products)
                     if current_user.role.startswith('vendor_'):
-                        # Vendors see all products regardless of pricing
                         product_list.append(product_dict)
                     elif current_user.role.startswith('customer_'):
                         # Customers only see products with pricing (base price > 0 or custom price exists)
@@ -142,6 +175,7 @@ class ProductController:
                 'filters': {
                     'search': search,
                     'category': category,
+                    'location_id': location_id,
                     'sort_by': sort_by
                 }
             }
@@ -214,7 +248,7 @@ class ProductController:
             return None
 
     def create_product(self):
-        """Create new product (Vendor only) - UPDATED WITH AUTO ITEM NUMBER"""
+        """Create new product (Vendor only) - UPDATED WITH LOCATION SUPPORT"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or not current_user.role.startswith('vendor_'):
@@ -226,11 +260,17 @@ class ProductController:
             else:
                 data = request.get_json()
             
-            # Validate required fields (item_no removed from requirements)
-            required_fields = ['product_name', 'category', 'quantity']
+            # Validate required fields (item_no removed from requirements, location_id added)
+            required_fields = ['product_name', 'category', 'quantity', 'location_id']
             for field in required_fields:
                 if field not in data or not data[field]:
                     return {'success': False, 'message': f'{field.replace("_", " ").title()} is required'}
+            
+            # Validate location exists
+            from models import Location
+            location = Location.get_by_id(data['location_id'])
+            if not location:
+                return {'success': False, 'message': 'Invalid location selected'}
             
             # Generate auto item number
             item_no = self.generate_item_number()
@@ -250,6 +290,7 @@ class ProductController:
             product.gst_rate = float(data.get('gst_rate', 18.0))
             product.hsn_code = data.get('hsn_code', '')
             product.low_stock_threshold = int(data.get('low_stock_threshold', 10))
+            product.location_id = data['location_id']  # Set location
             
             # Handle product specifications
             if 'specifications' in data:
@@ -362,7 +403,7 @@ class ProductController:
             return {'success': False, 'message': 'Failed to retrieve product'}
     
     def update_product(self, product_id):
-        """Update existing product (Vendor only)"""
+        """Update existing product (Vendor only) - UPDATED WITH LOCATION SUPPORT"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or not current_user.role.startswith('vendor_'):
@@ -374,16 +415,23 @@ class ProductController:
             
             data = request.get_json() if request.is_json else request.form.to_dict()
             
-            # Update allowed fields
+            # Update allowed fields (location_id added)
             updateable_fields = [
                 'category', 'product_name', 'product_make', 'product_model',
                 'description', 'price', 'quantity', 'gst_rate', 'hsn_code',
-                'low_stock_threshold', 'is_active'
+                'low_stock_threshold', 'is_active', 'location_id'
             ]
             
             for field in updateable_fields:
                 if field in data:
-                    if field in ['price', 'gst_rate']:
+                    if field == 'location_id':
+                        # Validate location exists
+                        from models import Location
+                        location = Location.get_by_id(data[field])
+                        if not location:
+                            return {'success': False, 'message': 'Invalid location selected'}
+                        setattr(product, field, data[field])
+                    elif field in ['price', 'gst_rate']:
                         setattr(product, field, float(data[field]))
                     elif field in ['quantity', 'low_stock_threshold']:
                         setattr(product, field, int(data[field]))

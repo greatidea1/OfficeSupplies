@@ -560,6 +560,15 @@
                     </select>
                 </div>
 
+                {% if current_user.role.startswith('vendor_') %}
+                <div class="filter-group">
+                    <label class="filter-label">Location</label>
+                    <select class="form-control" id="locationFilter">
+                        <option value="">All Locations</option>
+                    </select>
+                </div>
+                {% endif %}
+
                 <div class="filter-group">
                     <label class="filter-label">Price Range</label>
                     <select class="form-control" id="priceFilter">
@@ -597,25 +606,6 @@
                     </select>
                 </div>
             </div>
-
-            <!-- Search Section -->
-            <div class="search-section">
-                <input 
-                    type="text" 
-                    class="search-input" 
-                    id="searchInput" 
-                    placeholder="Search products by name, make, model..."
-                >
-                <button class="btn btn-primary" onclick="searchProducts()">
-                    <i class="fas fa-search"></i>
-                    Search
-                </button>
-                <button class="btn btn-secondary" onclick="clearFilters()">
-                    <i class="fas fa-times"></i>
-                    Clear
-                </button>
-            </div>
-        </div>
 
         {% if current_user.role.startswith('vendor_') %}
         <!-- Wrapper for left-right alignment -->
@@ -672,30 +662,46 @@
 
         <!-- Item Number and Category -->
         <div class="form-row" style="display: flex; gap: 16px;">
-          <div class="form-group" style="flex: 1;">
-            <label class="form-label">Item Number</label>
-            <div style="padding: 12px; background: var(--gray-50); border: 1px solid var(--gray-300); border-radius: 8px; color: var(--gray-600);">
-              <i class="fas fa-magic"></i>
-              Auto-generated (itXXXXX format)
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">Item Number</label>
+              <div style="padding: 12px; background: var(--gray-50); border: 1px solid var(--gray-300); border-radius: 8px; color: var(--gray-600);">
+                <i class="fas fa-magic"></i>
+                Auto-generated (itXXX format)
+              </div>
+              <span class="form-help">Item number is auto-assigned</span>
             </div>
-            <span class="form-help">Item number is auto-assigned</span>
-          </div>
-
-          <div class="form-group" style="flex: 1;">
-            <label class="form-label">Category <span style="color: var(--secondary-red);">*</span></label>
-            <select class="form-control" name="category" required>
-              <option value="">Loading categories...</option>
-            </select>
-            <div style="margin-top: 4px;">
-              <button type="button" class="btn btn-sm btn-secondary" onclick="refreshProductFormCategories()">
-                <i class="fas fa-sync-alt"></i> Refresh
-              </button>
-              <a href="/categories" class="btn btn-sm btn-primary" target="_blank">
-                <i class="fas fa-tags"></i> Manage
-              </a>
+  
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">Category <span style="color: var(--secondary-red);">*</span></label>
+              <select class="form-control" name="category" required>
+                <option value="">Loading categories...</option>
+              </select>
+              <div style="margin-top: 4px;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="refreshProductFormCategories()">
+                  <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <a href="/categories" class="btn btn-sm btn-primary" target="_blank">
+                  <i class="fas fa-tags"></i> Manage
+                </a>
+              </div>
+              <span class="form-error"></span>
             </div>
-            <span class="form-error"></span>
-          </div>
+  
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">Location <span style="color: var(--secondary-red);">*</span></label>
+              <select class="form-control" name="location_id" required>
+                <option value="">Loading locations...</option>
+              </select>
+              <div style="margin-top: 4px;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="refreshProductFormLocations()">
+                  <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <a href="/locations" class="btn btn-sm btn-primary" target="_blank">
+                  <i class="fas fa-map-marker-alt"></i> Manage
+                </a>
+              </div>
+              <span class="form-error"></span>
+            </div>
         </div>
 
         <!-- Name, Make, Model -->
@@ -803,6 +809,7 @@ let categories = [];
 let cart = [];
 let selectedCustomerId = null;
 let customerPricing = {};
+let currentLocations = [];
 
 // Get user role from template safely
 const USER_ROLE = '{{ current_user.role if current_user else "none" }}';
@@ -815,11 +822,19 @@ console.log('Is vendor:', IS_VENDOR);
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing products page');
-    loadProducts();
-    setupEventListeners();
     
-    // Load categories for product forms
-    loadCategoriesForProductForm();
+    // Initialize everything
+    Promise.all([
+        loadProducts(),
+        loadCategoriesForProductForm(),
+        IS_VENDOR ? loadLocationsForProductForm() : Promise.resolve()
+    ]).then(() => {
+        console.log('All initial data loaded');
+    }).catch(error => {
+        console.error('Error during initialization:', error);
+    });
+    
+    setupEventListeners();
     
     if (IS_CUSTOMER) {
         loadCart();
@@ -830,6 +845,75 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Update the loadLocationsForProductForm function to be more robust
+async function loadLocationsForProductForm() {
+    if (!IS_VENDOR) {
+        console.log('Not a vendor user, skipping location loading');
+        return;
+    }
+    
+    try {
+        console.log('Loading locations for product form...');
+        
+        const response = await apiCall('/locations-dropdown');
+        
+        if (response.success && response.locations) {
+            console.log('Locations loaded successfully:', response.locations);
+            currentLocations = response.locations;
+            populateProductLocationDropdowns(response.locations);
+            populateLocationFilter(response.locations);
+        } else {
+            console.error('Failed to load locations:', response);
+            // Use empty array as fallback
+            currentLocations = [];
+            populateProductLocationDropdowns([]);
+            populateLocationFilter([]);
+        }
+    } catch (error) {
+        console.error('Error loading locations for product form:', error);
+        // Use empty array as fallback
+        currentLocations = [];
+        populateProductLocationDropdowns([]);
+        populateLocationFilter([]);
+    }
+}
+
+// Separate function to populate location filter dropdown
+function populateLocationFilter(locations) {
+    const locationFilter = document.getElementById('locationFilter');
+    if (locationFilter) {
+        const currentValue = locationFilter.value; // Preserve current selection
+        locationFilter.innerHTML = '<option value="">All Locations</option>' +
+            locations.map(location => `<option value="${location.location_id}">${location.name}</option>`).join('');
+        
+        // Restore previous selection if it still exists
+        if (currentValue && locations.find(loc => loc.location_id === currentValue)) {
+            locationFilter.value = currentValue;
+        }
+        console.log('Populated location filter dropdown with', locations.length, 'locations');
+    }
+}
+
+// Update the populateProductLocationDropdowns function
+function populateProductLocationDropdowns(locations) {
+    // Add Product Modal location dropdown
+    const addProductLocationSelect = document.querySelector('#addProductModal [name="location_id"]');
+    if (addProductLocationSelect) {
+        addProductLocationSelect.innerHTML = '<option value="">Select Location</option>' +
+            locations.map(location => `<option value="${location.location_id}">${location.name}</option>`).join('');
+        console.log('Populated add product location dropdown with', locations.length, 'locations');
+    }
+    
+    // Edit Product Modal location dropdown (if it exists)
+    const editProductLocationSelect = document.querySelector('#editProductModal [name="location_id"]');
+    if (editProductLocationSelect) {
+        editProductLocationSelect.innerHTML = '<option value="">Select Location</option>' +
+            locations.map(location => `<option value="${location.location_id}">${location.name}</option>`).join('');
+        console.log('Populated edit product location dropdown with', locations.length, 'locations');
+    }
+}
+
+// Update the loadProducts function to also load locations for filter
 async function loadProducts() {
     try {
         console.log('Loading products...');
@@ -843,8 +927,11 @@ async function loadProducts() {
             currentProducts = response.products;
             filteredProducts = [...currentProducts];
             
-            // Load categories dynamically instead of using hardcoded ones
-            await loadCategoriesForProductForm();
+            // Load categories and locations for filters
+            await Promise.all([
+                loadCategoriesForProductForm(),
+                IS_VENDOR ? loadLocationsForProductForm() : Promise.resolve()
+            ]);
             
             displayProducts();
         } else {
@@ -866,18 +953,18 @@ function refreshCategoriesFromCategoriesPage() {
 
 // Listen for focus events to refresh categories when user returns to products page
 document.addEventListener('visibilitychange', function() {
-    if (!document.hidden && window.location.pathname === '/products') {
-        // Page became visible, refresh categories in case they were updated
-        console.log('Products page became visible, refreshing categories...');
-        refreshProductFormCategories();
+    if (!document.hidden && window.location.pathname === '/products' && IS_VENDOR) {
+        // Page became visible, refresh locations in case they were updated
+        console.log('Products page became visible, refreshing locations...');
+        loadLocationsForProductForm();
     }
 });
 
 // Also listen for focus events on the window
 window.addEventListener('focus', function() {
-    if (window.location.pathname === '/products') {
-        console.log('Products page gained focus, refreshing categories...');
-        refreshProductFormCategories();
+    if (window.location.pathname === '/products' && IS_VENDOR) {
+        console.log('Products page gained focus, refreshing locations...');
+        loadLocationsForProductForm();
     }
 });
 
@@ -1032,6 +1119,7 @@ function displayCustomerProducts() {
     }
 }
 
+// Update the displayVendorProducts function to show location info
 function displayVendorProducts() {
     const grid = document.getElementById('productsGrid');
     
@@ -1051,6 +1139,7 @@ function displayVendorProducts() {
                     <div>
                         <div class="product-category">${product.category}</div>
                         <div class="product-name">${product.product_name}</div>
+                        ${product.location_name ? `<div style="font-size: 0.75rem; color: var(--primary-blue); margin-top: 4px;"><i class="fas fa-map-marker-alt"></i> ${product.location_name}</div>` : ''}
                     </div>
                     ${getStockIndicator(product)}
                 </div>
@@ -1388,6 +1477,7 @@ async function viewProductDetails(productId) {
 }
 
 // Edit Product Modal
+// Update the editProduct function to populate location dropdown
 async function editProduct(productId) {
     try {
         const product = currentProducts.find(p => p.product_id === productId);
@@ -1396,8 +1486,9 @@ async function editProduct(productId) {
             return;
         }
         
-        // Load fresh categories before creating edit modal
+        // Load fresh categories and locations before creating edit modal
         await loadCategoriesForProductForm();
+        await loadLocationsForProductForm();
         
         // Create and show edit modal
         const modal = document.createElement('div');
@@ -1412,27 +1503,35 @@ async function editProduct(productId) {
                 <div class="modal-body">
                     <form id="editProductForm">
 
-                    <!-- Category (Full Width) -->
-                    <div class="form-group">
-                        <label class="form-label">Category</label>
-                        <select class="form-control" name="category" required id="editCategorySelect">
-                        <option value="">Select Category</option>
-                        </select>
+                    <!-- Category and Location (Side-by-Side) -->
+                    <div class="form-row" style="display: flex; gap: 16px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Category</label>
+                            <select class="form-control" name="category" required id="editCategorySelect">
+                                <option value="">Select Category</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Location</label>
+                            <select class="form-control" name="location_id" required id="editLocationSelect">
+                                <option value="">Select Location</option>
+                            </select>
+                        </div>
                     </div>
 
                     <!-- Name, Make, Model (Side-by-Side) -->
-                    <div class="form-row" style="display: flex; gap: 16px;">
+                    <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
                         <div class="form-group" style="flex: 1;">
-                        <label class="form-label">Product Name</label>
-                        <input type="text" class="form-control" name="product_name" value="${product.product_name}" required>
+                            <label class="form-label">Product Name</label>
+                            <input type="text" class="form-control" name="product_name" value="${product.product_name}" required>
                         </div>
                         <div class="form-group" style="flex: 1;">
-                        <label class="form-label">Make</label>
-                        <input type="text" class="form-control" name="product_make" value="${product.product_make || ''}">
+                            <label class="form-label">Make</label>
+                            <input type="text" class="form-control" name="product_make" value="${product.product_make || ''}">
                         </div>
                         <div class="form-group" style="flex: 1;">
-                        <label class="form-label">Model</label>
-                        <input type="text" class="form-control" name="product_model" value="${product.product_model || ''}">
+                            <label class="form-label">Model</label>
+                            <input type="text" class="form-control" name="product_model" value="${product.product_model || ''}">
                         </div>
                     </div>
 
@@ -1445,30 +1544,30 @@ async function editProduct(productId) {
                     <!-- Price and Quantity (Side-by-Side) -->
                     <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
                         <div class="form-group" style="flex: 1;">
-                        <label class="form-label">Base Price (₹)</label>
-                        <input type="number" class="form-control" name="price" value="${product.price || 0}" min="0" step="0.01">
+                            <label class="form-label">Base Price (₹)</label>
+                            <input type="number" class="form-control" name="price" value="${product.price || 0}" min="0" step="0.01">
                         </div>
                         <div class="form-group" style="flex: 1;">
-                        <label class="form-label">Stock Quantity</label>
-                        <input type="number" class="form-control" name="quantity" value="${product.quantity}" min="0" required>
+                            <label class="form-label">Stock Quantity</label>
+                            <input type="number" class="form-control" name="quantity" value="${product.quantity}" min="0" required>
                         </div>
                     </div>
 
                     <!-- GST and HSN (Side-by-Side) -->
                     <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
                         <div class="form-group" style="flex: 1;">
-                        <label class="form-label">GST Rate (%)</label>
-                        <select class="form-control" name="gst_rate">
-                            <option value="0" ${product.gst_rate === 0 ? 'selected' : ''}>0%</option>
-                            <option value="5" ${product.gst_rate === 5 ? 'selected' : ''}>5%</option>
-                            <option value="12" ${product.gst_rate === 12 ? 'selected' : ''}>12%</option>
-                            <option value="18" ${product.gst_rate === 18 ? 'selected' : ''}>18%</option>
-                            <option value="28" ${product.gst_rate === 28 ? 'selected' : ''}>28%</option>
-                        </select>
+                            <label class="form-label">GST Rate (%)</label>
+                            <select class="form-control" name="gst_rate">
+                                <option value="0" ${product.gst_rate === 0 ? 'selected' : ''}>0%</option>
+                                <option value="5" ${product.gst_rate === 5 ? 'selected' : ''}>5%</option>
+                                <option value="12" ${product.gst_rate === 12 ? 'selected' : ''}>12%</option>
+                                <option value="18" ${product.gst_rate === 18 ? 'selected' : ''}>18%</option>
+                                <option value="28" ${product.gst_rate === 28 ? 'selected' : ''}>28%</option>
+                            </select>
                         </div>
                         <div class="form-group" style="flex: 1;">
-                        <label class="form-label">HSN Code</label>
-                        <input type="text" class="form-control" name="hsn_code" value="${product.hsn_code || ''}">
+                            <label class="form-label">HSN Code</label>
+                            <input type="text" class="form-control" name="hsn_code" value="${product.hsn_code || ''}">
                         </div>
                     </div>
 
@@ -1479,16 +1578,15 @@ async function editProduct(productId) {
                     <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
                     <button class="btn btn-primary" onclick="saveProductChanges('${productId}', this.closest('.modal'))">Save Changes</button>
                 </div>
-                </div>
-
+            </div>
         `;
         
         document.body.appendChild(modal);
         
-        // Populate category dropdown and select current category
+        // Populate dropdowns and select current values
         setTimeout(async () => {
             try {
-                // Get categories again to populate the edit form
+                // Populate categories
                 let response = await apiCall('/products/categories');
                 if (!response.success) {
                     response = await apiCall('/products/categories/simple');
@@ -1503,8 +1601,17 @@ async function editProduct(productId) {
                             ).join('');
                     }
                 }
+                
+                // Populate locations
+                const editLocationSelect = document.getElementById('editLocationSelect');
+                if (editLocationSelect) {
+                    editLocationSelect.innerHTML = '<option value="">Select Location</option>' +
+                        currentLocations.map(location => 
+                            `<option value="${location.location_id}" ${location.location_id === product.location_id ? 'selected' : ''}>${location.name}</option>`
+                        ).join('');
+                }
             } catch (error) {
-                console.error('Error loading categories for edit form:', error);
+                console.error('Error loading dropdowns for edit form:', error);
             }
         }, 100);
         
@@ -1512,6 +1619,17 @@ async function editProduct(productId) {
         console.error('Error editing product:', error);
         showNotification('Failed to load product editor', 'error');
     }
+}
+
+// Add refresh function for locations (called by refresh button)
+function refreshProductFormLocations() {
+    console.log('Manually refreshing product form locations...');
+    loadLocationsForProductForm().then(() => {
+        showNotification('Locations refreshed!', 'success');
+    }).catch(error => {
+        console.error('Error refreshing locations:', error);
+        showNotification('Failed to refresh locations', 'error');
+    });
 }
 
 async function saveProductChanges(productId, modal) {
@@ -1676,7 +1794,12 @@ function setupEventListeners() {
         }
     });
     
-    ['categoryFilter', 'priceFilter', 'stockFilter', 'sortFilter'].forEach(id => {
+    const filterElements = ['categoryFilter', 'priceFilter', 'stockFilter', 'sortFilter'];
+    if (IS_VENDOR) {
+        filterElements.push('locationFilter');
+    }
+    
+    filterElements.forEach(id => {
         const element = document.getElementById(id);
         if (element) {
             element.addEventListener('change', searchProducts);
@@ -1684,6 +1807,7 @@ function setupEventListeners() {
     });
 }
 
+// Update the populateCategoryFilter function to also handle locations
 function populateCategoryFilter() {
     const categoryFilter = document.getElementById('categoryFilter');
     if (!categoryFilter) return;
@@ -1695,7 +1819,10 @@ function populateCategoryFilter() {
             `<option value="${category}">${category}</option>`
         ).join('');
     
-    loadCategoriesForProductForm();
+    // Also reload locations when categories are refreshed
+    if (IS_VENDOR) {
+        loadLocationsForProductForm();
+    }
 }
 
 function searchProducts() {
@@ -1708,6 +1835,13 @@ function applyFilters() {
     const priceRange = document.getElementById('priceFilter').value;
     const sortBy = document.getElementById('sortFilter').value;
     
+    // Get location filter for vendors
+    let locationId = '';
+    if (IS_VENDOR) {
+        const locationFilter = document.getElementById('locationFilter');
+        locationId = locationFilter ? locationFilter.value : '';
+    }
+    
     // Filter logic
     filteredProducts = currentProducts.filter(product => {
         // Search filter
@@ -1719,6 +1853,9 @@ function applyFilters() {
         // Category filter
         const matchesCategory = !category || product.category === category;
         
+        // Location filter (vendor only)
+        const matchesLocation = !locationId || product.location_id === locationId;
+        
         // Price filter
         let matchesPrice = true;
         if (priceRange) {
@@ -1729,7 +1866,7 @@ function applyFilters() {
             else if (priceRange === '1000+') matchesPrice = price >= 1000;
         }
         
-        return matchesSearch && matchesCategory && matchesPrice;
+        return matchesSearch && matchesCategory && matchesLocation && matchesPrice;
     });
     
     // Apply sorting
@@ -1750,12 +1887,16 @@ function applyFilters() {
     displayProducts();
 }
 
+// Update the clearFilters function to include location filter
 function clearFilters() {
     document.getElementById('searchInput').value = '';
     document.getElementById('categoryFilter').value = '';
     document.getElementById('priceFilter').value = '';
     if (document.getElementById('stockFilter')) {
         document.getElementById('stockFilter').value = '';
+    }
+    if (document.getElementById('locationFilter')) {
+        document.getElementById('locationFilter').value = '';
     }
     document.getElementById('sortFilter').value = 'name_asc';
     
@@ -1783,10 +1924,20 @@ function refreshProductFormCategories() {
 
 // Add Product Modal Functions (for vendors)
 // Function to show the add product modal - THIS WAS MISSING!
+// Update the showAddProductModal function to reload locations
 function showAddProductModal() {
     const modal = document.getElementById('addProductModal');
     if (modal) {
         modal.classList.add('show');
+        
+        // Refresh locations when opening the modal
+        if (IS_VENDOR) {
+            loadLocationsForProductForm().then(() => {
+                console.log('Locations refreshed for add product modal');
+            }).catch(error => {
+                console.error('Error refreshing locations for add product modal:', error);
+            });
+        }
         
         // Focus first field (now product name since item number is auto-generated)
         setTimeout(() => {

@@ -747,6 +747,14 @@
                         <span>Products</span>
                     </a>
                     
+                    <!-- Locations (Vendor users only) -->
+                    {% if current_user.role.startswith('vendor_') %}
+                    <a href="{{ url_for('locations') }}" class="nav-link">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>Locations</span>
+                    </a>
+                    {% endif %}
+                    
                     <!-- Categories (Vendor users only) -->
                     {% if current_user.role.startswith('vendor_') %}
                     <a href="{{ url_for('categories') }}" class="nav-link">

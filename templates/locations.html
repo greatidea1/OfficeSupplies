@@ -1,0 +1,591 @@
+{% extends "base.html" %}
+
+{% block title %}Store Locations - Office Supplies System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .locations-container {
+        padding: 32px 0;
+    }
+    
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin: 0;
+    }
+    
+    .locations-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 24px;
+    }
+    
+    .location-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .location-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--primary-blue);
+    }
+    
+    .location-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 16px;
+    }
+    
+    .location-name {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 4px;
+    }
+    
+    .location-status {
+        margin-left: 16px;
+    }
+    
+    .location-details {
+        margin-bottom: 20px;
+    }
+    
+    .location-info-row {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 8px;
+        font-size: 0.875rem;
+    }
+    
+    .location-info-icon {
+        width: 16px;
+        margin-right: 8px;
+        color: var(--gray-500);
+        margin-top: 2px;
+    }
+    
+    .location-info-value {
+        color: var(--gray-700);
+        line-height: 1.4;
+    }
+    
+    .location-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: auto;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--gray-500);
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--gray-200);
+        grid-column: 1 / -1;
+    }
+    
+    .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.3;
+    }
+    
+    @media (max-width: 768px) {
+        .locations-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .location-card {
+            padding: 20px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="locations-container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Store Locations</h1>
+                <p style="color: var(--gray-600); margin: 8px 0 0 0;">
+                    Manage your store locations and inventory distribution
+                </p>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                <button class="btn btn-primary" onclick="showAddLocationModal()">
+                    <i class="fas fa-plus"></i>
+                    Add Location
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="locations-grid" id="locationsGrid">
+            <!-- Locations will be loaded here -->
+            <div style="grid-column: 1 / -1; padding: 40px; text-align: center;">
+                <div class="spinner"></div>
+                Loading locations...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Location Modal -->
+{% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+<div class="modal" id="addLocationModal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Add New Location</h3>
+            <button class="modal-close" onclick="closeAddLocationModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <form id="addLocationForm">
+                <div class="form-group">
+                    <label class="form-label">Location Name <span style="color: var(--secondary-red);">*</span></label>
+                    <input type="text" class="form-control" name="name" required placeholder="e.g., Downtown Store, Main Branch">
+                    <span class="form-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Address <span style="color: var(--secondary-red);">*</span></label>
+                    <textarea class="form-control" name="address" rows="3" required placeholder="Complete address with city, state, pincode"></textarea>
+                    <span class="form-error"></span>
+                </div>
+
+                <div class="form-row" style="display: flex; gap: 16px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" class="form-control" name="phone" placeholder="Contact number">
+                        <span class="form-error"></span>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Manager Name</label>
+                        <input type="text" class="form-control" name="manager_name" placeholder="Store manager">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" name="description" rows="2" placeholder="Additional details about this location"></textarea>
+                    <span class="form-error"></span>
+                </div>
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeAddLocationModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddLocation()">
+                <i class="fas fa-plus"></i> Create Location
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Edit Location Modal -->
+<div class="modal" id="editLocationModal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Edit Location</h3>
+            <button class="modal-close" onclick="closeEditLocationModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <form id="editLocationForm">
+                <input type="hidden" id="editLocationId">
+                
+                <div class="form-group">
+                    <label class="form-label">Location Name <span style="color: var(--secondary-red);">*</span></label>
+                    <input type="text" class="form-control" name="name" required>
+                    <span class="form-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Address <span style="color: var(--secondary-red);">*</span></label>
+                    <textarea class="form-control" name="address" rows="3" required></textarea>
+                    <span class="form-error"></span>
+                </div>
+
+                <div class="form-row" style="display: flex; gap: 16px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" class="form-control" name="phone">
+                        <span class="form-error"></span>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Manager Name</label>
+                        <input type="text" class="form-control" name="manager_name">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" name="description" rows="2"></textarea>
+                    <span class="form-error"></span>
+                </div>
+
+                {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-control" name="is_active">
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeEditLocationModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitEditLocation()">
+                <i class="fas fa-save"></i> Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentLocations = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadLocations();
+});
+
+async function loadLocations() {
+    try {
+        const response = await apiCall('/locations');
+        
+        if (response.success) {
+            currentLocations = response.locations;
+            displayLocations();
+        } else {
+            showEmptyState('No locations available');
+        }
+    } catch (error) {
+        console.error('Error loading locations:', error);
+        showEmptyState('Error loading locations');
+    }
+}
+
+function displayLocations() {
+    const grid = document.getElementById('locationsGrid');
+    
+    if (currentLocations.length === 0) {
+        showEmptyState('No locations found');
+        return;
+    }
+    
+    grid.innerHTML = currentLocations.map(location => `
+        <div class="location-card">
+            <div class="location-header">
+                <div>
+                    <div class="location-name">${location.name}</div>
+                </div>
+                <div class="location-status">
+                    ${getStatusBadge(location.is_active ? 'active' : 'inactive')}
+                </div>
+            </div>
+            
+            <div class="location-details">
+                <div class="location-info-row">
+                    <i class="fas fa-map-marker-alt location-info-icon"></i>
+                    <div class="location-info-value">${location.address}</div>
+                </div>
+                
+                ${location.phone ? `
+                    <div class="location-info-row">
+                        <i class="fas fa-phone location-info-icon"></i>
+                        <div class="location-info-value">${location.phone}</div>
+                    </div>
+                ` : ''}
+                
+                ${location.manager_name ? `
+                    <div class="location-info-row">
+                        <i class="fas fa-user location-info-icon"></i>
+                        <div class="location-info-value">${location.manager_name}</div>
+                    </div>
+                ` : ''}
+                
+                ${location.description ? `
+                    <div class="location-info-row">
+                        <i class="fas fa-info-circle location-info-icon"></i>
+                        <div class="location-info-value">${location.description}</div>
+                    </div>
+                ` : ''}
+            </div>
+            
+            <div class="location-actions">
+                <button class="btn btn-secondary btn-sm" onclick="viewLocationDetails('${location.location_id}')">
+                    <i class="fas fa-eye"></i>
+                    View Details
+                </button>
+                {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                <button class="btn btn-primary btn-sm" onclick="editLocation('${location.location_id}')">
+                    <i class="fas fa-edit"></i>
+                    Edit
+                </button>
+                {% endif %}
+                {% if current_user.role == 'vendor_superadmin' %}
+                <button class="btn btn-danger btn-sm" onclick="deleteLocation('${location.location_id}', '${location.name}')">
+                    <i class="fas fa-trash"></i>
+                    Delete
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    `).join('');
+}
+
+function showEmptyState(message = 'No locations found') {
+    const grid = document.getElementById('locationsGrid');
+    grid.innerHTML = `
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="fas fa-map-marker-alt"></i>
+            </div>
+            <h3>${message}</h3>
+            <p>Store locations will appear here when available.</p>
+        </div>
+    `;
+}
+
+// Modal functions
+function showAddLocationModal() {
+    const modal = document.getElementById('addLocationModal');
+    if (modal) {
+        modal.classList.add('show');
+        document.querySelector('#addLocationModal [name="name"]').focus();
+    }
+}
+
+function closeAddLocationModal() {
+    const modal = document.getElementById('addLocationModal');
+    if (modal) {
+        modal.classList.remove('show');
+        document.getElementById('addLocationForm').reset();
+        
+        // Clear error messages
+        const errorSpans = document.querySelectorAll('#addLocationForm .form-error');
+        errorSpans.forEach(span => span.textContent = '');
+    }
+}
+
+async function submitAddLocation() {
+    const form = document.getElementById('addLocationForm');
+    const formData = new FormData(form);
+    
+    const locationData = {
+        name: formData.get('name'),
+        address: formData.get('address'),
+        phone: formData.get('phone'),
+        manager_name: formData.get('manager_name'),
+        description: formData.get('description')
+    };
+    
+    try {
+        const response = await apiCall('/locations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(locationData)
+        });
+        
+        if (response.success) {
+            showNotification('Location created successfully!', 'success');
+            closeAddLocationModal();
+            loadLocations();
+        } else {
+            showNotification(response.message || 'Failed to create location', 'error');
+        }
+    } catch (error) {
+        console.error('Error creating location:', error);
+        showNotification('Failed to create location', 'error');
+    }
+}
+
+async function editLocation(locationId) {
+    try {
+        const location = currentLocations.find(l => l.location_id === locationId);
+        if (!location) {
+            showNotification('Location not found', 'error');
+            return;
+        }
+        
+        // Populate edit form
+        document.getElementById('editLocationId').value = locationId;
+        document.querySelector('#editLocationForm [name="name"]').value = location.name;
+        document.querySelector('#editLocationForm [name="address"]').value = location.address || '';
+        document.querySelector('#editLocationForm [name="phone"]').value = location.phone || '';
+        document.querySelector('#editLocationForm [name="manager_name"]').value = location.manager_name || '';
+        document.querySelector('#editLocationForm [name="description"]').value = location.description || '';
+        
+        const statusSelect = document.querySelector('#editLocationForm [name="is_active"]');
+        if (statusSelect) {
+            statusSelect.value = location.is_active ? 'true' : 'false';
+        }
+        
+        // Show modal
+        document.getElementById('editLocationModal').classList.add('show');
+        
+    } catch (error) {
+        console.error('Error editing location:', error);
+        showNotification('Failed to load location for editing', 'error');
+    }
+}
+
+function closeEditLocationModal() {
+    const modal = document.getElementById('editLocationModal');
+    if (modal) {
+        modal.classList.remove('show');
+        
+        // Clear error messages
+        const errorSpans = document.querySelectorAll('#editLocationForm .form-error');
+        errorSpans.forEach(span => span.textContent = '');
+    }
+}
+
+async function submitEditLocation() {
+    const form = document.getElementById('editLocationForm');
+    const formData = new FormData(form);
+    const locationId = document.getElementById('editLocationId').value;
+    
+    const updateData = {
+        name: formData.get('name'),
+        address: formData.get('address'),
+        phone: formData.get('phone'),
+        manager_name: formData.get('manager_name'),
+        description: formData.get('description')
+    };
+    
+    const statusSelect = document.querySelector('#editLocationForm [name="is_active"]');
+    if (statusSelect) {
+        updateData.is_active = statusSelect.value === 'true';
+    }
+    
+    try {
+        const response = await apiCall(`/locations/${locationId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.success) {
+            showNotification('Location updated successfully!', 'success');
+            closeEditLocationModal();
+            loadLocations();
+        } else {
+            showNotification(response.message || 'Failed to update location', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating location:', error);
+        showNotification('Failed to update location', 'error');
+    }
+}
+
+async function viewLocationDetails(locationId) {
+    try {
+        const location = currentLocations.find(l => l.location_id === locationId);
+        if (!location) {
+            showNotification('Location not found', 'error');
+            return;
+        }
+        
+        // Create and show details modal
+        const modal = document.createElement('div');
+        modal.className = 'modal show';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3 class="modal-title">Location Details</h3>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 16px;">${location.name}</h4>
+                        <div style="display: grid; gap: 12px;">
+                            <div><strong>Address:</strong><br>${location.address}</div>
+                            ${location.phone ? `<div><strong>Phone:</strong> ${location.phone}</div>` : ''}
+                            ${location.manager_name ? `<div><strong>Manager:</strong> ${location.manager_name}</div>` : ''}
+                            ${location.description ? `<div><strong>Description:</strong><br>${location.description}</div>` : ''}
+                            <div><strong>Status:</strong> ${location.is_active ? 'Active' : 'Inactive'}</div>
+                            <div><strong>Created:</strong> ${formatDateTime(location.created_at)}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Close</button>
+                    {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                    <button class="btn btn-primary" onclick="editLocation('${location.location_id}'); this.closest('.modal').remove();">Edit Location</button>
+                    {% endif %}
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    } catch (error) {
+        console.error('Error viewing location details:', error);
+        showNotification('Failed to load location details', 'error');
+    }
+}
+
+async function deleteLocation(locationId, locationName) {
+    if (!confirm(`Are you sure you want to delete "${locationName}"? This action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const response = await apiCall(`/locations/${locationId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.success) {
+            showNotification('Location deleted successfully!', 'success');
+            loadLocations();
+        } else {
+            showNotification(response.message || 'Failed to delete location', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting location:', error);
+        showNotification('Failed to delete location', 'error');
+    }
+}
+
+function getStatusBadge(status) {
+    const statusConfig = {
+        'active': { class: 'badge-success', label: 'Active' },
+        'inactive': { class: 'badge-danger', label: 'Inactive' }
+    };
+    
+    const config = statusConfig[status] || { class: 'badge-gray', label: status };
+    return `<span class="badge ${config.class}">${config.label}</span>`;
+}
+</script>
+{% endblock %}

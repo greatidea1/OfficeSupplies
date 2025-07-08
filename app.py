@@ -16,6 +16,7 @@ from controllers.customer_controller import customer_controller
 from controllers.user_controller import user_controller
 from controllers.department_controller import department_controller
 from controllers.branch_controller import branch_controller
+from controllers.location_controller import location_controller
 
 # Import models
 from models import User, Customer, Product, Order, VendorSettings
@@ -2126,6 +2127,58 @@ def create_app():
         except Exception as e:
             print(f"Get branches dropdown error: {e}")
             return jsonify({'success': False, 'message': 'Failed to retrieve branches'})
+        
+
+    # ================== LOCATION ROUTES ==================
+    
+    @app.route('/locations')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
+    def locations():
+        """Locations management page"""
+        return render_template('locations.html')
+    
+    @app.route('/api/locations')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
+    def api_locations():
+        """API: Get locations list"""
+        return jsonify(location_controller.get_locations())
+    
+    @app.route('/api/locations', methods=['POST'])
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_create_location():
+        """API: Create new location"""
+        return jsonify(location_controller.create_location())
+    
+    @app.route('/api/locations/<location_id>')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
+    def api_location_details(location_id):
+        """API: Get location details"""
+        return jsonify(location_controller.get_location(location_id))
+    
+    @app.route('/api/locations/<location_id>', methods=['PUT'])
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_update_location(location_id):
+        """API: Update location"""
+        return jsonify(location_controller.update_location(location_id))
+    
+    @app.route('/api/locations/<location_id>', methods=['DELETE'])
+    @login_required
+    @role_required('vendor_superadmin')
+    def api_delete_location(location_id):
+        """API: Delete location"""
+        return jsonify(location_controller.delete_location(location_id))
+    
+    @app.route('/api/locations-dropdown')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
+    def api_locations_dropdown():
+        """API: Get locations for dropdown"""
+        return jsonify(location_controller.get_locations_dropdown())
 
     return app
 

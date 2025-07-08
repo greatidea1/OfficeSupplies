@@ -52,6 +52,85 @@ class BaseModel:
         """Get model by ID - to be implemented by subclasses"""
         raise NotImplementedError
 
+class Location(BaseModel):
+    """Location model for vendor store locations"""
+    
+    def __init__(self):
+        super().__init__()
+        self.location_id = str(uuid.uuid4())
+        self.name = None
+        self.address = None
+        self.phone = None
+        self.manager_name = None
+        self.description = None
+        self.is_active = True
+    
+    def save(self):
+        """Save location to Firebase"""
+        try:
+            self.updated_at = datetime.now()
+            db = config.get_db()
+            doc_ref = db.collection('locations').document(self.location_id)
+            doc_ref.set(self.to_dict())
+            return True
+        except Exception as e:
+            print(f"Error saving location: {e}")
+            return False
+    
+    @classmethod
+    def get_by_id(cls, location_id):
+        """Get location by ID"""
+        try:
+            db = config.get_db()
+            doc = db.collection('locations').document(location_id).get()
+            if doc.exists:
+                return cls.from_dict(doc.to_dict())
+            return None
+        except Exception as e:
+            print(f"Error getting location by ID: {e}")
+            return None
+    
+    @classmethod
+    def get_by_name(cls, name):
+        """Get location by name"""
+        try:
+            db = config.get_db()
+            docs = db.collection('locations').where('name', '==', name).limit(1).get()
+            for doc in docs:
+                return cls.from_dict(doc.to_dict())
+            return None
+        except Exception as e:
+            print(f"Error getting location by name: {e}")
+            return None
+    
+    @classmethod
+    def get_all_active(cls):
+        """Get all active locations"""
+        try:
+            db = config.get_db()
+            docs = db.collection('locations').where('is_active', '==', True).get()
+            locations = []
+            for doc in docs:
+                locations.append(cls.from_dict(doc.to_dict()))
+            return locations
+        except Exception as e:
+            print(f"Error getting active locations: {e}")
+            return []
+    
+    @classmethod
+    def get_all(cls):
+        """Get all locations"""
+        try:
+            db = config.get_db()
+            docs = db.collection('locations').get()
+            locations = []
+            for doc in docs:
+                locations.append(cls.from_dict(doc.to_dict()))
+            return locations
+        except Exception as e:
+            print(f"Error getting all locations: {e}")
+            return []
+
 class User(BaseModel):
     """User model for authentication and user management"""
     
@@ -442,6 +521,7 @@ class Product(BaseModel):
         self.low_stock_threshold = 10
         self.image_urls = []
         self.product_specifications = {}
+        self.location_id = None  # Store location ID
     
     def save(self):
         """Save product to Firebase"""
@@ -584,6 +664,39 @@ class Product(BaseModel):
     def is_low_stock(self):
         """Check if product is low on stock"""
         return self.quantity <= self.low_stock_threshold
+    
+    @classmethod
+    def get_by_location_id(cls, location_id):
+        """Get products by location ID"""
+        try:
+            db = config.get_db()
+            docs = db.collection('products').where('location_id', '==', location_id).where('is_active', '==', True).get()
+            products = []
+            for doc in docs:
+                products.append(cls.from_dict(doc.to_dict()))
+            return products
+        except Exception as e:
+            print(f"Error getting products by location ID: {e}")
+            return []
+
+    @classmethod
+    def get_all_active_with_location(cls, location_id=None):
+        """Get all active products, optionally filtered by location"""
+        try:
+            db = config.get_db()
+            
+            if location_id:
+                docs = db.collection('products').where('is_active', '==', True).where('location_id', '==', location_id).get()
+            else:
+                docs = db.collection('products').where('is_active', '==', True).get()
+            
+            products = []
+            for doc in docs:
+                products.append(cls.from_dict(doc.to_dict()))
+            return products
+        except Exception as e:
+            print(f"Error getting products with location filter: {e}")
+            return []
 
 class Order(BaseModel):
     """Order model for order management"""
