@@ -457,6 +457,7 @@ class Branch(BaseModel):
         self.customer_id = None
         self.name = None
         self.address = None
+        self.pincode = None  # NEW FIELD: 6-digit pincode
         self.phone = None
         self.email = None
         self.manager_name = None

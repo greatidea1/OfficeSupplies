@@ -124,7 +124,7 @@ class UserController:
             return {'success': False, 'message': 'Failed to retrieve users'}
     
     def get_users(self):
-        """Get users list based on current user's permissions - FIXED VERSION"""
+        """Get users list with enhanced branch information including pincode"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -132,78 +132,203 @@ class UserController:
             
             # Get query parameters
             search = request.args.get('search', '')
-            role = request.args.get('role', '')
-            status = request.args.get('status', '')
-            customer_id = request.args.get('customer_id', '')
+            role_filter = request.args.get('role', '')
+            status_filter = request.args.get('status', '')
+            customer_filter = request.args.get('customer_id', '')
+            department_filter = request.args.get('department_id', '')
+            branch_filter = request.args.get('branch_id', '')
             
-            # Get users based on current user's role and permissions
-            if current_user.role == 'vendor_superadmin':
-                users = self.get_all_users()
-            elif current_user.role == 'vendor_admin':
-                users = self.get_vendor_and_customer_users()
+            users = []
+            
+            if current_user.role in ['vendor_superadmin', 'vendor_admin']:
+                # Vendor users can see all users or filter by customer
+                if customer_filter:
+                    users = User.get_by_customer_id(customer_filter)
+                    # Also get vendor users if no customer filter
+                    vendor_users = []
+                else:
+                    # Get all users
+                    from config import config
+                    db = config.get_db()
+                    docs = db.collection('users').get()
+                    for doc in docs:
+                        users.append(User.from_dict(doc.to_dict()))
+                        
             elif current_user.role == 'customer_hr_admin':
-                users = self.get_customer_users(current_user.customer_id)
+                # Customer HR admin can see users from their organization
+                users = User.get_by_customer_id(current_user.customer_id)
+                
+            elif current_user.role == 'customer_dept_head':
+                # Department head can see users from their department
+                users = User.get_by_department_id(current_user.department_id)
+                
             else:
                 return {'success': False, 'message': 'Insufficient permissions'}
             
             # Apply filters
-            if search:
-                search = search.lower()
-                users = [u for u in users if 
-                        search in u.username.lower() or 
-                        search in (u.full_name or '').lower() or 
-                        search in u.email.lower()]
+            filtered_users = []
             
-            if role:
-                # Handle multiple roles (comma-separated)
-                if ',' in role:
-                    role_list = [r.strip() for r in role.split(',')]
-                    users = [u for u in users if u.role in role_list]
-                else:
-                    users = [u for u in users if u.role == role]
-            
-            if status:
-                if status == 'active':
-                    users = [u for u in users if u.is_active]
-                elif status == 'inactive':
-                    users = [u for u in users if not u.is_active]
-            
-            if customer_id:
-                users = [u for u in users if u.customer_id == customer_id]
-            
-            # Sort users
-            users.sort(key=lambda u: (u.full_name or u.username or '').lower())
-            
-            # Convert to dict and add additional info
-            user_list = []
             for user in users:
+                # Skip if user doesn't match filters
+                if search:
+                    search_term = search.lower()
+                    if not (search_term in (user.username or '').lower() or 
+                        search_term in (user.full_name or '').lower() or 
+                        search_term in (user.email or '').lower()):
+                        continue
+                
+                if role_filter and user.role != role_filter:
+                    continue
+                    
+                if status_filter:
+                    if status_filter == 'active' and not user.is_active:
+                        continue
+                    elif status_filter == 'inactive' and user.is_active:
+                        continue
+                
+                if department_filter and user.department_id != department_filter:
+                    continue
+                    
+                if branch_filter and getattr(user, 'branch_id', None) != branch_filter:
+                    continue
+                
+                filtered_users.append(user)
+            
+            # Convert to dictionaries and add additional information
+            user_list = []
+            for user in filtered_users:
                 user_dict = user.to_dict()
                 
-                # Remove sensitive information
-                del user_dict['password_hash']
-                
-                # Add additional info
-                if user.customer_id:
+                # Add customer information for vendor users
+                if current_user.role.startswith('vendor_') and user.customer_id:
+                    from models import Customer
                     customer = Customer.get_by_id(user.customer_id)
-                    user_dict['customer_name'] = customer.company_name if customer else 'Unknown'
+                    if customer:
+                        user_dict['customer_name'] = customer.company_name
+                    else:
+                        user_dict['customer_name'] = 'Unknown Customer'
                 
+                # Add department information
                 if user.department_id:
+                    from models import Department
                     department = Department.get_by_id(user.department_id)
-                    user_dict['department_name'] = department.name if department else 'Unknown'
+                    if department:
+                        user_dict['department_name'] = department.name
+                    else:
+                        user_dict['department_name'] = 'Unknown Department'
+                else:
+                    user_dict['department_name'] = None
                 
-                user_dict['can_edit'] = self.can_edit_user(current_user, user)
-                user_dict['can_delete'] = self.can_delete_user(current_user, user)
+                # Add branch information with pincode
+                if hasattr(user, 'branch_id') and user.branch_id:
+                    from models import Branch
+                    branch = Branch.get_by_id(user.branch_id)
+                    if branch:
+                        # Include pincode in branch display
+                        branch_display = branch.name
+                        if hasattr(branch, 'pincode') and branch.pincode:
+                            branch_display += f" ({branch.pincode})"
+                        
+                        user_dict['branch_name'] = branch_display
+                        user_dict['branch_address'] = branch.address
+                        user_dict['branch_pincode'] = getattr(branch, 'pincode', None)
+                        user_dict['branch_name_only'] = branch.name  # For filtering purposes
+                    else:
+                        user_dict['branch_name'] = 'Unknown Branch'
+                        user_dict['branch_address'] = None
+                        user_dict['branch_pincode'] = None
+                        user_dict['branch_name_only'] = None
+                else:
+                    user_dict['branch_name'] = None
+                    user_dict['branch_address'] = None
+                    user_dict['branch_pincode'] = None
+                    user_dict['branch_name_only'] = None
+                
+                # Format role for display
+                role_map = {
+                    'vendor_superadmin': 'Vendor SuperAdmin',
+                    'vendor_admin': 'Vendor Admin', 
+                    'vendor_normal': 'Vendor User',
+                    'customer_hr_admin': 'HR Admin',
+                    'customer_dept_head': 'Department Head',
+                    'customer_employee': 'Employee'
+                }
+                user_dict['role_display'] = role_map.get(user.role, user.role)
+                
+                # Add login status - FIXED DATETIME COMPARISON
+                if user.last_login:
+                    from datetime import datetime, timedelta
+                    try:
+                        # Handle both timezone-aware and naive datetimes
+                        current_time = datetime.now()
+                        thirty_days_ago = current_time - timedelta(days=30)
+                        
+                        # Convert user.last_login to same timezone format as current_time
+                        if hasattr(user.last_login, 'tzinfo') and user.last_login.tzinfo is not None:
+                            # last_login is timezone-aware, make current_time timezone-aware
+                            if current_time.tzinfo is None:
+                                import pytz
+                                current_time = current_time.replace(tzinfo=pytz.UTC)
+                                thirty_days_ago = thirty_days_ago.replace(tzinfo=pytz.UTC)
+                        else:
+                            # last_login is timezone-naive, ensure current_time is also naive
+                            if hasattr(current_time, 'tzinfo') and current_time.tzinfo is not None:
+                                current_time = current_time.replace(tzinfo=None)
+                                thirty_days_ago = thirty_days_ago.replace(tzinfo=None)
+                        
+                        if user.last_login >= thirty_days_ago:
+                            user_dict['login_status'] = 'recent'
+                        else:
+                            user_dict['login_status'] = 'old'
+                    except Exception as e:
+                        print(f"Error comparing dates for user {user.username}: {e}")
+                        user_dict['login_status'] = 'unknown'
+                else:
+                    user_dict['login_status'] = 'never'
                 
                 user_list.append(user_dict)
             
-            # Get available roles for current user
-            available_roles = self.get_available_roles(current_user)
+            # Sort users - FIXED DATETIME COMPARISON FOR SORTING
+            sort_by = request.args.get('sort', 'name_asc')
+            if sort_by == 'name_asc':
+                user_list.sort(key=lambda u: (u.get('full_name') or u.get('username', '')).lower())
+            elif sort_by == 'name_desc':
+                user_list.sort(key=lambda u: (u.get('full_name') or u.get('username', '')).lower(), reverse=True)
+            elif sort_by == 'role_asc':
+                user_list.sort(key=lambda u: u.get('role', ''))
+            elif sort_by == 'role_desc':
+                user_list.sort(key=lambda u: u.get('role', ''), reverse=True)
+            elif sort_by == 'login_desc':
+                # Sort by login status instead of raw datetime to avoid comparison issues
+                status_order = {'recent': 3, 'old': 2, 'never': 1, 'unknown': 0}
+                user_list.sort(key=lambda u: status_order.get(u.get('login_status', 'unknown'), 0), reverse=True)
+            elif sort_by == 'created_desc':
+                # Handle created_at datetime comparison safely
+                def safe_created_at(user_dict):
+                    try:
+                        created_at = user_dict.get('created_at')
+                        if created_at:
+                            if isinstance(created_at, str):
+                                from datetime import datetime
+                                return datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                            return created_at
+                        return datetime.min
+                    except:
+                        return datetime.min
+                user_list.sort(key=safe_created_at, reverse=True)
             
             return {
                 'success': True,
                 'users': user_list,
-                'available_roles': available_roles,
-                'total': len(user_list)
+                'total': len(user_list),
+                'filters_applied': {
+                    'search': bool(search),
+                    'role': bool(role_filter),
+                    'status': bool(status_filter),
+                    'customer': bool(customer_filter),
+                    'department': bool(department_filter),
+                    'branch': bool(branch_filter)
+                }
             }
             
         except Exception as e:

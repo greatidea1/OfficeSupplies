@@ -1489,7 +1489,7 @@ def create_app():
     @app.route('/api/profile/data')
     @login_required
     def api_profile_data():
-        """API: Get enhanced profile data with branch info"""
+        """API: Get enhanced profile data with branch info including pincode"""
         try:
             current_user = auth_controller.get_current_user()
             if not current_user:
@@ -1523,12 +1523,17 @@ def create_app():
                     if department:
                         profile_data['department_name'] = department.name
                 
-                # Add branch info
+                # Add branch info with pincode
                 if hasattr(current_user, 'branch_id') and current_user.branch_id:
                     branch = Branch.get_by_id(current_user.branch_id)
                     if branch:
-                        profile_data['branch_name'] = branch.name
+                        branch_display = branch.name
+                        if branch.pincode:
+                            branch_display += f" ({branch.pincode})"
+                        
+                        profile_data['branch_name'] = branch_display
                         profile_data['branch_address'] = branch.address
+                        profile_data['branch_pincode'] = branch.pincode
             
             return jsonify({
                 'success': True,

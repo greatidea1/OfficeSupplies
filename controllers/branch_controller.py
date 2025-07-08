@@ -100,10 +100,15 @@ class BranchController:
             data = request.get_json()
             
             # Validate required fields
-            required_fields = ['name', 'address']
+            required_fields = ['name', 'address', 'pincode']
             for field in required_fields:
                 if field not in data or not data[field]:
                     return {'success': False, 'message': f'{field.replace("_", " ").title()} is required'}
+            
+            # Validate pincode (6 digits only)
+            pincode = data['pincode'].strip()
+            if not pincode.isdigit() or len(pincode) != 6:
+                return {'success': False, 'message': 'Pincode must be exactly 6 digits'}
             
             # Check if branch name already exists for this customer
             existing_branches = Branch.get_by_customer_id(current_user.customer_id)
@@ -115,6 +120,7 @@ class BranchController:
             branch.customer_id = current_user.customer_id
             branch.name = data['name']
             branch.address = data['address']
+            branch.pincode = pincode
             branch.phone = data.get('phone', '')
             branch.email = data.get('email', '')
             branch.manager_name = data.get('manager_name', '')
@@ -133,7 +139,7 @@ class BranchController:
             import traceback
             traceback.print_exc()
             return {'success': False, 'message': 'Failed to create branch'}
-    
+
     def update_branch(self, branch_id):
         """Update branch information (HR Admin only)"""
         try:
@@ -147,13 +153,21 @@ class BranchController:
             
             data = request.get_json()
             
+            # Validate pincode if provided
+            if 'pincode' in data and data['pincode']:
+                pincode = data['pincode'].strip()
+                if not pincode.isdigit() or len(pincode) != 6:
+                    return {'success': False, 'message': 'Pincode must be exactly 6 digits'}
+            
             # Update allowed fields
-            updateable_fields = ['name', 'address', 'phone', 'email', 'manager_name', 'is_active']
+            updateable_fields = ['name', 'address', 'pincode', 'phone', 'email', 'manager_name', 'is_active']
             
             for field in updateable_fields:
                 if field in data:
                     if field == 'is_active':
                         setattr(branch, field, bool(data[field]))
+                    elif field == 'pincode' and data[field]:
+                        setattr(branch, field, data[field].strip())
                     else:
                         setattr(branch, field, data[field])
             

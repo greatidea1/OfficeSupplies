@@ -119,15 +119,15 @@
     
     .product-card {
         background: white;
-        border-radius: 16px;
-        padding: 16px;
+        border-radius: 14px;
+        padding: 10px 16px; /* top/bottom: 10px, left/right: 16px */
         box-shadow: var(--shadow);
         border: 1px solid var(--gray-200);
-        transition: all 0.3s ease;
+        transition: all 0.5s ease;
         position: relative;
         overflow: hidden;
         height: fit-content;
-    }
+    }    
     
     .product-card:hover {
         transform: translateY(-4px);
@@ -1093,7 +1093,7 @@ function displayCustomerProducts() {
                 </div>
                 
                 <!-- Product Image -->
-                <div style="text-align: center; margin-bottom: 16px;">
+                <div style="text-align: center; margin-bottom: 12px;">
                     ${productImage ? `
                         <img src="${productImage}" 
                              alt="${product.product_name}" 
@@ -1144,7 +1144,7 @@ function displayCustomerProducts() {
                 </div>
                 
                 <!-- Price Section -->
-                <div style="background: var(--gray-50); padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align: center;">
+                <div style="background: var(--gray-50); padding: 2px; border-radius: 8px; margin-bottom: 4px; text-align: center;">
                     <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary-blue); margin-bottom: 4px;">
                         ₹${effectivePrice.toLocaleString('en-IN')}
                         ${product.custom_price ? '<span style="font-size: 0.75rem; color: var(--secondary-green); margin-left: 8px;">Special Price</span>' : ''}

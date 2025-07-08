@@ -76,6 +76,8 @@
     }
     
     .branch-card {
+        display: flex;
+        flex-direction: column; 
         background: white;
         border: 1px solid var(--gray-200);
         border-radius: 16px;
@@ -91,7 +93,7 @@
     }
     
     .branch-header {
-        padding: 24px;
+        padding: 12px;  
         border-bottom: 1px solid var(--gray-200);
         background: linear-gradient(135deg, var(--secondary-green), #059669);
         color: white;
@@ -116,6 +118,13 @@
         margin-bottom: 4px;
     }
     
+    .branch-pincode {
+        font-size: 0.875rem;
+        opacity: 0.9;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    
     .branch-address {
         font-size: 0.875rem;
         opacity: 0.9;
@@ -123,6 +132,7 @@
     
     .branch-body {
         padding: 20px;
+        flex-grow: 1; /* Pushes footer down */
     }
     
     .branch-stats {
@@ -168,14 +178,14 @@
     
     .branch-footer {
         padding: 16px 20px;
-        border-top: 1px solid var(--gray-200);
-        background: var(--gray-50);
+        text-align: center;
         display: flex;
-        gap: 8px;
+        justify-content: center;  /* Center content horizontally */
+        margin-bottom: 10px;
     }
     
     .action-btn {
-        flex: 1;
+        margin-top: 12px;
         padding: 8px 16px;
         border: none;
         border-radius: 6px;
@@ -183,6 +193,9 @@
         font-weight: 500;
         cursor: pointer;
         transition: all 0.3s ease;
+        margin-bottom: 10px;  /* Distance from the content above */
+        width: 100%;
+        max-width: 220px;
     }
     
     .btn-view {
@@ -379,10 +392,19 @@
         </div>
         <div class="modal-body">
             <form id="addBranchForm">
-                <div class="form-group">
-                    <label class="form-label">Branch Name</label>
-                    <input type="text" class="form-control" name="name" required>
-                    <span class="form-error"></span>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Branch Name</label>
+                        <input type="text" class="form-control" name="name" required>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Pincode</label>
+                        <input type="text" class="form-control" name="pincode" maxlength="6" pattern="[0-9]{6}" placeholder="123456" required>
+                        <span class="form-help">Enter 6-digit pincode</span>
+                        <span class="form-error"></span>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -430,10 +452,19 @@
             <form id="editBranchForm">
                 <input type="hidden" name="branch_id" id="editBranchId">
                 
-                <div class="form-group">
-                    <label class="form-label">Branch Name</label>
-                    <input type="text" class="form-control" name="name" id="editBranchName" required>
-                    <span class="form-error"></span>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Branch Name</label>
+                        <input type="text" class="form-control" name="name" id="editBranchName" required>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Pincode</label>
+                        <input type="text" class="form-control" name="pincode" id="editBranchPincode" maxlength="6" pattern="[0-9]{6}" placeholder="123456" required>
+                        <span class="form-help">Enter 6-digit pincode</span>
+                        <span class="form-error"></span>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -543,6 +574,19 @@
     document.addEventListener('DOMContentLoaded', function() {
         loadCompanyInfo();
         loadBranches();
+        
+        // Add input validation for pincode fields
+        document.querySelectorAll('input[name="pincode"]').forEach(input => {
+            input.addEventListener('input', function(e) {
+                // Only allow numbers
+                this.value = this.value.replace(/[^0-9]/g, '');
+                
+                // Limit to 6 digits
+                if (this.value.length > 6) {
+                    this.value = this.value.slice(0, 6);
+                }
+            });
+        });
     });
     
     async function loadCompanyInfo() {
@@ -616,6 +660,7 @@
             <div class="branch-card" onclick="viewBranch('${branch.branch_id}')">
                 <div class="branch-header">
                     <div class="branch-name">${branch.name}</div>
+                    ${branch.pincode ? `<div class="branch-pincode">📍 ${branch.pincode}</div>` : ''}
                     <div class="branch-address">${branch.address}</div>
                 </div>
                 <div class="branch-body">
@@ -652,11 +697,8 @@
                     </div>
                 </div>
                 <div class="branch-footer">
-                    <button class="action-btn btn-view" onclick="event.stopPropagation(); viewBranch('${branch.branch_id}')">
-                        View Details
-                    </button>
                     <button class="action-btn btn-edit" onclick="event.stopPropagation(); editBranch('${branch.branch_id}')">
-                        Edit
+                        Edit Branch
                     </button>
                 </div>
             </div>
@@ -748,6 +790,7 @@
             const branchData = {
                 name: formData.get('name'),
                 address: formData.get('address'),
+                pincode: formData.get('pincode'),
                 phone: formData.get('phone') || '',
                 email: formData.get('email') || '',
                 manager_name: formData.get('manager_name') || ''
@@ -783,6 +826,7 @@
             document.getElementById('editBranchId').value = branch.branch_id;
             document.getElementById('editBranchName').value = branch.name;
             document.getElementById('editBranchAddress').value = branch.address;
+            document.getElementById('editBranchPincode').value = branch.pincode || '';
             document.getElementById('editBranchPhone').value = branch.phone || '';
             document.getElementById('editBranchEmail').value = branch.email || '';
             document.getElementById('editBranchManager').value = branch.manager_name || '';
@@ -812,6 +856,7 @@
             const branchData = {
                 name: formData.get('name'),
                 address: formData.get('address'),
+                pincode: formData.get('pincode'),
                 phone: formData.get('phone'),
                 email: formData.get('email'),
                 manager_name: formData.get('manager_name'),
@@ -883,6 +928,7 @@
                                     ${branch.is_active ? 'Active ✅' : 'Inactive ❌'}
                                 </span>
                             </div>
+                            ${branch.pincode ? `<div><strong>Pincode:</strong> ${branch.pincode}</div>` : ''}
                             <div style="grid-column: 1 / -1;"><strong>Address:</strong> ${branch.address}</div>
                             ${branch.phone ? `<div><strong>Phone:</strong> ${branch.phone}</div>` : ''}
                             ${branch.email ? `<div><strong>Email:</strong> ${branch.email}</div>` : ''}
@@ -976,6 +1022,23 @@
                 }
                 field.style.borderColor = 'var(--secondary-red)';
                 isValid = false;
+            } else if (field.name === 'pincode') {
+                // Additional validation for pincode
+                const pincode = field.value.trim();
+                if (!pincode.match(/^[0-9]{6}$/)) {
+                    if (errorSpan) {
+                        errorSpan.textContent = 'Pincode must be exactly 6 digits';
+                        errorSpan.style.display = 'block';
+                    }
+                    field.style.borderColor = 'var(--secondary-red)';
+                    isValid = false;
+                } else {
+                    if (errorSpan) {
+                        errorSpan.textContent = '';
+                        errorSpan.style.display = 'none';
+                    }
+                    field.style.borderColor = 'var(--gray-300)';
+                }
             } else {
                 if (errorSpan) {
                     errorSpan.textContent = '';
