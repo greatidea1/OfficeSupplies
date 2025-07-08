@@ -113,17 +113,24 @@
     }
     
     .customers-header {
-        padding: 20px 24px;
+        padding: 10px 14px;
         border-bottom: 1px solid var(--gray-200);
         background: var(--gray-50);
         display: flex;
+        justify-content: center;
         align-items: center;
-        justify-content: space-between;
+    }
+    
+    .customers-center {
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
     
     .customers-info {
         color: var(--gray-600);
-        font-size: 0.875rem;
+        font-size: 1.2rem;
+
     }
     
     .view-toggle {
@@ -133,6 +140,8 @@
         padding: 4px;
         gap: 4px;
     }
+    
+    
     
     .view-btn {
         padding: 8px 12px;
@@ -565,18 +574,20 @@
         <!-- Customers Section -->
         <div class="customers-section">
             <div class="customers-header">
-                <div class="customers-info" id="customersInfo">
-                    Loading customers...
+                <div class="customers-center">
+                    <div class="customers-info" id="customersInfo">
+                        <strong>Loading customers...</strong>
+                    </div>
+                    <div class="view-toggle">
+                        <button class="view-btn active" id="gridViewBtn" onclick="setView('grid')">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button class="view-btn" id="tableViewBtn" onclick="setView('table')">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="view-toggle">
-                    <button class="view-btn active" id="gridViewBtn" onclick="setView('grid')">
-                        <i class="fas fa-th"></i>
-                    </button>
-                    <button class="view-btn" id="tableViewBtn" onclick="setView('table')">
-                        <i class="fas fa-list"></i>
-                    </button>
-                </div>
-            </div>
+            </div>                     
             
             <!-- Grid View -->
             <div class="customers-grid" id="customersGrid">
@@ -1049,10 +1060,8 @@
     function getCustomerActions(customer) {
         const actions = [];
         
-        actions.push(`<button class="action-btn btn-view" onclick="event.stopPropagation(); viewCustomer('${customer.customer_id}')">View Details</button>`);
-        
         {% if current_user.role == 'vendor_superadmin' %}
-        actions.push(`<button class="action-btn btn-edit" onclick="event.stopPropagation(); editCustomer('${customer.customer_id}')">Edit</button>`);
+        actions.push(`<button class="action-btn btn-edit" onclick="event.stopPropagation(); editCustomer('${customer.customer_id}')">Edit Customer Details</button>`);
         {% endif %}
         
         actions.push(`<button class="action-btn btn-orders" onclick="event.stopPropagation(); viewCustomerOrders('${customer.customer_id}')">Orders</button>`);
@@ -1095,10 +1104,10 @@
         const total = filteredCustomers.length;
         
         if (total === 0) {
-            info.textContent = 'No customers found';
+            info.innerHTML = '<strong>No customers found</strong>';
         } else {
-            info.textContent = `Showing ${total} customer${total !== 1 ? 's' : ''}`;
-        }
+            info.innerHTML = `<strong>Total ${total} customer${total !== 1 ? 's' : ''}</strong>`;
+        }        
     }
     
     function showEmptyState() {
