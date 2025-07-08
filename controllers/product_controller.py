@@ -11,15 +11,16 @@ class ProductController:
         self.auth = auth_controller
     
     def get_products(self):
-        """Get products list with customer-specific pricing - UPDATED WITH LOCATION FILTER"""
+        """Get products list with customer-specific pricing and multi-location support"""
         try:
+            # Authentication check
             current_user = self.auth.get_current_user()
             if not current_user:
                 return {'success': False, 'message': 'Authentication required'}
             
             print(f"User {current_user.username} with role {current_user.role} requesting products")
             
-            # Get query parameters with defaults
+            # Get query parameters with defaults and proper error handling
             search = request.args.get('search', '') if request.args else ''
             category = request.args.get('category', '') if request.args else ''
             location_id = request.args.get('location_id', '') if request.args else ''
@@ -32,7 +33,7 @@ class ProductController:
                 page = 1
                 per_page = 50
             
-            # Get products with location filter
+            # Fetch products with location filter and proper error handling
             try:
                 if location_id:
                     products = Product.get_all_active_with_location(location_id)
@@ -45,7 +46,7 @@ class ProductController:
                     for product in products:
                         match = True
                         
-                        # Search filter
+                        # Search filter - comprehensive search across multiple fields
                         if search:
                             search_lower = search.lower()
                             match = (
@@ -71,7 +72,7 @@ class ProductController:
                 print(f"Error fetching products: {e}")
                 return {'success': False, 'message': 'Failed to fetch products from database'}
             
-            # Rest of the method remains the same...
+            # Handle empty results
             if not products:
                 return {
                     'success': True,
@@ -81,7 +82,7 @@ class ProductController:
                     'filters': {'search': search, 'category': category, 'location_id': location_id, 'sort_by': sort_by}
                 }
             
-            # Apply sorting
+            # Apply sorting with proper error handling
             try:
                 if sort_by == 'name_asc':
                     products.sort(key=lambda p: (p.product_name or '').lower())
@@ -104,33 +105,65 @@ class ProductController:
             end_idx = start_idx + per_page
             paginated_products = products[start_idx:end_idx]
             
-            # Convert to dict and add additional info
+            # Convert to dict and add additional info with multi-location support
             product_list = []
             for product in paginated_products:
                 try:
                     product_dict = product.to_dict()
                     
-                    # Ensure required fields exist
+                    # Ensure required fields exist with defaults
                     product_dict['price'] = product_dict.get('price', 0)
                     product_dict['gst_rate'] = product_dict.get('gst_rate', 18.0)
                     
                     # Add computed fields
                     product_dict['is_low_stock'] = product.is_low_stock() if hasattr(product, 'is_low_stock') else False
                     
+                    # Calculate pricing with GST
                     base_price = product_dict['price']
                     gst_rate = product_dict['gst_rate']
                     
                     product_dict['gst_amount'] = (base_price * gst_rate) / 100
                     product_dict['price_including_gst'] = base_price + product_dict['gst_amount']
                     
-                    # Add location name if location_id exists
-                    if product_dict.get('location_id'):
+                    # Handle multiple locations with enhanced display
+                    location_names = []
+                    try:
                         from models import Location
-                        location = Location.get_by_id(product_dict['location_id'])
-                        if location:
-                            product_dict['location_name'] = location.name
+                        
+                        if hasattr(product, 'location_ids') and product.location_ids:
+                            # Multi-location support
+                            for location_id in product.location_ids:
+                                location = Location.get_by_id(location_id)
+                                if location:
+                                    location_display = location.name
+                                    if hasattr(location, 'pincode') and location.pincode:
+                                        location_display += f" ({location.pincode})"
+                                    location_names.append(location_display)
+                            product_dict['location_names'] = location_names
+                            product_dict['location_ids'] = product.location_ids
+                            
+                        elif hasattr(product, 'location_id') and product.location_id:
+                            # Backward compatibility for single location
+                            location = Location.get_by_id(product.location_id)
+                            if location:
+                                location_display = location.name
+                                if hasattr(location, 'pincode') and location.pincode:
+                                    location_display += f" ({location.pincode})"
+                                location_names.append(location_display)
+                            product_dict['location_names'] = location_names
+                            product_dict['location_ids'] = [product.location_id] if product.location_id else []
+                            
+                        else:
+                            # No location data
+                            product_dict['location_names'] = []
+                            product_dict['location_ids'] = []
+                            
+                    except Exception as location_error:
+                        print(f"Error processing location data for product {product.product_id}: {location_error}")
+                        product_dict['location_names'] = []
+                        product_dict['location_ids'] = []
                     
-                    # For customer users, get their custom pricing
+                    # Handle customer-specific pricing
                     if current_user.role.startswith('customer_') and current_user.customer_id:
                         try:
                             custom_price = self.get_customer_pricing(product.product_id, current_user.customer_id)
@@ -139,29 +172,31 @@ class ProductController:
                                 product_dict['gst_amount'] = (custom_price * gst_rate) / 100
                                 product_dict['price_including_gst'] = custom_price + product_dict['gst_amount']
                                 print(f"Applied custom price {custom_price} for product {product.product_id}")
-                        except Exception as e:
-                            print(f"Error getting custom pricing for product {product.product_id}: {e}")
+                        except Exception as pricing_error:
+                            print(f"Error getting custom pricing for product {product.product_id}: {pricing_error}")
                     
-                    # For vendor users, always include the product (they manage all products)
+                    # Role-based product filtering
                     if current_user.role.startswith('vendor_'):
+                        # Vendors see all products
                         product_list.append(product_dict)
                     elif current_user.role.startswith('customer_'):
-                        # Customers only see products with pricing (base price > 0 or custom price exists)
+                        # Customers only see products with valid pricing
                         effective_price = product_dict.get('custom_price', product_dict.get('price', 0))
                         if effective_price > 0:
                             product_list.append(product_dict)
                     
-                except Exception as e:
-                    print(f"Error processing product {getattr(product, 'product_id', 'unknown')}: {e}")
+                except Exception as product_error:
+                    print(f"Error processing product {getattr(product, 'product_id', 'unknown')}: {product_error}")
                     continue
             
-            # Get categories for filtering
+            # Get categories for filtering with error handling
             try:
                 categories = self.get_product_categories()
-            except Exception as e:
-                print(f"Error getting categories: {e}")
+            except Exception as category_error:
+                print(f"Error getting categories: {category_error}")
                 categories = []
             
+            # Prepare final result
             result = {
                 'success': True,
                 'products': product_list,
@@ -188,6 +223,34 @@ class ProductController:
             import traceback
             traceback.print_exc()
             return {'success': False, 'message': f'Failed to retrieve products: {str(e)}'}
+        
+    @classmethod  
+    def get_products_by_location_ids(cls, location_ids):
+        """Get products that are available at any of the specified locations"""
+        try:
+            db = config.get_db()
+            products = []
+            
+            # Get all active products
+            docs = db.collection('products').where('is_active', '==', True).get()
+            
+            for doc in docs:
+                product_data = doc.to_dict()
+                product = cls.from_dict(product_data)
+                
+                # Check if product is in any of the specified locations
+                product_locations = getattr(product, 'location_ids', [])
+                if not product_locations and hasattr(product, 'location_id') and product.location_id:
+                    # Backward compatibility
+                    product_locations = [product.location_id]
+                
+                if any(loc_id in location_ids for loc_id in product_locations):
+                    products.append(product)
+            
+            return products
+        except Exception as e:
+            print(f"Error getting products by location IDs: {e}")
+            return []
 
     def upload_product_image(self, file, product_id):
         """Upload product image - SIMPLIFIED VERSION"""
@@ -248,7 +311,7 @@ class ProductController:
             return None
 
     def create_product(self):
-        """Create new product (Vendor only) - UPDATED WITH LOCATION SUPPORT"""
+        """Create new product (Vendor only) - UPDATED WITH MULTI-LOCATION SUPPORT"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or not current_user.role.startswith('vendor_'):
@@ -257,20 +320,28 @@ class ProductController:
             # Handle both form data and JSON
             if request.content_type and request.content_type.startswith('multipart/form-data'):
                 data = request.form.to_dict()
+                # Handle multiple location selections from form
+                location_ids = request.form.getlist('location_ids')
             else:
                 data = request.get_json()
+                location_ids = data.get('location_ids', [])
             
-            # Validate required fields (item_no removed from requirements, location_id added)
-            required_fields = ['product_name', 'category', 'quantity', 'location_id']
+            # Validate required fields
+            required_fields = ['product_name', 'category', 'quantity']
             for field in required_fields:
                 if field not in data or not data[field]:
                     return {'success': False, 'message': f'{field.replace("_", " ").title()} is required'}
             
-            # Validate location exists
+            # Validate at least one location is selected
+            if not location_ids or len(location_ids) == 0:
+                return {'success': False, 'message': 'At least one location must be selected'}
+            
+            # Validate all selected locations exist
             from models import Location
-            location = Location.get_by_id(data['location_id'])
-            if not location:
-                return {'success': False, 'message': 'Invalid location selected'}
+            for location_id in location_ids:
+                location = Location.get_by_id(location_id)
+                if not location:
+                    return {'success': False, 'message': f'Invalid location selected: {location_id}'}
             
             # Generate auto item number
             item_no = self.generate_item_number()
@@ -279,7 +350,7 @@ class ProductController:
             
             # Create new product
             product = Product()
-            product.item_no = item_no  # Use auto-generated item number
+            product.item_no = item_no
             product.category = data['category']
             product.product_name = data['product_name']
             product.product_make = data.get('product_make', '')
@@ -290,7 +361,11 @@ class ProductController:
             product.gst_rate = float(data.get('gst_rate', 18.0))
             product.hsn_code = data.get('hsn_code', '')
             product.low_stock_threshold = int(data.get('low_stock_threshold', 10))
-            product.location_id = data['location_id']  # Set location
+            
+            # Set multiple locations
+            product.location_ids = location_ids
+            # Set primary location for backward compatibility
+            product.location_id = location_ids[0] if location_ids else None
             
             # Handle product specifications
             if 'specifications' in data:

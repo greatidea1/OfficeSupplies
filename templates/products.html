@@ -539,6 +539,148 @@
             margin-top: 20px;
         }
     }
+
+    /* Multi-select location styles */
+    .multi-select-container {
+        position: relative;
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        background: white;
+        min-height: 42px;
+        padding: 8px;
+        cursor: pointer;
+        transition: border-color 0.2s ease;
+    }
+
+    .multi-select-container:hover {
+        border-color: var(--primary-blue);
+    }
+
+    .multi-select-container.open {
+        border-color: var(--primary-blue);
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+    }
+
+    .multi-select-display {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        min-height: 24px;
+        align-items: center;
+    }
+
+    .selected-location {
+        background: var(--primary-blue);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 16px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .remove-location {
+        background: rgba(255, 255, 255, 0.3);
+        border: none;
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.75rem;
+        transition: background 0.2s ease;
+    }
+
+    .remove-location:hover {
+        background: rgba(255, 255, 255, 0.5);
+    }
+
+    .multi-select-placeholder {
+        color: var(--gray-500);
+        font-style: italic;
+        font-size: 0.875rem;
+    }
+
+    .multi-select-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        box-shadow: var(--shadow-lg);
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        margin-top: 4px;
+        display: none;
+    }
+
+    .multi-select-dropdown.show {
+        display: block;
+    }
+
+    .multi-select-option {
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        border-bottom: 1px solid var(--gray-100);
+        transition: background 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .multi-select-option:last-child {
+        border-bottom: none;
+    }
+
+    .multi-select-option:hover {
+        background: var(--gray-50);
+    }
+
+    .multi-select-option.selected {
+        background: rgba(37, 99, 235, 0.1);
+        color: var(--primary-blue);
+        font-weight: 500;
+    }
+
+    .multi-select-checkbox {
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--gray-300);
+        border-radius: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+    .multi-select-option.selected .multi-select-checkbox {
+        background: var(--primary-blue);
+        border-color: var(--primary-blue);
+        color: white;
+    }
+
+    .multi-select-search {
+        padding: 8px 12px;
+        border: none;
+        border-bottom: 1px solid var(--gray-200);
+        width: 100%;
+        font-size: 0.875rem;
+        outline: none;
+    }
+
+    .multi-select-search:focus {
+        background: var(--gray-50);
+    }
+
+    /* Update the Add Product Modal section in the existing HTML */
 </style>
 {% endblock %}
 
@@ -757,22 +899,22 @@
               </div>
               <span class="form-error"></span>
             </div>
-  
-            <div class="form-group" style="flex: 1;">
-              <label class="form-label">Location <span style="color: var(--secondary-red);">*</span></label>
-              <select class="form-control" name="location_id" required>
-                <option value="">Loading locations...</option>
-              </select>
-              <div style="margin-top: 4px;">
-                <button type="button" class="btn btn-sm btn-secondary" onclick="refreshProductFormLocations()">
-                  <i class="fas fa-sync-alt"></i> Refresh
-                </button>
-                <a href="/locations" class="btn btn-sm btn-primary" target="_blank">
-                  <i class="fas fa-map-marker-alt"></i> Manage
-                </a>
-              </div>
-              <span class="form-error"></span>
-            </div>
+        </div>
+
+        <!-- Locations Multi-Select -->
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="form-label">Locations <span style="color: var(--secondary-red);">*</span></label>
+          <div id="addProductLocationSelect"></div>
+          <span class="form-help">Select one or more locations where this product will be available</span>
+          <div style="margin-top: 4px;">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="refreshProductFormLocations()">
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <a href="/locations" class="btn btn-sm btn-primary" target="_blank">
+              <i class="fas fa-map-marker-alt"></i> Manage
+            </a>
+          </div>
+          <span class="form-error"></span>
         </div>
 
         <!-- Name, Make, Model -->
@@ -881,6 +1023,7 @@ let cart = [];
 let selectedCustomerId = null;
 let customerPricing = {};
 let currentLocations = [];
+let addProductLocationSelect, editProductLocationSelect;
 
 // Get user role from template safely
 const USER_ROLE = '{{ current_user.role if current_user else "none" }}';
@@ -918,6 +1061,177 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Multi-select location management
+class MultiSelectLocation {
+    constructor(containerId, options = {}) {
+        this.container = document.getElementById(containerId);
+        this.options = options;
+        this.selectedLocations = [];
+        this.allLocations = [];
+        this.isOpen = false;
+        
+        this.init();
+    }
+    
+    init() {
+        if (!this.container) return;
+        
+        this.container.innerHTML = `
+            <div class="multi-select-container" onclick="this.multiSelect.toggle()">
+                <div class="multi-select-display">
+                    <span class="multi-select-placeholder">Select locations...</span>
+                </div>
+                <div class="multi-select-dropdown">
+                    <input type="text" class="multi-select-search" placeholder="Search locations..." onclick="event.stopPropagation()">
+                    <div class="multi-select-options"></div>
+                </div>
+            </div>
+        `;
+        
+        // Store reference to this instance
+        this.container.querySelector('.multi-select-container').multiSelect = this;
+        
+        // Setup search functionality
+        const searchInput = this.container.querySelector('.multi-select-search');
+        searchInput.addEventListener('input', (e) => this.filterOptions(e.target.value));
+        searchInput.addEventListener('keydown', (e) => e.stopPropagation());
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!this.container.contains(e.target)) {
+                this.close();
+            }
+        });
+    }
+    
+    setLocations(locations) {
+        this.allLocations = locations;
+        this.renderOptions();
+    }
+    
+    setSelected(locationIds) {
+        this.selectedLocations = this.allLocations.filter(loc => 
+            locationIds.includes(loc.location_id)
+        );
+        this.updateDisplay();
+    }
+    
+    getSelected() {
+        return this.selectedLocations.map(loc => loc.location_id);
+    }
+    
+    toggle() {
+        if (this.isOpen) {
+            this.close();
+        } else {
+            this.open();
+        }
+    }
+    
+    open() {
+        this.isOpen = true;
+        const container = this.container.querySelector('.multi-select-container');
+        const dropdown = this.container.querySelector('.multi-select-dropdown');
+        
+        container.classList.add('open');
+        dropdown.classList.add('show');
+        
+        // Focus search input
+        const searchInput = this.container.querySelector('.multi-select-search');
+        setTimeout(() => searchInput.focus(), 10);
+    }
+    
+    close() {
+        this.isOpen = false;
+        const container = this.container.querySelector('.multi-select-container');
+        const dropdown = this.container.querySelector('.multi-select-dropdown');
+        
+        container.classList.remove('open');
+        dropdown.classList.remove('show');
+        
+        // Clear search
+        const searchInput = this.container.querySelector('.multi-select-search');
+        searchInput.value = '';
+        this.filterOptions('');
+    }
+    
+    toggleLocation(location) {
+        const index = this.selectedLocations.findIndex(loc => loc.location_id === location.location_id);
+        
+        if (index >= 0) {
+            this.selectedLocations.splice(index, 1);
+        } else {
+            this.selectedLocations.push(location);
+        }
+        
+        this.updateDisplay();
+        this.renderOptions();
+        
+        // Trigger change event if callback provided
+        if (this.options.onChange) {
+            this.options.onChange(this.getSelected());
+        }
+    }
+    
+    removeLocation(locationId) {
+        this.selectedLocations = this.selectedLocations.filter(loc => loc.location_id !== locationId);
+        this.updateDisplay();
+        this.renderOptions();
+        
+        if (this.options.onChange) {
+            this.options.onChange(this.getSelected());
+        }
+    }
+    
+    updateDisplay() {
+        const display = this.container.querySelector('.multi-select-display');
+        
+        if (this.selectedLocations.length === 0) {
+            display.innerHTML = '<span class="multi-select-placeholder">Select locations...</span>';
+        } else {
+            display.innerHTML = this.selectedLocations.map(location => `
+                <div class="selected-location">
+                    ${location.name}${location.pincode ? ` (${location.pincode})` : ''}
+                    <button type="button" class="remove-location" onclick="event.stopPropagation(); this.closest('.multi-select-container').multiSelect.removeLocation('${location.location_id}')">
+                        ×
+                    </button>
+                </div>
+            `).join('');
+        }
+    }
+    
+    renderOptions(filteredLocations = null) {
+        const optionsContainer = this.container.querySelector('.multi-select-options');
+        const locationsToShow = filteredLocations || this.allLocations;
+        
+        optionsContainer.innerHTML = locationsToShow.map(location => {
+            const isSelected = this.selectedLocations.some(loc => loc.location_id === location.location_id);
+            return `
+                <div class="multi-select-option ${isSelected ? 'selected' : ''}" onclick="this.closest('.multi-select-container').multiSelect.toggleLocation(${JSON.stringify(location).replace(/"/g, '&quot;')})">
+                    <div class="multi-select-checkbox">
+                        ${isSelected ? '<i class="fas fa-check"></i>' : ''}
+                    </div>
+                    ${location.name}${location.pincode ? ` (${location.pincode})` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+    
+    filterOptions(searchTerm) {
+        if (!searchTerm.trim()) {
+            this.renderOptions();
+            return;
+        }
+        
+        const filtered = this.allLocations.filter(location =>
+            location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (location.pincode && location.pincode.includes(searchTerm))
+        );
+        
+        this.renderOptions(filtered);
+    }
+}
+
 // Update the loadLocationsForProductForm function to be more robust
 async function loadLocationsForProductForm() {
     if (!IS_VENDOR) {
@@ -933,21 +1247,35 @@ async function loadLocationsForProductForm() {
         if (response.success && response.locations) {
             console.log('Locations loaded successfully:', response.locations);
             currentLocations = response.locations;
-            populateProductLocationDropdowns(response.locations);
+            
+            // Initialize multi-select for add product form
+            if (document.getElementById('addProductLocationSelect')) {
+                addProductLocationSelect = new MultiSelectLocation('addProductLocationSelect', {
+                    onChange: (selectedIds) => {
+                        console.log('Add product locations changed:', selectedIds);
+                    }
+                });
+                addProductLocationSelect.setLocations(response.locations);
+            }
+            
+            // Initialize multi-select for edit product form if it exists
+            if (document.getElementById('editProductLocationSelect')) {
+                editProductLocationSelect = new MultiSelectLocation('editProductLocationSelect', {
+                    onChange: (selectedIds) => {
+                        console.log('Edit product locations changed:', selectedIds);
+                    }
+                });
+                editProductLocationSelect.setLocations(response.locations);
+            }
+            
             populateLocationFilter(response.locations);
         } else {
             console.error('Failed to load locations:', response);
-            // Use empty array as fallback
             currentLocations = [];
-            populateProductLocationDropdowns([]);
-            populateLocationFilter([]);
         }
     } catch (error) {
         console.error('Error loading locations for product form:', error);
-        // Use empty array as fallback
         currentLocations = [];
-        populateProductLocationDropdowns([]);
-        populateLocationFilter([]);
     }
 }
 
@@ -1209,13 +1537,23 @@ function displayVendorProducts() {
             }
         }
         
+        // Handle multiple locations display
+        let locationDisplay = '';
+        if (product.location_names && product.location_names.length > 0) {
+            if (product.location_names.length === 1) {
+                locationDisplay = `<div style="font-size: 0.75rem; color: var(--primary-blue); margin-top: 4px;"><i class="fas fa-map-marker-alt"></i> ${product.location_names[0]}</div>`;
+            } else {
+                locationDisplay = `<div style="font-size: 0.75rem; color: var(--primary-blue); margin-top: 4px;"><i class="fas fa-map-marker-alt"></i> ${product.location_names.length} locations</div>`;
+            }
+        }
+        
         return `
             <div class="product-card">
                 <div class="product-header">
                     <div>
                         <div class="product-category">${product.category}</div>
                         <div class="product-name">${product.product_name}</div>
-                        ${product.location_name ? `<div style="font-size: 0.75rem; color: var(--primary-blue); margin-top: 4px;"><i class="fas fa-map-marker-alt"></i> ${product.location_name}</div>` : ''}
+                        ${locationDisplay}
                     </div>
                     ${getStockIndicator(product)}
                 </div>
@@ -1258,6 +1596,12 @@ function displayVendorProducts() {
                         <span class="product-info-label">Stock:</span>
                         <span class="product-info-value">${product.quantity} units</span>
                     </div>
+                    ${product.location_names && product.location_names.length > 1 ? `
+                        <div class="product-info-row">
+                            <span class="product-info-label">Locations:</span>
+                            <span class="product-info-value" style="font-size: 0.75rem;">${product.location_names.slice(0, 2).join(', ')}${product.location_names.length > 2 ? ` +${product.location_names.length - 2} more` : ''}</span>
+                        </div>
+                    ` : ''}
                 </div>
                 
                 ${getPriceSection(product)}
@@ -1601,26 +1945,25 @@ async function editProduct(productId) {
                 <div class="modal-body">
                     <form id="editProductForm" enctype="multipart/form-data">
 
-                    <!-- Category and Location (Side-by-Side) -->
+                    <!-- Category and Locations Row -->
                     <div class="form-row" style="display: flex; gap: 16px;">
                         <div class="form-group" style="flex: 1;">
-                            <label class="form-label">Category</label>
+                            <label class="form-label">Category <span style="color: var(--secondary-red);">*</span></label>
                             <select class="form-control" name="category" required id="editCategorySelect">
                                 <option value="">Select Category</option>
                             </select>
                         </div>
-                        <div class="form-group" style="flex: 1;">
-                            <label class="form-label">Location</label>
-                            <select class="form-control" name="location_id" required id="editLocationSelect">
-                                <option value="">Select Location</option>
-                            </select>
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Locations <span style="color: var(--secondary-red);">*</span></label>
+                            <div id="editProductLocationSelect"></div>
+                            <span class="form-help">Select one or more locations where this product is available</span>
                         </div>
                     </div>
 
                     <!-- Name, Make, Model (Side-by-Side) -->
                     <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
                         <div class="form-group" style="flex: 1;">
-                            <label class="form-label">Product Name</label>
+                            <label class="form-label">Product Name <span style="color: var(--secondary-red);">*</span></label>
                             <input type="text" class="form-control" name="product_name" value="${product.product_name}" required>
                         </div>
                         <div class="form-group" style="flex: 1;">
@@ -1666,12 +2009,9 @@ async function editProduct(productId) {
                         <label class="form-label">Add/Change Product Image</label>
                         <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 8px;">
                             <input type="file" class="form-control" name="product_image" accept="image/*" onchange="handleEditImageUpload(event)" style="flex: 1;">
-                            
                         </div>
                         <span class="form-help">Max size: 16MB. JPEG, PNG, etc. New image will replace the current one.</span>
                         <span class="form-error" id="editImageError"></span>
-
-                        <!-- Hidden preview section (not used anymore but keeping for compatibility) -->
                         <div id="editImagePreview" style="display: none;"></div>
                     </div>
 
@@ -1717,41 +2057,48 @@ async function editProduct(productId) {
         
         document.body.appendChild(modal);
         
-        // Populate dropdowns and select current values
-        setTimeout(async () => {
-            try {
-                // Populate categories
-                let response = await apiCall('/products/categories');
-                if (!response.success) {
-                    response = await apiCall('/products/categories/simple');
+        // Initialize multi-select for edit form after modal is added to DOM
+        setTimeout(() => {
+            // Initialize edit product location multi-select
+            editProductLocationSelect = new MultiSelectLocation('editProductLocationSelect', {
+                onChange: (selectedIds) => {
+                    console.log('Edit product locations changed:', selectedIds);
                 }
-                
-                if (response.success && response.categories) {
-                    const editCategorySelect = document.getElementById('editCategorySelect');
-                    if (editCategorySelect) {
-                        editCategorySelect.innerHTML = '<option value="">Select Category</option>' +
-                            response.categories.map(category => 
-                                `<option value="${category}" ${category === product.category ? 'selected' : ''}>${category}</option>`
-                            ).join('');
-                    }
-                }
-                
-                // Populate locations
-                const editLocationSelect = document.getElementById('editLocationSelect');
-                if (editLocationSelect) {
-                    editLocationSelect.innerHTML = '<option value="">Select Location</option>' +
-                        currentLocations.map(location => 
-                            `<option value="${location.location_id}" ${location.location_id === product.location_id ? 'selected' : ''}>${location.name}</option>`
-                        ).join('');
-                }
-            } catch (error) {
-                console.error('Error loading dropdowns for edit form:', error);
-            }
+            });
+            editProductLocationSelect.setLocations(currentLocations);
+            
+            // Set current product locations
+            const currentLocationIds = product.location_ids || (product.location_id ? [product.location_id] : []);
+            editProductLocationSelect.setSelected(currentLocationIds);
+            
+            // Populate categories
+            loadCategoriesForEdit(product.category);
         }, 100);
         
     } catch (error) {
         console.error('Error editing product:', error);
         showNotification('Failed to load product editor', 'error');
+    }
+}
+
+async function loadCategoriesForEdit(selectedCategory) {
+    try {
+        let response = await apiCall('/products/categories');
+        if (!response.success) {
+            response = await apiCall('/products/categories/simple');
+        }
+        
+        if (response.success && response.categories) {
+            const editCategorySelect = document.getElementById('editCategorySelect');
+            if (editCategorySelect) {
+                editCategorySelect.innerHTML = '<option value="">Select Category</option>' +
+                    response.categories.map(category => 
+                        `<option value="${category}" ${category === selectedCategory ? 'selected' : ''}>${category}</option>`
+                    ).join('');
+            }
+        }
+    } catch (error) {
+        console.error('Error loading categories for edit form:', error);
     }
 }
 
@@ -1821,11 +2168,23 @@ async function saveProductChanges(productId, modal) {
         const form = modal.querySelector('#editProductForm');
         const formData = new FormData(form);
         
+        // Get selected locations from multi-select
+        const selectedLocationIds = editProductLocationSelect ? editProductLocationSelect.getSelected() : [];
+        if (selectedLocationIds.length === 0) {
+            showNotification('Please select at least one location for the product', 'error');
+            return;
+        }
+        
         // Check if image file is selected
         const imageFile = formData.get('product_image');
         const hasImage = imageFile && imageFile.size > 0;
         
         if (hasImage) {
+            // Add selected location IDs to form data for multipart upload
+            selectedLocationIds.forEach(locationId => {
+                formData.append('location_ids', locationId);
+            });
+            
             // Use FormData for multipart upload
             console.log('Updating product with image upload...');
             
@@ -1850,7 +2209,7 @@ async function saveProductChanges(productId, modal) {
             const updateData = {
                 product_name: formData.get('product_name'),
                 category: formData.get('category'),
-                location_id: formData.get('location_id'), // Make sure location_id is included
+                location_ids: selectedLocationIds, // Include multiple location IDs
                 product_make: formData.get('product_make'),
                 product_model: formData.get('product_model'),
                 description: formData.get('description'),
@@ -2246,22 +2605,28 @@ function showAddProductModal() {
     if (modal) {
         modal.classList.add('show');
         
-        // Refresh locations when opening the modal
-        if (IS_VENDOR) {
-            loadLocationsForProductForm().then(() => {
-                console.log('Locations refreshed for add product modal');
-            }).catch(error => {
-                console.error('Error refreshing locations for add product modal:', error);
-            });
-        }
+        // Initialize multi-select after modal is shown
+        setTimeout(() => {
+            if (!addProductLocationSelect) {
+                addProductLocationSelect = new MultiSelectLocation('addProductLocationSelect', {
+                    onChange: (selectedIds) => {
+                        console.log('Add product locations changed:', selectedIds);
+                    }
+                });
+                addProductLocationSelect.setLocations(currentLocations);
+            } else {
+                // Reset selections
+                addProductLocationSelect.setSelected([]);
+            }
+        }, 100);
         
-        // Focus first field (now product name since item number is auto-generated)
+        // Focus first field
         setTimeout(() => {
             const firstField = document.querySelector('#addProductModal [name="product_name"]');
             if (firstField) {
                 firstField.focus();
             }
-        }, 100);
+        }, 200);
         
         // Load fresh categories
         loadCategoriesForProductForm();
@@ -2300,6 +2665,18 @@ async function submitAddProduct() {
         showNotification('Please select a category for the product', 'error');
         return;
     }
+    
+    // Get selected locations from multi-select
+    const selectedLocationIds = addProductLocationSelect ? addProductLocationSelect.getSelected() : [];
+    if (selectedLocationIds.length === 0) {
+        showNotification('Please select at least one location for the product', 'error');
+        return;
+    }
+    
+    // Add selected location IDs to form data
+    selectedLocationIds.forEach(locationId => {
+        formData.append('location_ids', locationId);
+    });
     
     // Remove item_no from formData since it will be auto-generated
     formData.delete('item_no');

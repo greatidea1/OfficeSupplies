@@ -523,7 +523,9 @@ class Product(BaseModel):
         self.low_stock_threshold = 10
         self.image_urls = []
         self.product_specifications = {}
-        self.location_id = None  # Store location ID
+        self.location_ids = []  # CHANGED: Now supports multiple locations
+        # Keep location_id for backward compatibility
+        self.location_id = None  # Will be deprecated but kept for existing data
     
     def save(self):
         """Save product to Firebase"""
