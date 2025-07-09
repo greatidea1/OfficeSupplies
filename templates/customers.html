@@ -1029,7 +1029,7 @@
     
     async function loadStatistics() {
         try {
-            // Load customer statistics
+            // Load customer statistics - updated to handle deleted customers
             const customerStats = {
                 total: currentCustomers.length,
                 active: currentCustomers.filter(c => c.is_active && !c.is_deleted).length,
@@ -1136,16 +1136,26 @@
         const sortBy = document.getElementById('sortFilter').value;
         
         filteredCustomers = currentCustomers.filter(customer => {
+            // FIRST: Filter by deletion status based on toggle
+            if (!showDeletedCustomers && customer.is_deleted) {
+                return false; // Hide deleted customers when toggle is off
+            }
+            
             // Search filter
             const matchesSearch = !searchTerm || 
                 customer.company_name.toLowerCase().includes(searchTerm) ||
                 customer.email.toLowerCase().includes(searchTerm) ||
                 customer.customer_id.toLowerCase().includes(searchTerm);
             
-            // Status filter
-            const matchesStatus = !status || 
-                (status === 'active' && customer.is_active && !customer.is_deleted) ||
-                (status === 'inactive' && (!customer.is_active || customer.is_deleted));
+            // Status filter - updated to handle deleted customers properly
+            let matchesStatus = true;
+            if (status) {
+                if (status === 'active') {
+                    matchesStatus = customer.is_active && !customer.is_deleted;
+                } else if (status === 'inactive') {
+                    matchesStatus = !customer.is_active || customer.is_deleted;
+                }
+            }
             
             // Date filter
             let matchesDate = true;
@@ -1387,11 +1397,19 @@
     function updateCustomersInfo() {
         const info = document.getElementById('customersInfo');
         const total = filteredCustomers.length;
+        const deletedCount = filteredCustomers.filter(c => c.is_deleted).length;
+        const activeCount = filteredCustomers.filter(c => !c.is_deleted).length;
         
         if (total === 0) {
             info.innerHTML = '<strong>No customers found</strong>';
         } else {
-            info.innerHTML = `<strong>Total ${total} customer${total !== 1 ? 's' : ''}</strong>`;
+            let infoText = `<strong>Total ${total} customer${total !== 1 ? 's' : ''}</strong>`;
+            
+            if (showDeletedCustomers && deletedCount > 0) {
+                infoText += ` <span style="color: var(--gray-500);">(${activeCount} active, ${deletedCount} deleted)</span>`;
+            }
+            
+            info.innerHTML = infoText;
         }        
     }
     
