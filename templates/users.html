@@ -369,45 +369,56 @@
             <button class="modal-close" onclick="closeAddUserModal()">&times;</button>
         </div>
         <div class="modal-body">
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">First Name</label>
-                    <input type="text" class="form-control" name="first_name" id="firstName" required>
-                    <span class="form-error"></span>
+            <form id="addUserForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">First Name</label>
+                        <input type="text" class="form-control" name="first_name" required>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" class="form-control" name="last_name" required>
+                        <span class="form-error"></span>
+                    </div>
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Last Name</label>
-                    <input type="text" class="form-control" name="last_name" id="lastName" required>
+                    <label class="form-label">Email Address</label>
+                    <input type="email" class="form-control" name="email" required>
                     <span class="form-error"></span>
                 </div>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Email Address</label>
-                <input type="email" class="form-control" name="email" required>
-                <span class="form-error"></span>
-            </div>
 
-            <div class="form-group">
-                <label class="form-label">Password</label>
-                <input type="password" class="form-control" name="password" required minlength="8">
-                <span class="form-help">Set a secure password for the user</span>
-                <span class="form-error"></span>
-            </div>
-            
-            <!-- Hidden username field -->
-            <input type="hidden" name="username" id="generatedUsername">
-            
-            <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Role</label>
-                    <select class="form-control" name="role" id="userRole" required>
-                        <option value="">Select Role</option>
-                    </select>
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" name="password" required minlength="8">
+                    <span class="form-help">Set a secure password for the user</span>
                     <span class="form-error"></span>
                 </div>
                 
+                <!-- Hidden username field -->
+                <input type="hidden" name="username" id="generatedUsername">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Role</label>
+                        <select class="form-control" name="role" id="userRole" required>
+                            <option value="">Select Role</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Department</label>
+                        <select class="form-control" name="department_id" id="userDepartment" required>
+                            <option value="">Select Department</option>
+                        </select>
+                        <span class="form-help">Required for employees and department heads</span>
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+
                 {% if current_user.role == 'customer_hr_admin' %}
                 <div class="form-group">
                     <label class="form-label">Branch</label>
@@ -418,32 +429,23 @@
                     <span class="form-error"></span>
                 </div>
                 {% endif %}
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Department</label>
-                <select class="form-control" name="department_id" id="userDepartment">
-                    <option value="">Select Department</option>
-                </select>
-                <span class="form-help">Required for employees and department heads</span>
-                <span class="form-error"></span>
-            </div>
-            
-            <!-- Customer Selection (for vendor users) -->
-            <div class="form-group" id="customerSelectionGroup" style="display: none;">
-                <label class="form-label">Customer Organization</label>
-                <select class="form-control" name="customer_id" id="customerSelection">
-                    <option value="">Select Customer</option>
-                </select>
-                <span class="form-error"></span>
-            </div>
-            
-            <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 8px;">
-                    <input type="checkbox" name="send_email" value="true">
-                    Send welcome email to user
-                </label>
-            </div>
+                
+                <!-- Customer Selection (for vendor users) -->
+                <div class="form-group" id="customerSelectionGroup" style="display: none;">
+                    <label class="form-label">Customer Organization</label>
+                    <select class="form-control" name="customer_id" id="customerSelection">
+                        <option value="">Select Customer</option>
+                    </select>
+                    <span class="form-error"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="send_email" value="true">
+                        Send welcome email to user
+                    </label>
+                </div>
+            </form>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeAddUserModal()">Cancel</button>
@@ -680,18 +682,11 @@ function generateUsername() {
     const lastName = lastNameField.value.trim().toLowerCase();
     
     if (firstName && lastName) {
-        // Generate username as firstname.lastname
         let baseUsername = `${firstName}.${lastName}`;
-        
-        // Remove any special characters and spaces
         baseUsername = baseUsername.replace(/[^a-z0-9.]/g, '');
-        
-        // Add timestamp to make it unique
         const timestamp = Date.now().toString().slice(-4);
         const username = `${baseUsername}${timestamp}`;
-        
         usernameField.value = username;
-        console.log('Generated username:', username);
     } else {
         usernameField.value = '';
     }
@@ -749,14 +744,15 @@ function handleRoleChange(role, formType) {
         if (departmentField) {
             if (needsDepartment) {
                 departmentField.required = true;
+                departmentField.parentNode.querySelector('.form-help').style.color = 'var(--secondary-red)';
+                departmentField.parentNode.querySelector('.form-help').textContent = 'Department is required for this role';
             } else {
                 departmentField.required = false;
                 departmentField.value = '';
+                departmentField.parentNode.querySelector('.form-help').style.color = 'var(--gray-500)';
+                departmentField.parentNode.querySelector('.form-help').textContent = 'Optional for this role';
             }
         }
-        
-        // Update the help message
-        updateDepartmentRequirementMessage();
         
     } else if (formType === 'edit') {
         const editDepartmentGroup = document.getElementById('editDepartmentGroup');
@@ -1068,23 +1064,39 @@ function formatRole(role) {
 }
 
 // Modal Functions
-function showAddUserModal() {
-    const modal = document.getElementById('addUserModal');
-    if (modal) {
-        modal.classList.add('show');
-        
-        // Focus first field
-        setTimeout(() => {
-            const firstNameField = document.querySelector('[name="first_name"]');
-            if (firstNameField) {
-                firstNameField.focus();
-            }
-        }, 100);
-        
-        // Load departments immediately for HR Admin
+async function showAddUserModal() {
+    try {
+        // First check if departments exist (for customer HR admin)
         {% if current_user.role == 'customer_hr_admin' %}
-        loadDepartmentsForForm();
+        const departmentCheckResponse = await apiCall('/departments');
+        if (departmentCheckResponse.success) {
+            if (!departmentCheckResponse.departments || departmentCheckResponse.departments.length === 0) {
+                showNotification('Please create at least one department before adding users. Users need to be assigned to departments.', 'warning');
+                return;
+            }
+        }
         {% endif %}
+        
+        const modal = document.getElementById('addUserModal');
+        if (modal) {
+            modal.classList.add('show');
+            
+            // Focus first field
+            setTimeout(() => {
+                const firstNameField = document.querySelector('[name="first_name"]');
+                if (firstNameField) {
+                    firstNameField.focus();
+                }
+            }, 100);
+            
+            // Load departments immediately for HR Admin
+            {% if current_user.role == 'customer_hr_admin' %}
+            loadDepartmentsForForm();
+            {% endif %}
+        }
+    } catch (error) {
+        console.error('Error opening add user modal:', error);
+        showNotification('Failed to open user creation form', 'error');
     }
 }
 
@@ -1093,13 +1105,11 @@ function closeAddUserModal() {
     if (modal) {
         modal.classList.remove('show');
         
-        // Reset form
         const form = document.getElementById('addUserForm');
         if (form) {
             form.reset();
         }
         
-        // Clear generated username
         const usernameField = document.getElementById('generatedUsername');
         if (usernameField) {
             usernameField.value = '';
@@ -1110,6 +1120,12 @@ function closeAddUserModal() {
         if (customerGroup) {
             customerGroup.style.display = 'none';
         }
+        
+        // Reset all error messages
+        const errorSpans = document.querySelectorAll('#addUserModal .form-error');
+        errorSpans.forEach(span => {
+            span.textContent = '';
+        });
     }
 }
 
@@ -1118,54 +1134,49 @@ async function loadDepartmentsForForm() {
         const response = await apiCall('/user-controller/departments?customer_id={{ current_user.customer_id }}');
         const departmentSelect = document.getElementById('userDepartment');
         
-        if (response.success && response.departments && departmentSelect) {
+        if (response.success && response.departments) {
             departmentSelect.innerHTML = '<option value="">Select Department</option>' +
                 response.departments.map(dept => 
                     `<option value="${dept.department_id}">${dept.name}</option>`
                 ).join('');
-            console.log('Loaded departments:', response.departments.length);
         } else {
-            console.error('Failed to load departments:', response.message);
-            if (departmentSelect) {
-                departmentSelect.innerHTML = '<option value="">No departments available</option>';
-            }
+            departmentSelect.innerHTML = '<option value="">No departments available</option>';
         }
     } catch (error) {
         console.error('Error loading departments for form:', error);
+        const departmentSelect = document.getElementById('userDepartment');
+        if (departmentSelect) {
+            departmentSelect.innerHTML = '<option value="">Error loading departments</option>';
+        }
     }
 }
 
 async function submitAddUser() {
-    console.log('submitAddUser called');
-    
-    // Get form fields directly by name attribute
     const firstNameField = document.querySelector('#addUserModal [name="first_name"]');
     const lastNameField = document.querySelector('#addUserModal [name="last_name"]');
     const emailField = document.querySelector('#addUserModal [name="email"]');
     const roleField = document.querySelector('#addUserModal [name="role"]');
     const passwordField = document.querySelector('#addUserModal [name="password"]');
-    const usernameField = document.getElementById('generatedUsername');
     const departmentField = document.querySelector('#addUserModal [name="department_id"]');
-    const customerField = document.querySelector('#addUserModal [name="customer_id"]');
+    const usernameField = document.getElementById('generatedUsername');
     const sendEmailField = document.querySelector('#addUserModal [name="send_email"]');
     
-    // Validate required fields
     if (!firstNameField?.value || !lastNameField?.value || !emailField?.value || !roleField?.value || !passwordField?.value) {
         showNotification('Please fill in all required fields', 'error');
         return;
     }
     
-    // Generate username if not already generated
+    // Check if department is required for the selected role
+    const role = roleField.value;
+    const needsDepartment = role === 'customer_employee' || role === 'customer_dept_head';
+    
+    if (needsDepartment && !departmentField?.value) {
+        showNotification('Please select a department for this role', 'error');
+        return;
+    }
+    
     if (!usernameField?.value) {
-        const firstName = firstNameField.value.trim().toLowerCase();
-        const lastName = lastNameField.value.trim().toLowerCase();
-        const baseUsername = `${firstName}.${lastName}`.replace(/[^a-z0-9.]/g, '');
-        const timestamp = Date.now().toString().slice(-4);
-        const username = `${baseUsername}${timestamp}`;
-        
-        if (usernameField) {
-            usernameField.value = username;
-        }
+        generateUsername();
     }
     
     try {
@@ -1173,17 +1184,12 @@ async function submitAddUser() {
             first_name: firstNameField.value.trim(),
             last_name: lastNameField.value.trim(),
             full_name: `${firstNameField.value.trim()} ${lastNameField.value.trim()}`,
-            username: usernameField?.value || `${firstNameField.value.trim().toLowerCase()}.${lastNameField.value.trim().toLowerCase()}${Date.now().toString().slice(-4)}`,
+            username: usernameField.value,
             email: emailField.value.trim(),
             role: roleField.value,
             password: passwordField.value,
             send_email: sendEmailField?.checked || false
         };
-        
-        // Add customer_id if selected
-        if (customerField?.value) {
-            userData.customer_id = customerField.value;
-        }
         
         // Add department_id if selected
         if (departmentField?.value) {
@@ -1198,6 +1204,14 @@ async function submitAddUser() {
         }
         {% endif %}
         
+        // Add customer_id if selected (for vendor users)
+        {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+        const customerField = document.querySelector('#addUserModal [name="customer_id"]');
+        if (customerField?.value) {
+            userData.customer_id = customerField.value;
+        }
+        {% endif %}
+        
         console.log('Submitting user data:', userData);
         
         const response = await apiCall('/users', {
@@ -1207,8 +1221,6 @@ async function submitAddUser() {
             },
             body: JSON.stringify(userData)
         });
-        
-        console.log('API response:', response);
         
         if (response.success) {
             showNotification('User created successfully!', 'success');

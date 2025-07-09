@@ -274,14 +274,7 @@ def create_app():
         """Customer management page"""
         return render_template('customers.html')
     
-    @app.route('/api/customers')
-    @login_required
-    def api_customers():
-        """API: Get customers list"""
-        if request.method == 'GET':
-            return jsonify(customer_controller.get_customers())
-        elif request.method == 'POST':
-            return jsonify(customer_controller.create_customer())
+
     
     @app.route('/api/customers', methods=['POST'])
     @login_required
@@ -301,6 +294,17 @@ def create_app():
     def api_customer_statistics(customer_id):
         """API: Get customer statistics"""
         return jsonify(customer_controller.get_customer_statistics(customer_id))
+    
+    
+
+    @app.route('/api/customers/<customer_id>', methods=['DELETE'])
+    @login_required
+    @role_required('vendor_superadmin')
+    def api_delete_customer_endpoint(customer_id):
+        """API: Delete customer and all associated data"""
+        return jsonify(customer_controller.delete_customer(customer_id))
+
+    
     
 
     # Routes for differential pricing per customer
@@ -2184,6 +2188,376 @@ def create_app():
     def api_locations_dropdown():
         """API: Get locations for dropdown"""
         return jsonify(location_controller.get_locations_dropdown())
+    
+
+    # ================== ENHANCED LOCATION ROUTES ==================
+
+    @app.route('/api/locations/states')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
+    def api_location_states():
+        """API: Get states list grouped by pincode zones"""
+        try:
+            current_user = auth_controller.get_current_user()
+            if not current_user or not current_user.role.startswith('vendor_'):
+                return jsonify({'success': False, 'message': 'Access denied'})
+            
+            # Indian states grouped by pincode zones
+            pincode_states = {
+                '1': ['Delhi NCR', 'Haryana', 'Himachal Pradesh', 'Punjab', 'UT/Chandigarh', 'UT/Jammu and Kashmir', 'UT/Ladakh'],
+                '2': ['Uttarakhand', 'Uttar Pradesh'],
+                '3': ['Gujarat', 'Rajasthan', 'UT/Dadra, Nagar Haveli, Daman & Diu'],
+                '4': ['Chhattisgarh', 'Goa', 'Madhya Pradesh', 'Maharashtra'],
+                '5': ['Andhra Pradesh', 'Karnataka', 'Telangana'],
+                '6': ['Kerala', 'Tamil Nadu', 'UT/Puducherry', 'UT/Lakshadweep'],
+                '7': ['Arunachal Pradesh', 'Assam', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Sikkim', 'Tripura', 'West Bengal', 'UT/Andaman and Nicobar Islands'],
+                '8': ['Bihar', 'Jharkhand']
+            }
+            
+            # Get all states as a flat list for convenience
+            all_states = []
+            for zone_states in pincode_states.values():
+                all_states.extend(zone_states)
+            
+            return jsonify({
+                'success': True,
+                'states_by_zone': pincode_states,
+                'all_states': sorted(all_states),
+                'total_zones': len(pincode_states),
+                'total_states': len(all_states)
+            })
+            
+        except Exception as e:
+            print(f"Get location states error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve states list'})
+
+    @app.route('/api/locations/delivery-check/<pincode>')
+    @login_required
+    def api_location_delivery_check(pincode):
+        """API: Check which locations can deliver to a specific pincode"""
+        try:
+            current_user = auth_controller.get_current_user()
+            if not current_user:
+                return jsonify({'success': False, 'message': 'Authentication required'})
+            
+            # Validate pincode
+            if not pincode or len(pincode) != 6 or not pincode.isdigit():
+                return jsonify({'success': False, 'message': 'Invalid pincode format'})
+            
+            # Get serviceable locations
+            serviceable_locations = location_controller.get_serviceable_locations_for_user(pincode)
+            
+            if serviceable_locations['success']:
+                return jsonify({
+                    'success': True,
+                    'pincode': pincode,
+                    'serviceable_locations': serviceable_locations['locations'],
+                    'total_locations': len(serviceable_locations['locations']),
+                    'delivery_available': len(serviceable_locations['locations']) > 0
+                })
+            else:
+                return jsonify(serviceable_locations)
+                
+        except Exception as e:
+            print(f"Delivery check error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to check delivery availability'})
+
+    @app.route('/api/locations/coverage-stats')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_location_coverage_stats():
+        """API: Get delivery coverage statistics"""
+        try:
+            from models import Location
+            
+            stats = Location.get_delivery_statistics()
+            
+            return jsonify({
+                'success': True,
+                'coverage_stats': stats
+            })
+            
+        except Exception as e:
+            print(f"Coverage stats error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve coverage statistics'})
+
+    @app.route('/api/locations/<location_id>/coverage')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
+    def api_location_coverage(location_id):
+        """API: Get detailed coverage information for a specific location"""
+        try:
+            location = Location.get_by_id(location_id)
+            if not location:
+                return jsonify({'success': False, 'message': 'Location not found'})
+            
+            coverage_info = location.get_delivery_coverage_info()
+            
+            return jsonify({
+                'success': True,
+                'location_id': location_id,
+                'location_name': location.name,
+                'coverage_info': coverage_info
+            })
+            
+        except Exception as e:
+            print(f"Location coverage error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve location coverage'})
+
+    @app.route('/api/locations/<location_id>/test-delivery', methods=['POST'])
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin', 'vendor_normal')
+    def api_test_location_delivery(location_id):
+        """API: Test if a location can deliver to specific pincodes"""
+        try:
+            location = Location.get_by_id(location_id)
+            if not location:
+                return jsonify({'success': False, 'message': 'Location not found'})
+            
+            data = request.get_json()
+            test_pincodes = data.get('pincodes', [])
+            
+            if not test_pincodes:
+                return jsonify({'success': False, 'message': 'No pincodes provided for testing'})
+            
+            results = []
+            for pincode in test_pincodes:
+                can_deliver = location.can_deliver_to_pincode(pincode)
+                results.append({
+                    'pincode': pincode,
+                    'can_deliver': can_deliver,
+                    'zone': pincode[0] if len(pincode) == 6 else None
+                })
+            
+            return jsonify({
+                'success': True,
+                'location_id': location_id,
+                'location_name': location.name,
+                'test_results': results,
+                'total_tested': len(test_pincodes),
+                'deliverable_count': sum(1 for r in results if r['can_deliver'])
+            })
+            
+        except Exception as e:
+            print(f"Test location delivery error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to test delivery'})
+
+    @app.route('/api/locations/bulk-update-states', methods=['POST'])
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_bulk_update_location_states():
+        """API: Bulk update serviceable states for multiple locations"""
+        try:
+            data = request.get_json()
+            updates = data.get('updates', [])
+            
+            if not updates:
+                return jsonify({'success': False, 'message': 'No updates provided'})
+            
+            successful_updates = 0
+            failed_updates = []
+            
+            for update in updates:
+                try:
+                    location_id = update.get('location_id')
+                    new_states = update.get('serviceable_states', [])
+                    
+                    location = Location.get_by_id(location_id)
+                    if not location:
+                        failed_updates.append(f"Location {location_id} not found")
+                        continue
+                    
+                    if location.update_serviceable_states(new_states):
+                        successful_updates += 1
+                    else:
+                        failed_updates.append(f"Failed to update location {location.name}")
+                        
+                except Exception as e:
+                    failed_updates.append(f"Error updating location {update.get('location_id', 'unknown')}: {str(e)}")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully updated {successful_updates} locations',
+                'successful_updates': successful_updates,
+                'failed_updates': failed_updates,
+                'total_processed': len(updates)
+            })
+            
+        except Exception as e:
+            print(f"Bulk update location states error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to bulk update locations'})
+
+    @app.route('/api/user/deliverable-locations')
+    @login_required
+    @role_required('customer_employee', 'customer_dept_head', 'customer_hr_admin')
+    def api_user_deliverable_locations():
+        """API: Get locations that can deliver to current user's branch"""
+        try:
+            current_user = auth_controller.get_current_user()
+            
+            # Get user's branch pincode
+            user_pincode = None
+            if hasattr(current_user, 'branch_id') and current_user.branch_id:
+                from models import Branch
+                branch = Branch.get_by_id(current_user.branch_id)
+                if branch and branch.pincode:
+                    user_pincode = branch.pincode
+            
+            if not user_pincode:
+                return jsonify({
+                    'success': False,
+                    'message': 'User branch pincode not found. Please contact your HR admin to set up branch location.'
+                })
+            
+            # Get deliverable locations
+            result = location_controller.get_serviceable_locations_for_user(user_pincode)
+            
+            if result['success']:
+                return jsonify({
+                    'success': True,
+                    'user_pincode': user_pincode,
+                    'deliverable_locations': result['locations'],
+                    'total_locations': len(result['locations']),
+                    'delivery_available': len(result['locations']) > 0
+                })
+            else:
+                return jsonify(result)
+                
+        except Exception as e:
+            print(f"User deliverable locations error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve deliverable locations'})
+
+    @app.route('/api/products/deliverable')
+    @login_required
+    @role_required('customer_employee', 'customer_dept_head', 'customer_hr_admin')
+    def api_user_deliverable_products():
+        """API: Get products that can be delivered to current user's location"""
+        try:
+            current_user = auth_controller.get_current_user()
+            
+            # Get user's branch pincode
+            user_pincode = None
+            if hasattr(current_user, 'branch_id') and current_user.branch_id:
+                from models import Branch
+                branch = Branch.get_by_id(current_user.branch_id)
+                if branch and branch.pincode:
+                    user_pincode = branch.pincode
+            
+            if not user_pincode:
+                return jsonify({
+                    'success': False,
+                    'message': 'User branch pincode not found. Please contact your HR admin to set up branch location.'
+                })
+            
+            # Get deliverable products
+            deliverable_products = Product.get_products_for_user_pincode(user_pincode)
+            
+            # Convert to dict format
+            products_list = []
+            for product in deliverable_products:
+                product_dict = product.to_dict()
+                
+                # Add location information
+                location_names = []
+                if hasattr(product, 'location_ids') and product.location_ids:
+                    for location_id in product.location_ids:
+                        location = Location.get_by_id(location_id)
+                        if location and location.can_deliver_to_pincode(user_pincode):
+                            location_names.append(location.name)
+                
+                product_dict['deliverable_from'] = location_names
+                products_list.append(product_dict)
+            
+            return jsonify({
+                'success': True,
+                'user_pincode': user_pincode,
+                'products': products_list,
+                'total_products': len(products_list),
+                'delivery_available': len(products_list) > 0
+            })
+            
+        except Exception as e:
+            print(f"User deliverable products error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve deliverable products'})
+
+    # Add this route to test the location-based filtering
+    @app.route('/api/locations/test-filtering/<pincode>')
+    @login_required
+    @role_required('vendor_superadmin', 'vendor_admin')
+    def api_test_location_filtering(pincode):
+        """API: Test location-based product filtering for a specific pincode"""
+        try:
+            # Validate pincode
+            if not pincode or len(pincode) != 6 or not pincode.isdigit():
+                return jsonify({'success': False, 'message': 'Invalid pincode format'})
+            
+            # Get serviceable locations
+            serviceable_locations = Location.get_locations_for_pincode(pincode)
+            
+            # Get products from serviceable locations
+            deliverable_products = []
+            if serviceable_locations:
+                serviceable_location_ids = [loc.location_id for loc in serviceable_locations]
+                all_products = Product.get_all_active()
+                
+                for product in all_products:
+                    product_locations = getattr(product, 'location_ids', [])
+                    if not product_locations and hasattr(product, 'location_id') and product.location_id:
+                        product_locations = [product.location_id]
+                    
+                    if any(loc_id in serviceable_location_ids for loc_id in product_locations):
+                        deliverable_products.append({
+                            'product_id': product.product_id,
+                            'product_name': product.product_name,
+                            'category': product.category,
+                            'available_from': [loc.name for loc in serviceable_locations if loc.location_id in product_locations]
+                        })
+            
+            return jsonify({
+                'success': True,
+                'test_pincode': pincode,
+                'serviceable_locations': [{'id': loc.location_id, 'name': loc.name} for loc in serviceable_locations],
+                'deliverable_products': deliverable_products,
+                'location_count': len(serviceable_locations),
+                'product_count': len(deliverable_products)
+            })
+            
+        except Exception as e:
+            print(f"Test location filtering error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to test location filtering'})
+        
+    # Add these routes to app.py
+
+    @app.route('/api/customers/<customer_id>/deletion-preview')
+    @login_required
+    @role_required('vendor_superadmin')
+    def api_customer_deletion_preview(customer_id):
+        """API: Get customer deletion preview"""
+        return jsonify(customer_controller.get_customer_deletion_preview(customer_id))
+
+    @app.route('/api/customers/<customer_id>', methods=['DELETE'])
+    @login_required
+    @role_required('vendor_superadmin')
+    def api_delete_customer(customer_id):
+        """API: Delete customer and all associated data"""
+        return jsonify(customer_controller.delete_customer(customer_id))
+
+    @app.route('/api/customers/<customer_id>/restore', methods=['POST'])
+    @login_required
+    @role_required('vendor_superadmin')
+    def api_restore_customer(customer_id):
+        """API: Restore deleted customer"""
+        return jsonify(customer_controller.restore_customer(customer_id))
+
+    # REPLACE the existing api_customers route with this enhanced version:
+    @app.route('/api/customers')
+    @login_required
+    def api_customers():
+        """API: Get customers list - Enhanced with deletion support"""
+        if request.method == 'GET':
+            return jsonify(customer_controller.get_customers())
+        elif request.method == 'POST':
+            return jsonify(customer_controller.create_customer())
 
     return app
 

@@ -26,7 +26,7 @@
     
     .locations-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
         gap: 24px;
     }
     
@@ -94,6 +94,39 @@
         line-height: 1.4;
     }
     
+    .serviceable-states {
+        background: var(--gray-50);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 16px;
+        border: 1px solid var(--gray-200);
+    }
+    
+    .serviceable-states-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--gray-700);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .states-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    
+    .state-tag {
+        background: var(--primary-blue);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
     .location-actions {
         display: flex;
         gap: 8px;
@@ -122,6 +155,88 @@
         gap: 16px;
     }
     
+    /* Multi-select states styles */
+    .states-multi-select {
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        background: white;
+        max-height: 300px;
+        overflow-y: auto;
+        padding: 12px;
+    }
+    
+    .zone-section {
+        margin-bottom: 16px;
+    }
+    
+    .zone-header {
+        font-weight: 600;
+        color: var(--primary-blue);
+        margin-bottom: 8px;
+        padding: 8px 0;
+        border-bottom: 2px solid var(--primary-blue);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .zone-states {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 8px;
+        margin-left: 12px;
+    }
+    
+    .state-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background-color 0.2s ease;
+    }
+    
+    .state-checkbox:hover {
+        background: var(--gray-50);
+    }
+    
+    .state-checkbox input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
+    }
+    
+    .state-checkbox label {
+        font-size: 0.875rem;
+        cursor: pointer;
+        color: var(--gray-700);
+        margin: 0;
+    }
+    
+    .select-all-zone {
+        background: var(--primary-blue);
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        cursor: pointer;
+        margin-left: auto;
+    }
+    
+    .select-all-zone:hover {
+        background: var(--primary-blue-dark);
+    }
+    
+    .states-summary {
+        margin-top: 12px;
+        padding: 8px;
+        background: var(--gray-50);
+        border-radius: 6px;
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+    
     @media (max-width: 768px) {
         .locations-grid {
             grid-template-columns: 1fr;
@@ -135,6 +250,10 @@
         .form-row {
             grid-template-columns: 1fr;
         }
+        
+        .zone-states {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 {% endblock %}
@@ -146,7 +265,7 @@
             <div>
                 <h1 class="page-title">Store Locations</h1>
                 <p style="color: var(--gray-600); margin: 8px 0 0 0;">
-                    Manage your store locations and inventory distribution
+                    Manage your store locations and delivery zones by states
                 </p>
             </div>
             <div style="display: flex; gap: 12px;">
@@ -172,7 +291,7 @@
 <!-- Add Location Modal -->
 {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
 <div class="modal" id="addLocationModal">
-    <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-content" style="max-width: 800px;">
         <div class="modal-header">
             <h3 class="modal-title">Add New Location</h3>
             <button class="modal-close" onclick="closeAddLocationModal()">&times;</button>
@@ -219,6 +338,19 @@
                     <textarea class="form-control" name="description" rows="2" placeholder="Additional details about this location"></textarea>
                     <span class="form-error"></span>
                 </div>
+
+                <!-- Serviceable States Multi-Select -->
+                <div class="form-group">
+                    <label class="form-label">Serviceable States <span style="color: var(--secondary-red);">*</span></label>
+                    <div class="states-multi-select" id="addServiceableStates">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                    <div class="states-summary" id="addStatesSummary">
+                        No states selected
+                    </div>
+                    <span class="form-help">Select states where this location can deliver products</span>
+                    <span class="form-error" id="statesError"></span>
+                </div>
             </form>
         </div>
 
@@ -234,7 +366,7 @@
 
 <!-- Edit Location Modal -->
 <div class="modal" id="editLocationModal">
-    <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-content" style="max-width: 800px;">
         <div class="modal-header">
             <h3 class="modal-title">Edit Location</h3>
             <button class="modal-close" onclick="closeEditLocationModal()">&times;</button>
@@ -284,6 +416,19 @@
                     <span class="form-error"></span>
                 </div>
 
+                <!-- Serviceable States Multi-Select -->
+                <div class="form-group">
+                    <label class="form-label">Serviceable States <span style="color: var(--secondary-red);">*</span></label>
+                    <div class="states-multi-select" id="editServiceableStates">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                    <div class="states-summary" id="editStatesSummary">
+                        No states selected
+                    </div>
+                    <span class="form-help">Select states where this location can deliver products</span>
+                    <span class="form-error" id="editStatesError"></span>
+                </div>
+
                 {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
                 <div class="form-group">
                     <label class="form-label">Status</label>
@@ -311,8 +456,21 @@
 <script>
 let currentLocations = [];
 
+// Indian states grouped by pincode zones
+const pincodeStates = {
+    '1': ['Delhi NCR', 'Haryana', 'Himachal Pradesh', 'Punjab', 'UT/Chandigarh', 'UT/Jammu and Kashmir', 'UT/Ladakh'],
+    '2': ['Uttarakhand', 'Uttar Pradesh'],
+    '3': ['Gujarat', 'Rajasthan', 'UT/Dadra, Nagar Haveli, Daman & Diu'],
+    '4': ['Chhattisgarh', 'Goa', 'Madhya Pradesh', 'Maharashtra'],
+    '5': ['Andhra Pradesh', 'Karnataka', 'Telangana'],
+    '6': ['Kerala', 'Tamil Nadu', 'UT/Puducherry', 'UT/Lakshadweep'],
+    '7': ['Arunachal Pradesh', 'Assam', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Sikkim', 'Tripura', 'West Bengal', 'UT/Andaman and Nicobar Islands'],
+    '8': ['Bihar', 'Jharkhand']
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     loadLocations();
+    setupStateMultiSelect();
     
     // Add input validation for pincode fields
     document.querySelectorAll('input[name="pincode"]').forEach(input => {
@@ -327,6 +485,122 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+function setupStateMultiSelect() {
+    // Setup for Add Location Modal
+    setupStatesSelector('addServiceableStates', 'addStatesSummary');
+    
+    // Setup for Edit Location Modal
+    setupStatesSelector('editServiceableStates', 'editStatesSummary');
+}
+
+function setupStatesSelector(containerId, summaryId) {
+    const container = document.getElementById(containerId);
+    const summary = document.getElementById(summaryId);
+    
+    if (!container || !summary) return;
+    
+    let html = '';
+    
+    Object.keys(pincodeStates).forEach(zone => {
+        const states = pincodeStates[zone];
+        
+        html += `
+            <div class="zone-section">
+                <div class="zone-header">
+                    <i class="fas fa-map-marked-alt"></i>
+                    Zone ${zone}
+                    <button type="button" class="select-all-zone" onclick="selectAllInZone('${containerId}', '${zone}', '${summaryId}')">
+                        Select All
+                    </button>
+                </div>
+                <div class="zone-states">
+        `;
+        
+        states.forEach(state => {
+            const stateId = `${containerId}_${state.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            html += `
+                <div class="state-checkbox">
+                    <input type="checkbox" 
+                           id="${stateId}" 
+                           value="${state}" 
+                           data-zone="${zone}"
+                           onchange="updateStatesSummary('${containerId}', '${summaryId}')">
+                    <label for="${stateId}">${state}</label>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function selectAllInZone(containerId, zone, summaryId) {
+    const container = document.getElementById(containerId);
+    const checkboxes = container.querySelectorAll(`input[data-zone="${zone}"]`);
+    
+    // Check if all are selected
+    const allSelected = Array.from(checkboxes).every(cb => cb.checked);
+    
+    // Toggle all in zone
+    checkboxes.forEach(cb => {
+        cb.checked = !allSelected;
+    });
+    
+    updateStatesSummary(containerId, summaryId);
+}
+
+function updateStatesSummary(containerId, summaryId) {
+    const container = document.getElementById(containerId);
+    const summary = document.getElementById(summaryId);
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]:checked');
+    
+    const selectedStates = Array.from(checkboxes).map(cb => cb.value);
+    const count = selectedStates.length;
+    
+    if (count === 0) {
+        summary.textContent = 'No states selected';
+        summary.style.color = 'var(--secondary-red)';
+    } else {
+        summary.innerHTML = `
+            <strong>${count} states selected:</strong> 
+            ${selectedStates.slice(0, 3).join(', ')}
+            ${count > 3 ? ` and ${count - 3} more` : ''}
+        `;
+        summary.style.color = 'var(--secondary-green)';
+    }
+}
+
+function getSelectedStates(containerId) {
+    const container = document.getElementById(containerId);
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+function setSelectedStates(containerId, summaryId, states) {
+    const container = document.getElementById(containerId);
+    
+    // Clear all selections
+    container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+    
+    // Set selections
+    states.forEach(state => {
+        const stateId = `${containerId}_${state.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const checkbox = document.getElementById(stateId);
+        if (checkbox) {
+            checkbox.checked = true;
+        }
+    });
+    
+    updateStatesSummary(containerId, summaryId);
+}
 
 async function loadLocations() {
     try {
@@ -352,66 +626,94 @@ function displayLocations() {
         return;
     }
     
-    grid.innerHTML = currentLocations.map(location => `
-        <div class="location-card">
-            <div class="location-header">
-                <div>
-                    <div class="location-name">${location.name}</div>
-                    ${location.pincode ? `<div class="location-pincode">📍 ${location.pincode}</div>` : ''}
+    grid.innerHTML = currentLocations.map(location => {
+        const serviceableStatesHtml = location.serviceable_states && location.serviceable_states.length > 0 ? `
+            <div class="serviceable-states">
+                <div class="serviceable-states-title">
+                    <i class="fas fa-shipping-fast"></i>
+                    Serviceable States (${location.serviceable_states.length})
                 </div>
-                <div class="location-status">
-                    ${getStatusBadge(location.is_active ? 'active' : 'inactive')}
+                <div class="states-list">
+                    ${location.serviceable_states.slice(0, 8).map(state => `
+                        <span class="state-tag">${state}</span>
+                    `).join('')}
+                    ${location.serviceable_states.length > 8 ? `
+                        <span class="state-tag">+${location.serviceable_states.length - 8} more</span>
+                    ` : ''}
                 </div>
             </div>
-            
-            <div class="location-details">
-                <div class="location-info-row">
-                    <i class="fas fa-map-marker-alt location-info-icon"></i>
-                    <div class="location-info-value">${location.address}</div>
+        ` : `
+            <div class="serviceable-states">
+                <div class="serviceable-states-title">
+                    <i class="fas fa-exclamation-triangle" style="color: var(--secondary-orange);"></i>
+                    No serviceable states configured
+                </div>
+            </div>
+        `;
+        
+        return `
+            <div class="location-card">
+                <div class="location-header">
+                    <div>
+                        <div class="location-name">${location.name}</div>
+                        ${location.pincode ? `<div class="location-pincode">📍 ${location.pincode}</div>` : ''}
+                    </div>
+                    <div class="location-status">
+                        ${getStatusBadge(location.is_active ? 'active' : 'inactive')}
+                    </div>
                 </div>
                 
-                ${location.phone ? `
+                <div class="location-details">
                     <div class="location-info-row">
-                        <i class="fas fa-phone location-info-icon"></i>
-                        <div class="location-info-value">${location.phone}</div>
+                        <i class="fas fa-map-marker-alt location-info-icon"></i>
+                        <div class="location-info-value">${location.address}</div>
                     </div>
-                ` : ''}
+                    
+                    ${location.phone ? `
+                        <div class="location-info-row">
+                            <i class="fas fa-phone location-info-icon"></i>
+                            <div class="location-info-value">${location.phone}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${location.manager_name ? `
+                        <div class="location-info-row">
+                            <i class="fas fa-user location-info-icon"></i>
+                            <div class="location-info-value">${location.manager_name}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${location.description ? `
+                        <div class="location-info-row">
+                            <i class="fas fa-info-circle location-info-icon"></i>
+                            <div class="location-info-value">${location.description}</div>
+                        </div>
+                    ` : ''}
+                </div>
                 
-                ${location.manager_name ? `
-                    <div class="location-info-row">
-                        <i class="fas fa-user location-info-icon"></i>
-                        <div class="location-info-value">${location.manager_name}</div>
-                    </div>
-                ` : ''}
+                ${serviceableStatesHtml}
                 
-                ${location.description ? `
-                    <div class="location-info-row">
-                        <i class="fas fa-info-circle location-info-icon"></i>
-                        <div class="location-info-value">${location.description}</div>
-                    </div>
-                ` : ''}
+                <div class="location-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="viewLocationDetails('${location.location_id}')">
+                        <i class="fas fa-eye"></i>
+                        View Details
+                    </button>
+                    {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
+                    <button class="btn btn-primary btn-sm" onclick="editLocation('${location.location_id}')">
+                        <i class="fas fa-edit"></i>
+                        Edit
+                    </button>
+                    {% endif %}
+                    {% if current_user.role == 'vendor_superadmin' %}
+                    <button class="btn btn-danger btn-sm" onclick="deleteLocation('${location.location_id}', '${location.name}')">
+                        <i class="fas fa-trash"></i>
+                        Delete
+                    </button>
+                    {% endif %}
+                </div>
             </div>
-            
-            <div class="location-actions">
-                <button class="btn btn-secondary btn-sm" onclick="viewLocationDetails('${location.location_id}')">
-                    <i class="fas fa-eye"></i>
-                    View Details
-                </button>
-                {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
-                <button class="btn btn-primary btn-sm" onclick="editLocation('${location.location_id}')">
-                    <i class="fas fa-edit"></i>
-                    Edit
-                </button>
-                {% endif %}
-                {% if current_user.role == 'vendor_superadmin' %}
-                <button class="btn btn-danger btn-sm" onclick="deleteLocation('${location.location_id}', '${location.name}')">
-                    <i class="fas fa-trash"></i>
-                    Delete
-                </button>
-                {% endif %}
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function showEmptyState(message = 'No locations found') {
@@ -433,6 +735,9 @@ function showAddLocationModal() {
     if (modal) {
         modal.classList.add('show');
         document.querySelector('#addLocationModal [name="name"]').focus();
+        
+        // Reset states selection
+        updateStatesSummary('addServiceableStates', 'addStatesSummary');
     }
 }
 
@@ -441,6 +746,12 @@ function closeAddLocationModal() {
     if (modal) {
         modal.classList.remove('show');
         document.getElementById('addLocationForm').reset();
+        
+        // Clear states selection
+        document.getElementById('addServiceableStates').querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+        });
+        updateStatesSummary('addServiceableStates', 'addStatesSummary');
         
         // Clear error messages
         const errorSpans = document.querySelectorAll('#addLocationForm .form-error');
@@ -456,13 +767,22 @@ async function submitAddLocation() {
         return;
     }
     
+    // Get selected states
+    const selectedStates = getSelectedStates('addServiceableStates');
+    if (selectedStates.length === 0) {
+        document.getElementById('statesError').textContent = 'Please select at least one state';
+        showNotification('Please select at least one serviceable state', 'error');
+        return;
+    }
+    
     const locationData = {
         name: formData.get('name'),
         address: formData.get('address'),
         pincode: formData.get('pincode'),
         phone: formData.get('phone'),
         manager_name: formData.get('manager_name'),
-        description: formData.get('description')
+        description: formData.get('description'),
+        serviceable_states: selectedStates
     };
     
     try {
@@ -507,6 +827,9 @@ async function editLocation(locationId) {
             statusSelect.value = location.is_active ? 'true' : 'false';
         }
         
+        // Set selected states
+        setSelectedStates('editServiceableStates', 'editStatesSummary', location.serviceable_states || []);
+        
         // Show modal
         document.getElementById('editLocationModal').classList.add('show');
         
@@ -520,6 +843,12 @@ function closeEditLocationModal() {
     const modal = document.getElementById('editLocationModal');
     if (modal) {
         modal.classList.remove('show');
+        
+        // Clear states selection
+        document.getElementById('editServiceableStates').querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+        });
+        updateStatesSummary('editServiceableStates', 'editStatesSummary');
         
         // Clear error messages
         const errorSpans = document.querySelectorAll('#editLocationForm .form-error');
@@ -536,13 +865,22 @@ async function submitEditLocation() {
         return;
     }
     
+    // Get selected states
+    const selectedStates = getSelectedStates('editServiceableStates');
+    if (selectedStates.length === 0) {
+        document.getElementById('editStatesError').textContent = 'Please select at least one state';
+        showNotification('Please select at least one serviceable state', 'error');
+        return;
+    }
+    
     const updateData = {
         name: formData.get('name'),
         address: formData.get('address'),
         pincode: formData.get('pincode'),
         phone: formData.get('phone'),
         manager_name: formData.get('manager_name'),
-        description: formData.get('description')
+        description: formData.get('description'),
+        serviceable_states: selectedStates
     };
     
     const statusSelect = document.querySelector('#editLocationForm [name="is_active"]');
@@ -578,11 +916,27 @@ async function viewLocationDetails(locationId) {
             return;
         }
         
+        const serviceableStatesHtml = location.serviceable_states && location.serviceable_states.length > 0 ? `
+            <div style="margin-bottom: 16px;">
+                <strong>Serviceable States (${location.serviceable_states.length}):</strong>
+                <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;">
+                    ${location.serviceable_states.map(state => `
+                        <span style="background: var(--primary-blue); color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem;">${state}</span>
+                    `).join('')}
+                </div>
+            </div>
+        ` : `
+            <div style="margin-bottom: 16px;">
+                <strong>Serviceable States:</strong>
+                <div style="color: var(--secondary-red); margin-top: 4px;">No states configured</div>
+            </div>
+        `;
+        
         // Create and show details modal
         const modal = document.createElement('div');
         modal.className = 'modal show';
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-content" style="max-width: 600px;">
                 <div class="modal-header">
                     <h3 class="modal-title">Location Details</h3>
                     <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
@@ -596,6 +950,7 @@ async function viewLocationDetails(locationId) {
                             ${location.phone ? `<div><strong>Phone:</strong> ${location.phone}</div>` : ''}
                             ${location.manager_name ? `<div><strong>Manager:</strong> ${location.manager_name}</div>` : ''}
                             ${location.description ? `<div><strong>Description:</strong><br>${location.description}</div>` : ''}
+                            ${serviceableStatesHtml}
                             <div><strong>Status:</strong> ${location.is_active ? 'Active' : 'Inactive'}</div>
                             <div><strong>Created:</strong> ${formatDateTime(location.created_at)}</div>
                         </div>

@@ -26,22 +26,20 @@ class BaseModel:
 
     @classmethod
     def from_dict(cls, data):
-        """Create user instance from dictionary - FIXED VERSION"""
-        user = cls()
+        """Create instance from dictionary - Enhanced with deletion support"""
+        instance = cls()
         for key, value in data.items():
-            setattr(user, key, value)
+            setattr(instance, key, value)
         
-        # Ensure required fields have default values if missing
-        if not hasattr(user, 'username') or user.username is None:
-            user.username = ''
-        if not hasattr(user, 'role') or user.role is None:
-            user.role = ''
-        if not hasattr(user, 'full_name') or user.full_name is None:
-            user.full_name = ''
-        if not hasattr(user, 'is_active'):
-            user.is_active = True
+        # Ensure deletion fields have default values if missing
+        if not hasattr(instance, 'is_deleted'):
+            instance.is_deleted = False
+        if not hasattr(instance, 'deleted_at'):
+            instance.deleted_at = None
+        if not hasattr(instance, 'deleted_by'):
+            instance.deleted_by = None
             
-        return user
+        return instance
     
     def save(self):
         """Save model to database - to be implemented by subclasses"""
@@ -53,22 +51,41 @@ class BaseModel:
         raise NotImplementedError
 
 class Location(BaseModel):
-    """Location model for vendor store locations"""
+    """Enhanced Location model with state-based delivery zones"""
     
     def __init__(self):
         super().__init__()
         self.location_id = str(uuid.uuid4())
         self.name = None
         self.address = None
-        self.pincode = None  # NEW FIELD: 6-digit pincode
+        self.pincode = None  # Location's own pincode
         self.phone = None
         self.manager_name = None
         self.description = None
         self.is_active = True
+        self.serviceable_states = []  # List of states this location can service
+        self.serviceable_pincodes = []  # Auto-generated from states
+        
+        
+        # Indian states grouped by pincode zones
+        self.pincode_states = {
+            '1': ['Delhi NCR', 'Haryana', 'Himachal Pradesh', 'Punjab', 'UT/Chandigarh', 'UT/Jammu and Kashmir', 'UT/Ladakh'],
+            '2': ['Uttarakhand', 'Uttar Pradesh'],
+            '3': ['Gujarat', 'Rajasthan', 'UT/Dadra, Nagar Haveli, Daman & Diu'],
+            '4': ['Chhattisgarh', 'Goa', 'Madhya Pradesh', 'Maharashtra'],
+            '5': ['Andhra Pradesh', 'Karnataka', 'Telangana'],
+            '6': ['Kerala', 'Tamil Nadu', 'UT/Puducherry', 'UT/Lakshadweep'],
+            '7': ['Arunachal Pradesh', 'Assam', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Sikkim', 'Tripura', 'West Bengal', 'UT/Andaman and Nicobar Islands'],
+            '8': ['Bihar', 'Jharkhand']
+        }
     
     def save(self):
-        """Save location to Firebase"""
+        """Save location to Firebase with auto-generated serviceable pincodes"""
         try:
+            # Auto-generate serviceable pincodes from states
+            if self.serviceable_states:
+                self.serviceable_pincodes = self.generate_pincodes_from_states(self.serviceable_states)
+            
             self.updated_at = datetime.now()
             db = config.get_db()
             doc_ref = db.collection('locations').document(self.location_id)
@@ -76,6 +93,179 @@ class Location(BaseModel):
             return True
         except Exception as e:
             print(f"Error saving location: {e}")
+            return False
+    
+    def generate_pincodes_from_states(self, selected_states):
+        """Generate list of pincode zones from selected states"""
+        try:
+            serviceable_zones = []
+            
+            for zone, states in self.pincode_states.items():
+                if any(state in selected_states for state in states):
+                    serviceable_zones.append(zone)
+            
+            return serviceable_zones
+            
+        except Exception as e:
+            print(f"Generate pincodes from states error: {e}")
+            return []
+    
+    def can_deliver_to_pincode(self, pincode):
+        """Check if this location can deliver to a specific pincode"""
+        if not pincode or len(pincode) != 6 or not pincode.isdigit():
+            return False
+        
+        # Get the first digit (zone) from the pincode
+        pincode_zone = pincode[0]
+        
+        # Check if this zone is in our serviceable zones
+        if pincode_zone in self.serviceable_pincodes:
+            return True
+        
+        # Alternative check: see if any state in the pincode zone is serviceable
+        states_in_zone = self.pincode_states.get(pincode_zone, [])
+        for state in states_in_zone:
+            if state in self.serviceable_states:
+                return True
+        
+        return False
+    
+    def can_deliver_to_state(self, state_name):
+        """Check if this location can deliver to a specific state"""
+        return state_name in self.serviceable_states
+    
+    def get_delivery_zones(self):
+        """Get all pincode zones this location can deliver to"""
+        return self.serviceable_pincodes
+    
+    def get_delivery_states(self):
+        """Get all states this location can deliver to"""
+        return self.serviceable_states
+    
+    def get_delivery_coverage_info(self):
+        """Get comprehensive delivery coverage information"""
+        try:
+            coverage_info = {
+                'zones': self.serviceable_pincodes,
+                'states': self.serviceable_states,
+                'zone_details': {}
+            }
+            
+            # Add zone details
+            for zone in self.serviceable_pincodes:
+                states_in_zone = self.pincode_states.get(zone, [])
+                serviceable_states_in_zone = [state for state in states_in_zone if state in self.serviceable_states]
+                
+                coverage_info['zone_details'][zone] = {
+                    'all_states': states_in_zone,
+                    'serviceable_states': serviceable_states_in_zone,
+                    'coverage_percentage': (len(serviceable_states_in_zone) / len(states_in_zone)) * 100 if states_in_zone else 0
+                }
+            
+            return coverage_info
+            
+        except Exception as e:
+            print(f"Error getting delivery coverage info: {e}")
+            return {
+                'zones': [],
+                'states': [],
+                'zone_details': {}
+            }
+    
+    @classmethod
+    def get_locations_for_pincode(cls, pincode):
+        """Get all locations that can deliver to a specific pincode"""
+        try:
+            if not pincode or len(pincode) != 6 or not pincode.isdigit():
+                return []
+            
+            locations = cls.get_all_active()
+            serviceable_locations = []
+            
+            for location in locations:
+                if location.can_deliver_to_pincode(pincode):
+                    serviceable_locations.append(location)
+            
+            print(f"Found {len(serviceable_locations)} locations that can deliver to pincode {pincode}")
+            return serviceable_locations
+            
+        except Exception as e:
+            print(f"Error getting locations for pincode: {e}")
+            return []
+    
+    @classmethod
+    def get_locations_for_state(cls, state_name):
+        """Get all locations that can deliver to a specific state"""
+        try:
+            locations = cls.get_all_active()
+            serviceable_locations = []
+            
+            for location in locations:
+                if location.can_deliver_to_state(state_name):
+                    serviceable_locations.append(location)
+            
+            return serviceable_locations
+            
+        except Exception as e:
+            print(f"Error getting locations for state: {e}")
+            return []
+    
+    @classmethod
+    def get_locations_for_zone(cls, zone):
+        """Get all locations that can deliver to a specific pincode zone"""
+        try:
+            locations = cls.get_all_active()
+            serviceable_locations = []
+            
+            for location in locations:
+                if zone in location.serviceable_pincodes:
+                    serviceable_locations.append(location)
+            
+            return serviceable_locations
+            
+        except Exception as e:
+            print(f"Error getting locations for zone: {e}")
+            return []
+    
+    def update_serviceable_states(self, new_states):
+        """Update serviceable states and regenerate pincodes"""
+        try:
+            if not isinstance(new_states, list):
+                return False
+            
+            self.serviceable_states = new_states
+            self.serviceable_pincodes = self.generate_pincodes_from_states(new_states)
+            
+            return self.save()
+            
+        except Exception as e:
+            print(f"Error updating serviceable states: {e}")
+            return False
+    
+    def add_serviceable_state(self, state_name):
+        """Add a single state to serviceable states"""
+        try:
+            if state_name not in self.serviceable_states:
+                self.serviceable_states.append(state_name)
+                self.serviceable_pincodes = self.generate_pincodes_from_states(self.serviceable_states)
+                return self.save()
+            return True
+            
+        except Exception as e:
+            print(f"Error adding serviceable state: {e}")
+            return False
+    
+    def remove_serviceable_state(self, state_name):
+        """Remove a single state from serviceable states"""
+        try:
+            if state_name in self.serviceable_states:
+                self.serviceable_states.remove(state_name)
+                self.serviceable_pincodes = self.generate_pincodes_from_states(self.serviceable_states)
+                return self.save()
+            return True
+            
+        except Exception as e:
+            print(f"Error removing serviceable state: {e}")
             return False
     
     @classmethod
@@ -131,6 +321,126 @@ class Location(BaseModel):
         except Exception as e:
             print(f"Error getting all locations: {e}")
             return []
+    
+    @classmethod
+    def get_delivery_statistics(cls):
+        """Get comprehensive delivery statistics across all locations"""
+        try:
+            locations = cls.get_all_active()
+            
+            stats = {
+                'total_active_locations': len(locations),
+                'total_serviceable_states': set(),
+                'total_serviceable_zones': set(),
+                'coverage_by_zone': {},
+                'coverage_by_state': {},
+                'locations_without_coverage': []
+            }
+            
+            # Pincode states mapping
+            pincode_states = {
+                '1': ['Delhi NCR', 'Haryana', 'Himachal Pradesh', 'Punjab', 'UT/Chandigarh', 'UT/Jammu and Kashmir', 'UT/Ladakh'],
+                '2': ['Uttarakhand', 'Uttar Pradesh'],
+                '3': ['Gujarat', 'Rajasthan', 'UT/Dadra, Nagar Haveli, Daman & Diu'],
+                '4': ['Chhattisgarh', 'Goa', 'Madhya Pradesh', 'Maharashtra'],
+                '5': ['Andhra Pradesh', 'Karnataka', 'Telangana'],
+                '6': ['Kerala', 'Tamil Nadu', 'UT/Puducherry', 'UT/Lakshadweep'],
+                '7': ['Arunachal Pradesh', 'Assam', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Sikkim', 'Tripura', 'West Bengal', 'UT/Andaman and Nicobar Islands'],
+                '8': ['Bihar', 'Jharkhand']
+            }
+            
+            # Initialize zone and state coverage
+            for zone in pincode_states.keys():
+                stats['coverage_by_zone'][zone] = 0
+            
+            all_states = [state for states in pincode_states.values() for state in states]
+            for state in all_states:
+                stats['coverage_by_state'][state] = 0
+            
+            # Process each location
+            for location in locations:
+                if not location.serviceable_states:
+                    stats['locations_without_coverage'].append(location.name)
+                    continue
+                
+                # Add to total sets
+                stats['total_serviceable_states'].update(location.serviceable_states)
+                stats['total_serviceable_zones'].update(location.serviceable_pincodes)
+                
+                # Count coverage
+                for zone in location.serviceable_pincodes:
+                    stats['coverage_by_zone'][zone] += 1
+                
+                for state in location.serviceable_states:
+                    stats['coverage_by_state'][state] += 1
+            
+            # Convert sets to lists and add counts
+            stats['total_serviceable_states'] = list(stats['total_serviceable_states'])
+            stats['total_serviceable_zones'] = list(stats['total_serviceable_zones'])
+            stats['unique_serviceable_states_count'] = len(stats['total_serviceable_states'])
+            stats['unique_serviceable_zones_count'] = len(stats['total_serviceable_zones'])
+            
+            return stats
+            
+        except Exception as e:
+            print(f"Error getting delivery statistics: {e}")
+            return {}
+    
+    def to_dict(self):
+        """Convert location to dictionary with additional fields"""
+        try:
+            data = super().to_dict()
+            
+            # Ensure serviceable_states and serviceable_pincodes are lists
+            if not isinstance(data.get('serviceable_states'), list):
+                data['serviceable_states'] = []
+            
+            if not isinstance(data.get('serviceable_pincodes'), list):
+                data['serviceable_pincodes'] = []
+            
+            # Add computed fields
+            data['delivery_coverage'] = self.get_delivery_coverage_info()
+            data['serviceable_states_count'] = len(data['serviceable_states'])
+            data['serviceable_zones_count'] = len(data['serviceable_pincodes'])
+            
+            return data
+            
+        except Exception as e:
+            print(f"Error converting location to dict: {e}")
+            return super().to_dict()
+    
+    @classmethod
+    def from_dict(cls, data):
+        """Create location instance from dictionary"""
+        try:
+            location = cls()
+            for key, value in data.items():
+                if key == 'pincode_states':
+                    # Don't set pincode_states from data as it's a class constant
+                    continue
+                setattr(location, key, value)
+            
+            # Ensure required fields have default values
+            if not hasattr(location, 'serviceable_states') or location.serviceable_states is None:
+                location.serviceable_states = []
+            
+            if not hasattr(location, 'serviceable_pincodes') or location.serviceable_pincodes is None:
+                location.serviceable_pincodes = []
+            
+            if not hasattr(location, 'is_active'):
+                location.is_active = True
+            
+            return location
+            
+        except Exception as e:
+            print(f"Error creating location from dict: {e}")
+            # Return a basic location instance
+            location = cls()
+            location.location_id = data.get('location_id', str(uuid.uuid4()))
+            location.name = data.get('name', 'Unknown Location')
+            location.serviceable_states = data.get('serviceable_states', [])
+            location.serviceable_pincodes = data.get('serviceable_pincodes', [])
+            return location
 
 class User(BaseModel):
     """User model for authentication and user management"""
@@ -151,7 +461,11 @@ class User(BaseModel):
         self.department_id = None  # For customer employees
         self.is_first_login = True
         self.password_reset_required = False
-        self.branch_id = None   
+        self.branch_id = None
+        # NEW DELETION FIELDS
+        self.is_deleted = False
+        self.deleted_at = None
+        self.deleted_by = None   
 
     @classmethod
     def get_by_branch_id(cls, branch_id):
@@ -339,6 +653,12 @@ class Customer(BaseModel):
         self.is_active = True
         self.hr_admin_created = False
         self.company_alias = None
+        # NEW DELETION FIELDS
+        self.is_deleted = False
+        self.deleted_at = None
+        self.deleted_by = None
+        self.restored_at = None
+        self.restored_by = None
     
     @staticmethod
     def generate_customer_id():
@@ -448,6 +768,39 @@ class Customer(BaseModel):
         except Exception as e:
             print(f"Error creating HR admin user: {e}")
             return {'success': False, 'message': 'Failed to create HR admin user'}
+        
+        # Add these methods to the Customer class:
+    @classmethod
+    def get_all_including_deleted(cls):
+        """Get all customers including deleted ones"""
+        try:
+            db = config.get_db()
+            docs = db.collection('customers').get()
+            customers = []
+            for doc in docs:
+                customers.append(cls.from_dict(doc.to_dict()))
+            return customers
+        except Exception as e:
+            print(f"Error getting all customers including deleted: {e}")
+            return []
+
+    @classmethod
+    def get_deleted_customers(cls):
+        """Get only deleted customers"""
+        try:
+            db = config.get_db()
+            docs = db.collection('customers').where('is_deleted', '==', True).get()
+            customers = []
+            for doc in docs:
+                customers.append(cls.from_dict(doc.to_dict()))
+            return customers
+        except Exception as e:
+            print(f"Error getting deleted customers: {e}")
+            return []
+
+    def is_customer_deleted(self):
+        """Check if customer is deleted"""
+        return getattr(self, 'is_deleted', False)
 
 class Branch(BaseModel):
     """Branch model for customer organization locations"""
@@ -463,6 +816,10 @@ class Branch(BaseModel):
         self.email = None
         self.manager_name = None
         self.is_active = True
+        # NEW DELETION FIELDS
+        self.is_deleted = False
+        self.deleted_at = None
+        self.deleted_by = None
     
     def save(self):
         """Save branch to Firebase"""
@@ -538,6 +895,118 @@ class Product(BaseModel):
         except Exception as e:
             print(f"Error saving product: {e}")
             return False
+        
+    @classmethod
+    def get_products_for_user_pincode(cls, user_pincode):
+        """Get products that can be delivered to user's pincode"""
+        try:
+            if not user_pincode or len(user_pincode) != 6:
+                return []
+            
+            # Get serviceable locations for this pincode
+            from models import Location
+            serviceable_locations = Location.get_locations_for_pincode(user_pincode)
+            serviceable_location_ids = [loc.location_id for loc in serviceable_locations]
+            
+            if not serviceable_location_ids:
+                return []
+            
+            # Get all active products
+            all_products = cls.get_all_active()
+            
+            # Filter products that are available from serviceable locations
+            deliverable_products = []
+            for product in all_products:
+                product_locations = getattr(product, 'location_ids', [])
+                if not product_locations and hasattr(product, 'location_id') and product.location_id:
+                    # Backward compatibility
+                    product_locations = [product.location_id]
+                
+                # Check if any of the product's locations are serviceable
+                if any(loc_id in serviceable_location_ids for loc_id in product_locations):
+                    deliverable_products.append(product)
+            
+            return deliverable_products
+            
+        except Exception as e:
+            print(f"Error getting products for user pincode: {e}")
+            return []
+
+    @classmethod
+    def get_products_by_location_ids(cls, location_ids):
+        """Get products that are available at any of the specified locations"""
+        try:
+            db = config.get_db()
+            products = []
+            
+            # Get all active products
+            docs = db.collection('products').where('is_active', '==', True).get()
+            
+            for doc in docs:
+                product_data = doc.to_dict()
+                product = cls.from_dict(product_data)
+                
+                # Check if product is in any of the specified locations
+                product_locations = getattr(product, 'location_ids', [])
+                if not product_locations and hasattr(product, 'location_id') and product.location_id:
+                    # Backward compatibility
+                    product_locations = [product.location_id]
+                
+                if any(loc_id in location_ids for loc_id in product_locations):
+                    products.append(product)
+            
+            return products
+        except Exception as e:
+            print(f"Error getting products by location IDs: {e}")
+            return []
+
+    def is_deliverable_to_pincode(self, pincode):
+        """Check if this product can be delivered to a specific pincode"""
+        try:
+            if not pincode or len(pincode) != 6:
+                return False
+            
+            # Get product locations
+            product_locations = getattr(self, 'location_ids', [])
+            if not product_locations and hasattr(self, 'location_id') and self.location_id:
+                product_locations = [self.location_id]
+            
+            if not product_locations:
+                return False
+            
+            # Check if any of the product's locations can deliver to this pincode
+            from models import Location
+            for location_id in product_locations:
+                location = Location.get_by_id(location_id)
+                if location and location.can_deliver_to_pincode(pincode):
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"Error checking product deliverability to pincode: {e}")
+            return False
+
+    def get_serviceable_locations(self):
+        """Get all locations that carry this product"""
+        try:
+            from models import Location
+            
+            product_locations = getattr(self, 'location_ids', [])
+            if not product_locations and hasattr(self, 'location_id') and self.location_id:
+                product_locations = [self.location_id]
+            
+            locations = []
+            for location_id in product_locations:
+                location = Location.get_by_id(location_id)
+                if location:
+                    locations.append(location)
+            
+            return locations
+            
+        except Exception as e:
+            print(f"Error getting serviceable locations for product: {e}")
+            return []
     
     @classmethod
     def get_by_id(cls, product_id):
@@ -880,6 +1349,10 @@ class Department(BaseModel):
         self.department_head_id = None
         self.is_active = True
         self.branch_id = None
+        # NEW DELETION FIELDS
+        self.is_deleted = False
+        self.deleted_at = None
+        self.deleted_by = None
     
     def save(self):
         """Save department to Firebase"""

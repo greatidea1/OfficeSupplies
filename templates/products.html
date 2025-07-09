@@ -301,7 +301,7 @@
     }
     
     .no-customer-message {
-        background-color: #fff3cd;
+        background-color: #f6d110;
         color: #856404;
         flex-grow: 1;
         color: #666;
@@ -708,7 +708,7 @@
         background: var(--gray-50);
     }
 
-    /* Update the Add Product Modal section in the existing HTML */
+
 </style>
 {% endblock %}
 
@@ -930,7 +930,7 @@
         </div>
 
         <!-- Locations Multi-Select -->
-        <div class="form-group" style="margin-top: 10px;">
+        <div class="form-group" style="margin-top: 1px;">
           <label class="form-label">Locations <span style="color: var(--secondary-red);">*</span></label>
           <div id="addProductLocationSelect"></div>
           <span class="form-help">Select one or more locations where this product will be available</span>
@@ -967,7 +967,7 @@
         <!-- Description -->
         <div class="form-group" style="margin-top: 5px;">
           <label class="form-label">Description/Details</label>
-          <textarea class="form-control" name="description" rows="3" placeholder="Product description, features, specifications..."></textarea>
+          <textarea class="form-control" name="description" rows="3" placeholder="Product description, features, specifications..." style="height: 55px; width: 643px;"></textarea>
           <span class="form-error"></span>
         </div>
 
@@ -987,30 +987,44 @@
           </div>
         </div>
 
-        <!-- GST and HSN -->
+        <!-- Combined Row: Base Price, GST Rate, HSN Code -->
         <div class="form-row" style="display: flex; gap: 10px; margin-top: 10px;">
-          <div class="form-group" style="flex: 1;">
+        
+            <!-- Base Price -->
+            <div class="form-group" style="flex: 1;">
+            <label class="form-label">Base Price (₹)</label>
+            <input type="number" class="form-control" name="price" min="0" step="1" placeholder="Enter base price">
+            <span class="form-help">This is the default price. You can set customer-specific pricing later.</span>
+            <span class="form-error"></span>
+            </div>
+        
+            <!-- GST Rate -->
+            <div class="form-group" style="flex: 1;">
             <label class="form-label">GST Rate (%)</label>
             <select class="form-control" name="gst_rate">
-              <option value="0">0% (Exempt)</option>
-              <option value="5">5%</option>
-              <option value="12">12%</option>
-              <option value="18" selected>18%</option>
-              <option value="28">28%</option>
+                <option value="0">0% (Exempt)</option>
+                <option value="5">5%</option>
+                <option value="12">12%</option>
+                <option value="18" selected>18%</option>
+                <option value="28">28%</option>
             </select>
             <span class="form-error"></span>
-          </div>
-          <div class="form-group" style="flex: 1;">
+            </div>
+        
+            <!-- HSN Code -->
+            <div class="form-group" style="flex: 1;">
             <label class="form-label">HSN Code</label>
             <input type="text" class="form-control" name="hsn_code" placeholder="e.g., 84713000">
             <span class="form-help">Tax classification code</span>
             <span class="form-error"></span>
-          </div>
+            </div>
+        
         </div>
+  
 
         <!-- Info -->
         <div class="form-group" style="margin-top: 10px;">
-          <div style="background: rgba(37, 99, 235, 0.1); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 8px; padding: 16px; color: var(--primary-blue);">
+          <div style="background: rgba(37, 99, 235, 0.1); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 8px; padding: 2px; color: var(--primary-blue);">
             <i class="fas fa-info-circle"></i>
             <strong>Pricing:</strong> Set customer-specific pricing after product creation using the pricing editor.
           </div>
@@ -1401,6 +1415,11 @@ async function loadProducts() {
                 IS_VENDOR ? loadLocationsForProductForm() : Promise.resolve()
             ]);
             
+            // IMPORTANT: Restore customer selection state after loading products
+            if (IS_VENDOR) {
+                await restoreCustomerSelectionState();
+            }
+            
             displayProducts();
         } else {
             console.error('Failed to load products:', response);
@@ -1409,6 +1428,34 @@ async function loadProducts() {
     } catch (error) {
         console.error('Error loading products:', error);
         showEmptyState('Error loading products');
+    }
+}
+
+// Add new function to restore customer selection state
+async function restoreCustomerSelectionState() {
+    try {
+        const customerFilter = document.getElementById('customerFilterProducts');
+        if (customerFilter && customerFilter.value) {
+            console.log('Restoring customer selection state for:', customerFilter.value);
+            
+            // Set the selected customer ID
+            selectedCustomerId = customerFilter.value;
+            
+            // Hide the "no customer message"
+            const noCustomerMessage = document.getElementById('noCustomerMessage');
+            if (noCustomerMessage) {
+                noCustomerMessage.style.display = 'none';
+            }
+            
+            // Reload customer pricing data
+            await loadCustomerPricing();
+            
+            console.log('Customer selection state restored successfully');
+        } else {
+            console.log('No customer selection to restore');
+        }
+    } catch (error) {
+        console.error('Error restoring customer selection state:', error);
     }
 }
 
@@ -1739,21 +1786,38 @@ async function setupCustomerPricingSystem() {
             if (customerFilter) {
                 console.log('Populating customer filter with', response.customers.length, 'customers');
                 
+                // Store current selection
+                const currentSelection = customerFilter.value;
+                
                 customerFilter.innerHTML = '<option value="">Select Customer to Edit Pricing</option>' +
                     response.customers.map(customer => 
                         `<option value="${customer.customer_id}">${customer.company_name}</option>`
                     ).join('');
                 
+                // Restore previous selection if it exists
+                if (currentSelection) {
+                    customerFilter.value = currentSelection;
+                    selectedCustomerId = currentSelection;
+                }
+                
                 // Handle customer selection change
-                customerFilter.addEventListener('change', function() {
+                customerFilter.addEventListener('change', async function() {
                     console.log('Customer selection changed to:', this.value);
                     selectedCustomerId = this.value;
+                    
+                    const noCustomerMessage = document.getElementById('noCustomerMessage');
+                    
                     if (selectedCustomerId) {
-                        loadCustomerPricing();
-                        document.getElementById('noCustomerMessage').style.display = 'none';
+                        await loadCustomerPricing();
+                        if (noCustomerMessage) {
+                            noCustomerMessage.style.display = 'none';
+                        }
                     } else {
-                        document.getElementById('noCustomerMessage').style.display = 'block';
+                        if (noCustomerMessage) {
+                            noCustomerMessage.style.display = 'block';
+                        }
                         // Reset pricing displays
+                        customerPricing = {};
                         filteredProducts.forEach(product => {
                             updatePriceIndicator(product.product_id);
                         });
@@ -1776,6 +1840,7 @@ async function loadCustomerPricing() {
     if (!selectedCustomerId || !IS_VENDOR) return;
     
     try {
+        console.log('Loading customer pricing for:', selectedCustomerId);
         const response = await apiCall(`/customer-pricing/${selectedCustomerId}`);
         if (response.success) {
             customerPricing = {};
@@ -1783,8 +1848,12 @@ async function loadCustomerPricing() {
                 customerPricing[item.product_id] = item.custom_price;
             });
             
+            console.log('Customer pricing loaded:', customerPricing);
+            
             // Update product displays with pricing
             updateProductPricing();
+        } else {
+            console.error('Failed to load customer pricing:', response);
         }
     } catch (error) {
         console.error('Error loading customer pricing:', error);
@@ -2025,7 +2094,7 @@ async function editProduct(productId) {
                     </div>
 
                     <!-- Name, Make, Model (Side-by-Side) -->
-                    <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
+                    <div class="form-row" style="display: flex; gap: 16px; margin-top: 5px;">
                         <div class="form-group" style="flex: 1;">
                             <label class="form-label">Product Name <span style="color: var(--secondary-red);">*</span></label>
                             <input type="text" class="form-control" name="product_name" value="${product.product_name}" required>
@@ -2041,9 +2110,9 @@ async function editProduct(productId) {
                     </div>
 
                     <!-- Description -->
-                    <div class="form-group" style="margin-top: 16px;">
+                    <div class="form-group" style="margin-top: 5px;">
                         <label class="form-label">Description</label>
-                        <textarea class="form-control" name="description" rows="3">${product.description || ''}</textarea>
+                        <textarea class="form-control" name="description" rows="3" style="height: 42px; width: 648px;"></textarea>
                     </div>
 
                     <!-- Current Product Image -->
@@ -2262,7 +2331,23 @@ async function saveProductChanges(productId, modal) {
             if (result.success) {
                 showNotification('Product updated successfully!', 'success');
                 modal.remove();
-                loadProducts(); // Reload products to show updated data
+                
+                // Preserve customer selection state before reloading
+                const customerFilter = document.getElementById('customerFilterProducts');
+                const currentCustomer = customerFilter ? customerFilter.value : null;
+                
+                // Reload products while preserving selection
+                await loadProducts();
+                
+                // Restore customer selection if it was set
+                if (currentCustomer && customerFilter) {
+                    customerFilter.value = currentCustomer;
+                    selectedCustomerId = currentCustomer;
+                    
+                    // Trigger customer selection change to restore pricing view
+                    const changeEvent = new Event('change');
+                    customerFilter.dispatchEvent(changeEvent);
+                }
             } else {
                 showNotification(result.message || 'Failed to update product', 'error');
             }
@@ -2294,7 +2379,23 @@ async function saveProductChanges(productId, modal) {
             if (response.success) {
                 showNotification('Product updated successfully!', 'success');
                 modal.remove();
-                loadProducts(); // Reload products to show updated data
+                
+                // Preserve customer selection state before reloading
+                const customerFilter = document.getElementById('customerFilterProducts');
+                const currentCustomer = customerFilter ? customerFilter.value : null;
+                
+                // Reload products while preserving selection
+                await loadProducts();
+                
+                // Restore customer selection if it was set
+                if (currentCustomer && customerFilter) {
+                    customerFilter.value = currentCustomer;
+                    selectedCustomerId = currentCustomer;
+                    
+                    // Trigger customer selection change to restore pricing view
+                    const changeEvent = new Event('change');
+                    customerFilter.dispatchEvent(changeEvent);
+                }
             } else {
                 showNotification(response.message || 'Failed to update product', 'error');
             }

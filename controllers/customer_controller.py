@@ -15,19 +15,24 @@ class CustomerController:
         self.auth = auth_controller
     
     def get_customers(self):
-        """Get customers list (Vendor users only)"""
+        """Get customers list (Vendor users only) - ENHANCED WITH DELETION SUPPORT"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or not current_user.role.startswith('vendor_'):
                 return {'success': False, 'message': 'Only vendor users can view customers'}
             
+            from models import Customer
+            
             # Get query parameters
             search = request.args.get('search', '')
             status = request.args.get('status', '')
             sort_by = request.args.get('sort', 'name_asc')
+            include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
             
-            # Get all customers
-            if current_user.role in ['vendor_superadmin', 'vendor_admin']:
+            # Get customers based on role and deletion filter
+            if current_user.role == 'vendor_superadmin' and include_deleted:
+                customers = Customer.get_all_including_deleted()
+            elif current_user.role in ['vendor_superadmin', 'vendor_admin']:
                 customers = Customer.get_all()
             else:
                 customers = Customer.get_all_active()
@@ -36,16 +41,16 @@ class CustomerController:
             if search:
                 search = search.lower()
                 customers = [c for c in customers if 
-                           search in c.company_name.lower() or 
-                           search in c.email.lower() or 
-                           search in c.customer_id.lower()]
+                        search in c.company_name.lower() or 
+                        search in c.email.lower() or 
+                        search in c.customer_id.lower()]
             
             # Apply status filter
             if status:
                 if status == 'active':
-                    customers = [c for c in customers if c.is_active]
+                    customers = [c for c in customers if c.is_active and not getattr(c, 'is_deleted', False)]
                 elif status == 'inactive':
-                    customers = [c for c in customers if not c.is_active]
+                    customers = [c for c in customers if not c.is_active or getattr(c, 'is_deleted', False)]
             
             # Apply sorting
             if sort_by == 'name_asc':
@@ -62,16 +67,30 @@ class CustomerController:
             for customer in customers:
                 customer_dict = customer.to_dict()
                 
-                # Add statistics
-                stats = self.get_customer_statistics_internal(customer.customer_id)
-                customer_dict['statistics'] = stats
+                # Add statistics (only for active customers)
+                if not getattr(customer, 'is_deleted', False):
+                    stats = self.get_customer_statistics_internal(customer.customer_id)
+                    customer_dict['statistics'] = stats
+                else:
+                    customer_dict['statistics'] = {
+                        'total_orders': 0,
+                        'pending_dept_approval': 0,
+                        'pending_hr_approval': 0,
+                        'approved_orders': 0,
+                        'completed_orders': 0,
+                        'total_spent': 0,
+                        'active_users': 0,
+                        'departments': 0,
+                        'orders_this_month': 0
+                    }
                 
                 customer_list.append(customer_dict)
             
             return {
                 'success': True,
                 'customers': customer_list,
-                'total': len(customer_list)
+                'total': len(customer_list),
+                'includes_deleted': include_deleted
             }
             
         except Exception as e:
@@ -677,6 +696,199 @@ class CustomerController:
         except Exception as e:
             print(f"Reactivate customer error: {e}")
             return {'success': False, 'message': 'Failed to reactivate customer'}
+        
+
+    # Enhanced Customer Controller - Add to customer_controller.py
+
+
+    def delete_customer(self, customer_id):
+        """Delete customer and all associated data (SuperAdmin only) - COMPREHENSIVE VERSION"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user or current_user.role != 'vendor_superadmin':
+                return {'success': False, 'message': 'Only SuperAdmin can delete customers'}
+            
+            from models import Customer, User, Department, Branch
+            
+            customer = Customer.get_by_id(customer_id)
+            if not customer:
+                return {'success': False, 'message': 'Customer not found'}
+            
+            # Start deletion process
+            deletion_results = {
+                'users_deleted': 0,
+                'departments_deleted': 0,
+                'branches_deleted': 0,
+                'errors': []
+            }
+            
+            try:
+                # 1. Delete all users of this customer
+                users = User.get_by_customer_id(customer_id)
+                for user in users:
+                    try:
+                        # Mark user as deleted but preserve username and basic info
+                        user.is_active = False
+                        user.is_deleted = True
+                        user.deleted_at = datetime.now()
+                        user.deleted_by = current_user.user_id
+                        
+                        if user.save():
+                            deletion_results['users_deleted'] += 1
+                        else:
+                            deletion_results['errors'].append(f"Failed to delete user: {user.username}")
+                    except Exception as e:
+                        deletion_results['errors'].append(f"Error deleting user {user.username}: {str(e)}")
+                
+                # 2. Delete all departments of this customer
+                departments = Department.get_by_customer_id(customer_id)
+                for department in departments:
+                    try:
+                        # Mark department as deleted
+                        department.is_active = False
+                        department.is_deleted = True
+                        department.deleted_at = datetime.now()
+                        department.deleted_by = current_user.user_id
+                        
+                        if department.save():
+                            deletion_results['departments_deleted'] += 1
+                        else:
+                            deletion_results['errors'].append(f"Failed to delete department: {department.name}")
+                    except Exception as e:
+                        deletion_results['errors'].append(f"Error deleting department {department.name}: {str(e)}")
+                
+                # 3. Delete all branches of this customer
+                branches = Branch.get_by_customer_id(customer_id)
+                for branch in branches:
+                    try:
+                        # Mark branch as deleted
+                        branch.is_active = False
+                        branch.is_deleted = True
+                        branch.deleted_at = datetime.now()
+                        branch.deleted_by = current_user.user_id
+                        
+                        if branch.save():
+                            deletion_results['branches_deleted'] += 1
+                        else:
+                            deletion_results['errors'].append(f"Failed to delete branch: {branch.name}")
+                    except Exception as e:
+                        deletion_results['errors'].append(f"Error deleting branch {branch.name}: {str(e)}")
+                
+                # 4. Mark customer as deleted (preserve customer_id, name, order history)
+                customer.is_active = False
+                customer.is_deleted = True
+                customer.deleted_at = datetime.now()
+                customer.deleted_by = current_user.user_id
+                
+                if customer.save():
+                    return {
+                        'success': True,
+                        'message': f'Customer "{customer.company_name}" has been successfully deleted',
+                        'deletion_summary': {
+                            'customer_name': customer.company_name,
+                            'customer_id': customer.customer_id,
+                            'users_deleted': deletion_results['users_deleted'],
+                            'departments_deleted': deletion_results['departments_deleted'],
+                            'branches_deleted': deletion_results['branches_deleted'],
+                            'errors': deletion_results['errors'],
+                            'deleted_at': datetime.now().isoformat(),
+                            'deleted_by': current_user.username
+                        }
+                    }
+                else:
+                    return {'success': False, 'message': 'Failed to delete customer'}
+            
+            except Exception as e:
+                print(f"Error during customer deletion process: {e}")
+                return {
+                    'success': False, 
+                    'message': f'Error during deletion process: {str(e)}',
+                    'partial_results': deletion_results
+                }
+                
+        except Exception as e:
+            print(f"Delete customer error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'message': 'Failed to delete customer'}
+
+    def get_customer_deletion_preview(self, customer_id):
+        """Get preview of what will be deleted (SuperAdmin only)"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user or current_user.role != 'vendor_superadmin':
+                return {'success': False, 'message': 'Only SuperAdmin can preview customer deletion'}
+            
+            from models import Customer, User, Department, Branch, Order
+            
+            customer = Customer.get_by_id(customer_id)
+            if not customer:
+                return {'success': False, 'message': 'Customer not found'}
+            
+            # Get counts of associated data
+            users = User.get_by_customer_id(customer_id)
+            departments = Department.get_by_customer_id(customer_id)
+            branches = Branch.get_by_customer_id(customer_id)
+            orders = Order.get_by_customer_id(customer_id)
+            
+            # Filter active items
+            active_users = [u for u in users if u.is_active and not getattr(u, 'is_deleted', False)]
+            active_departments = [d for d in departments if d.is_active and not getattr(d, 'is_deleted', False)]
+            active_branches = [b for b in branches if b.is_active and not getattr(b, 'is_deleted', False)]
+            
+            return {
+                'success': True,
+                'preview': {
+                    'customer_name': customer.company_name,
+                    'customer_id': customer.customer_id,
+                    'users_count': len(active_users),
+                    'departments_count': len(active_departments),
+                    'branches_count': len(active_branches),
+                    'orders_count': len(orders),
+                    'users_list': [{'username': u.username, 'full_name': u.full_name, 'role': u.role} for u in active_users],
+                    'departments_list': [{'name': d.name, 'description': d.description} for d in active_departments],
+                    'branches_list': [{'name': b.name, 'address': b.address} for b in active_branches],
+                    'warning_message': 'This action will permanently delete all users, departments, and branches. Order history will be preserved.'
+                }
+            }
+            
+        except Exception as e:
+            print(f"Get customer deletion preview error: {e}")
+            return {'success': False, 'message': 'Failed to get deletion preview'}
+
+    def restore_customer(self, customer_id):
+        """Restore deleted customer (SuperAdmin only)"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user or current_user.role != 'vendor_superadmin':
+                return {'success': False, 'message': 'Only SuperAdmin can restore customers'}
+            
+            from models import Customer
+            
+            customer = Customer.get_by_id(customer_id)
+            if not customer:
+                return {'success': False, 'message': 'Customer not found'}
+            
+            if not getattr(customer, 'is_deleted', False):
+                return {'success': False, 'message': 'Customer is not deleted'}
+            
+            # Restore customer
+            customer.is_active = True
+            customer.is_deleted = False
+            customer.restored_at = datetime.now()
+            customer.restored_by = current_user.user_id
+            
+            if customer.save():
+                return {
+                    'success': True,
+                    'message': f'Customer "{customer.company_name}" has been restored. Note: Users, departments, and branches need to be restored separately if needed.'
+                }
+            else:
+                return {'success': False, 'message': 'Failed to restore customer'}
+                
+        except Exception as e:
+            print(f"Restore customer error: {e}")
+            return {'success': False, 'message': 'Failed to restore customer'}
 
 # Global customer controller instance
 customer_controller = CustomerController()
