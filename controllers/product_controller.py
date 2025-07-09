@@ -478,7 +478,7 @@ class ProductController:
             return {'success': False, 'message': 'Failed to retrieve product'}
     
     def update_product(self, product_id):
-        """Update existing product (Vendor only) - FIXED WITH IMAGE UPLOAD AND LOCATION SAVE"""
+        """Update existing product (Vendor only) - FIXED WITH MULTI-LOCATION SUPPORT"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or not current_user.role.startswith('vendor_'):
@@ -492,36 +492,39 @@ class ProductController:
             if request.content_type and request.content_type.startswith('multipart/form-data'):
                 print("Processing multipart form data (with potential image upload)")
                 data = request.form.to_dict()
+                # Handle multiple location selections from form
+                location_ids = request.form.getlist('location_ids')
                 has_image = 'product_image' in request.files and request.files['product_image'].filename
             else:
                 print("Processing JSON data (no image)")
                 data = request.get_json()
+                location_ids = data.get('location_ids', [])
                 has_image = False
             
             print(f"Update data received: {data}")
+            print(f"Location IDs received: {location_ids}")
             
-            # Update allowed fields (location_id included)
+            # Validate at least one location is selected
+            if not location_ids or len(location_ids) == 0:
+                return {'success': False, 'message': 'At least one location must be selected'}
+            
+            # Validate all selected locations exist
+            from models import Location
+            for location_id in location_ids:
+                location = Location.get_by_id(location_id)
+                if not location:
+                    return {'success': False, 'message': f'Invalid location selected: {location_id}'}
+            
+            # Update allowed fields
             updateable_fields = [
                 'category', 'product_name', 'product_make', 'product_model',
                 'description', 'price', 'quantity', 'gst_rate', 'hsn_code',
-                'low_stock_threshold', 'is_active', 'location_id'
+                'low_stock_threshold', 'is_active'
             ]
             
             for field in updateable_fields:
                 if field in data and data[field] is not None:
-                    if field == 'location_id':
-                        # Validate location exists
-                        if data[field]:  # Only validate if not empty
-                            from models import Location
-                            location = Location.get_by_id(data[field])
-                            if not location:
-                                return {'success': False, 'message': 'Invalid location selected'}
-                            print(f"Setting location_id to: {data[field]}")
-                            setattr(product, field, data[field])
-                        else:
-                            print("Location ID is empty, setting to None")
-                            setattr(product, field, None)
-                    elif field in ['price', 'gst_rate']:
+                    if field in ['price', 'gst_rate']:
                         setattr(product, field, float(data[field]) if data[field] else 0.0)
                     elif field in ['quantity', 'low_stock_threshold']:
                         setattr(product, field, int(data[field]) if data[field] else 0)
@@ -529,6 +532,14 @@ class ProductController:
                         setattr(product, field, bool(data[field]))
                     else:
                         setattr(product, field, data[field])
+            
+            # Update multiple locations - THIS IS THE KEY FIX
+            product.location_ids = location_ids
+            # Set primary location for backward compatibility
+            product.location_id = location_ids[0] if location_ids else None
+            
+            print(f"Setting product locations to: {location_ids}")
+            print(f"Setting primary location to: {product.location_id}")
             
             # Handle specifications
             if 'specifications' in data:

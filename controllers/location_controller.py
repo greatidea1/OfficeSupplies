@@ -182,7 +182,7 @@ class LocationController:
             return {'success': False, 'message': 'Failed to delete location'}
     
     def get_locations_dropdown(self):
-        """Get locations for dropdown selection with pincode display"""
+        """Get locations for dropdown selection WITHOUT pincode display"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user or not current_user.role.startswith('vendor_'):
@@ -192,15 +192,9 @@ class LocationController:
             
             location_list = []
             for location in locations:
-                # Include pincode in display name
-                display_name = location.name
-                if hasattr(location, 'pincode') and location.pincode:
-                    display_name += f" ({location.pincode})"
-                
                 location_list.append({
                     'location_id': location.location_id,
                     'name': location.name,
-                    'display_name': display_name,
                     'pincode': getattr(location, 'pincode', None)
                 })
             

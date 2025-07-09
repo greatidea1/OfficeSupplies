@@ -300,8 +300,6 @@
         min-width: 220px;
     }
     
-
-
     .no-customer-message {
         background-color: #fff3cd;
         color: #856404;
@@ -599,6 +597,36 @@
         background: rgba(255, 255, 255, 0.5);
     }
 
+    /* Additional CSS for Select All option in multi-select */
+    .multi-select-option.select-all-option {
+        font-weight: 600;
+        color: var(--primary-blue);
+        background: rgba(37, 99, 235, 0.05);
+    }
+
+    .multi-select-option.select-all-option:hover {
+        background: rgba(37, 99, 235, 0.1);
+    }
+
+    .multi-select-option.select-all-option.all-selected {
+        color: var(--secondary-green);
+        background: rgba(34, 197, 94, 0.05);
+    }
+
+    .multi-select-option.select-all-option.all-selected:hover {
+        background: rgba(34, 197, 94, 0.1);
+    }
+
+    .multi-select-option.select-all-option .multi-select-checkbox {
+        border-color: var(--primary-blue);
+    }
+
+    .multi-select-option.select-all-option.all-selected .multi-select-checkbox {
+        background: var(--secondary-green);
+        border-color: var(--secondary-green);
+        color: white;
+    }
+
     .multi-select-placeholder {
         color: var(--gray-500);
         font-style: italic;
@@ -874,10 +902,10 @@
       <form id="addProductForm" enctype="multipart/form-data">
 
         <!-- Item Number and Category -->
-        <div class="form-row" style="display: flex; gap: 16px;">
+        <div class="form-row" style="display: flex; gap: 10px;">
             <div class="form-group" style="flex: 1;">
               <label class="form-label">Item Number</label>
-              <div style="padding: 12px; background: var(--gray-50); border: 1px solid var(--gray-300); border-radius: 8px; color: var(--gray-600);">
+              <div style="padding: 10px; background: var(--gray-50); border: 1px solid var(--gray-300); border-radius: 8px; color: var(--gray-600);">
                 <i class="fas fa-magic"></i>
                 Auto-generated (itXXX format)
               </div>
@@ -902,7 +930,7 @@
         </div>
 
         <!-- Locations Multi-Select -->
-        <div class="form-group" style="margin-top: 16px;">
+        <div class="form-group" style="margin-top: 10px;">
           <label class="form-label">Locations <span style="color: var(--secondary-red);">*</span></label>
           <div id="addProductLocationSelect"></div>
           <span class="form-help">Select one or more locations where this product will be available</span>
@@ -918,7 +946,7 @@
         </div>
 
         <!-- Name, Make, Model -->
-        <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
+        <div class="form-row" style="display: flex; gap: 10px; margin-top: 10px;">
           <div class="form-group" style="flex: 1;">
             <label class="form-label">Product Name <span style="color: var(--secondary-red);">*</span></label>
             <input type="text" class="form-control" name="product_name" required>
@@ -937,14 +965,14 @@
         </div>
 
         <!-- Description -->
-        <div class="form-group" style="margin-top: 16px;">
+        <div class="form-group" style="margin-top: 5px;">
           <label class="form-label">Description/Details</label>
           <textarea class="form-control" name="description" rows="3" placeholder="Product description, features, specifications..."></textarea>
           <span class="form-error"></span>
         </div>
 
         <!-- Quantity & Low Stock -->
-        <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
+        <div class="form-row" style="display: flex; gap: 10px; margin-top: 10px;">
           <div class="form-group" style="flex: 1;">
             <label class="form-label">Quantity <span style="color: var(--secondary-red);">*</span></label>
             <input type="number" class="form-control" name="quantity" min="0" required>
@@ -960,7 +988,7 @@
         </div>
 
         <!-- GST and HSN -->
-        <div class="form-row" style="display: flex; gap: 16px; margin-top: 16px;">
+        <div class="form-row" style="display: flex; gap: 10px; margin-top: 10px;">
           <div class="form-group" style="flex: 1;">
             <label class="form-label">GST Rate (%)</label>
             <select class="form-control" name="gst_rate">
@@ -981,7 +1009,7 @@
         </div>
 
         <!-- Info -->
-        <div class="form-group" style="margin-top: 16px;">
+        <div class="form-group" style="margin-top: 10px;">
           <div style="background: rgba(37, 99, 235, 0.1); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 8px; padding: 16px; color: var(--primary-blue);">
             <i class="fas fa-info-circle"></i>
             <strong>Pricing:</strong> Set customer-specific pricing after product creation using the pricing editor.
@@ -989,7 +1017,7 @@
         </div>
 
         <!-- Product Image -->
-        <div class="form-group" style="margin-top: 16px;">
+        <div class="form-group" style="margin-top: 10px;">
           <label class="form-label">Product Image</label>
           <input type="file" class="form-control" name="product_image" accept="image/*" onchange="handleImageUpload(event)">
           <span class="form-help">Max size: 16MB. JPEG, PNG, etc. Auto-resized to 800×800px.</span>
@@ -1155,6 +1183,28 @@ class MultiSelectLocation {
         this.filterOptions('');
     }
     
+    selectAll() {
+        this.selectedLocations = [...this.allLocations];
+        this.updateDisplay();
+        this.renderOptions();
+        
+        // Trigger change event if callback provided
+        if (this.options.onChange) {
+            this.options.onChange(this.getSelected());
+        }
+    }
+    
+    deselectAll() {
+        this.selectedLocations = [];
+        this.updateDisplay();
+        this.renderOptions();
+        
+        // Trigger change event if callback provided
+        if (this.options.onChange) {
+            this.options.onChange(this.getSelected());
+        }
+    }
+    
     toggleLocation(location) {
         const index = this.selectedLocations.findIndex(loc => loc.location_id === location.location_id);
         
@@ -1191,7 +1241,7 @@ class MultiSelectLocation {
         } else {
             display.innerHTML = this.selectedLocations.map(location => `
                 <div class="selected-location">
-                    ${location.name}${location.pincode ? ` (${location.pincode})` : ''}
+                    ${location.name}
                     <button type="button" class="remove-location" onclick="event.stopPropagation(); this.closest('.multi-select-container').multiSelect.removeLocation('${location.location_id}')">
                         ×
                     </button>
@@ -1204,17 +1254,32 @@ class MultiSelectLocation {
         const optionsContainer = this.container.querySelector('.multi-select-options');
         const locationsToShow = filteredLocations || this.allLocations;
         
-        optionsContainer.innerHTML = locationsToShow.map(location => {
+        // Add Select All / Deselect All option at the top
+        const allSelected = this.selectedLocations.length === this.allLocations.length;
+        const selectAllOption = `
+            <div class="multi-select-option select-all-option ${allSelected ? 'all-selected' : ''}" 
+                 onclick="this.closest('.multi-select-container').multiSelect.${allSelected ? 'deselectAll' : 'selectAll'}()">
+                <div class="multi-select-checkbox">
+                    ${allSelected ? '<i class="fas fa-check"></i>' : ''}
+                </div>
+                ${allSelected ? 'Deselect All' : 'Select All'}
+            </div>
+            <div style="border-top: 1px solid var(--gray-200); margin: 4px 0;"></div>
+        `;
+        
+        const locationOptions = locationsToShow.map(location => {
             const isSelected = this.selectedLocations.some(loc => loc.location_id === location.location_id);
             return `
                 <div class="multi-select-option ${isSelected ? 'selected' : ''}" onclick="this.closest('.multi-select-container').multiSelect.toggleLocation(${JSON.stringify(location).replace(/"/g, '&quot;')})">
                     <div class="multi-select-checkbox">
                         ${isSelected ? '<i class="fas fa-check"></i>' : ''}
                     </div>
-                    ${location.name}${location.pincode ? ` (${location.pincode})` : ''}
+                    ${location.name}
                 </div>
             `;
         }).join('');
+        
+        optionsContainer.innerHTML = selectAllOption + locationOptions;
     }
     
     filterOptions(searchTerm) {
@@ -1224,8 +1289,7 @@ class MultiSelectLocation {
         }
         
         const filtered = this.allLocations.filter(location =>
-            location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (location.pincode && location.pincode.includes(searchTerm))
+            location.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
         
         this.renderOptions(filtered);
