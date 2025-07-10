@@ -719,6 +719,53 @@
                 font-size: 0.8rem;
             }
         }
+
+        /* Footer styles */
+        .main-footer {
+            background: var(--gray-800);
+            color: var(--gray-100);
+            padding: 12px 0;
+            margin-top: auto;
+            border-top: 1px solid var(--gray-700);
+            font-size: 0.9rem;
+        }
+
+        .footer-content {
+            max-width: var(--container-max-width);
+            margin: 0 auto;
+            padding: 0 12px;
+            text-align: center;
+        }
+
+        .footer-link {
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .footer-link:hover {
+            color: var(--primary-blue-light);
+            text-decoration: underline;
+        }
+
+        /* Ensure body takes full height */
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        main {
+            flex: 1;
+        }
+
+        @media (max-width: 768px) {
+            .main-footer {
+                padding: 12px 0;
+                font-size: 0.8rem;
+            }
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
@@ -1157,5 +1204,12 @@
     </script>
     
     {% block extra_js %}{% endblock %}
+
+
+    <footer class="main-footer">
+        <div class="footer-content">
+            <p>Developed and Maintained by <a href="https://quadrang.com/" target="_blank" class="footer-link">Quadrang Systems Pvt Ltd</a>, Pune, India</p>
+        </div>
+    </footer>
 </body>
 </html>

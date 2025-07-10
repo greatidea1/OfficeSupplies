@@ -1,6 +1,6 @@
 # User Controller - Handle user management operations
 from flask import request, session
-from models import User, Customer, Department
+from models import User, Customer, Department, Branch
 from controllers.auth_controller import auth_controller
 from config import config
 import uuid
@@ -122,6 +122,40 @@ class UserController:
             import traceback
             traceback.print_exc()
             return {'success': False, 'message': 'Failed to retrieve users'}
+        
+    def get_departments_by_branch(self, branch_id):
+        """Get departments filtered by branch ID"""
+        try:
+            current_user = self.auth.get_current_user()
+            if not current_user:
+                return {'success': False, 'message': 'Authentication required'}
+            
+            if not branch_id:
+                return {'success': True, 'departments': []}
+            
+            # Get departments for the specified branch
+            departments = Department.get_by_branch_id(branch_id)
+            
+            # Filter only active departments
+            active_departments = [dept for dept in departments if dept.is_active]
+            
+            dept_list = []
+            for dept in active_departments:
+                dept_list.append({
+                    'department_id': dept.department_id,
+                    'name': dept.name,
+                    'description': dept.description or '',
+                    'branch_id': dept.branch_id
+                })
+            
+            return {
+                'success': True,
+                'departments': dept_list
+            }
+            
+        except Exception as e:
+            print(f"Get departments by branch error: {e}")
+            return {'success': False, 'message': 'Failed to retrieve departments'}
     
     def get_users(self):
         """Get users list with enhanced branch information including pincode"""
@@ -317,10 +351,14 @@ class UserController:
                         return datetime.min
                 user_list.sort(key=safe_created_at, reverse=True)
             
+            # Get available roles for current user
+            available_roles = self.get_available_roles(current_user)
+            
             return {
                 'success': True,
                 'users': user_list,
                 'total': len(user_list),
+                'available_roles': available_roles,  # ADD THIS LINE
                 'filters_applied': {
                     'search': bool(search),
                     'role': bool(role_filter),
@@ -499,7 +537,6 @@ class UserController:
             else:
                 return {'success': False, 'message': 'Customer ID required'}
             
-            from models import Branch
             branches = Branch.get_by_customer_id(target_customer_id)
             
             branch_list = []
@@ -508,7 +545,8 @@ class UserController:
                     branch_list.append({
                         'branch_id': branch.branch_id,
                         'name': branch.name,
-                        'address': branch.address
+                        'address': branch.address,
+                        'pincode': getattr(branch, 'pincode', '')
                     })
             
             return {
@@ -587,7 +625,7 @@ class UserController:
             return False
     
     def update_user(self, user_id):
-        """Update user information"""
+        """Update user information - FIXED VERSION"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -604,7 +642,7 @@ class UserController:
             data = request.get_json()
             
             # Update allowed fields
-            updateable_fields = ['full_name', 'email', 'is_active']
+            updateable_fields = ['full_name', 'email', 'is_active', 'department_id', 'branch_id']
             
             # Role can only be updated by vendor users
             if current_user.role.startswith('vendor_') and 'role' in data:
@@ -613,27 +651,55 @@ class UserController:
                 else:
                     return {'success': False, 'message': 'Cannot assign this role'}
             
-            # Department can be updated for customer employees
-            if (data.get('role') == 'customer_employee' or user.role == 'customer_employee') and 'department_id' in data:
-                updateable_fields.append('department_id')
+            # Track what was actually updated for debugging
+            updated_fields = []
             
             for field in updateable_fields:
                 if field in data:
+                    old_value = getattr(user, field, None)
+                    new_value = data[field]
+                    
                     if field == 'is_active':
-                        setattr(user, field, bool(data[field]))
-                    else:
-                        setattr(user, field, data[field])
+                        new_value = bool(data[field])
+                    elif field == 'department_id':
+                        # Handle department_id - can be None/empty string
+                        new_value = data[field] if data[field] else None
+                    elif field == 'branch_id':
+                        # Handle branch_id - can be None/empty string  
+                        new_value = data[field] if data[field] else None
+                    
+                    # Only update if value actually changed
+                    if old_value != new_value:
+                        setattr(user, field, new_value)
+                        updated_fields.append(f"{field}: {old_value} -> {new_value}")
+            
+            # Debug logging
+            print(f"DEBUG: Updating user {user.username}")
+            print(f"DEBUG: Updated fields: {updated_fields}")
+            print(f"DEBUG: Final user data before save:")
+            print(f"  - full_name: {user.full_name}")
+            print(f"  - email: {user.email}")
+            print(f"  - role: {user.role}")
+            print(f"  - is_active: {user.is_active}")
+            print(f"  - department_id: {getattr(user, 'department_id', None)}")
+            print(f"  - branch_id: {getattr(user, 'branch_id', None)}")
             
             if user.save():
+                print(f"DEBUG: User {user.username} saved successfully")
                 return {
                     'success': True,
-                    'message': 'User updated successfully'
+                    'message': 'User updated successfully',
+                    'updated_fields': len(updated_fields),
+                    'debug_info': updated_fields  # Remove this in production
                 }
             else:
-                return {'success': False, 'message': 'Failed to update user'}
+                print(f"DEBUG: Failed to save user {user.username}")
+                return {'success': False, 'message': 'Failed to save user changes'}
                 
         except Exception as e:
             print(f"Update user error: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': 'Failed to update user'}
     
     def update_profile(self):
@@ -964,6 +1030,29 @@ class UserController:
             ]
         else:
             return []
+        
+        # Helper methods for permission checks
+    def can_edit_user(self, current_user, target_user):
+        """Check if current user can edit target user"""
+        if current_user.user_id == target_user.user_id:
+            return False
+        
+        if current_user.role == 'vendor_superadmin':
+            return target_user.role != 'vendor_superadmin'
+        
+        if current_user.role == 'vendor_admin':
+            return (target_user.role == 'vendor_normal' or 
+                   target_user.role.startswith('customer_'))
+        
+        if current_user.role == 'customer_hr_admin':
+            return (target_user.customer_id == current_user.customer_id and
+                   target_user.role in ['customer_dept_head', 'customer_employee'])
+        
+        return False
+
+    def can_delete_user(self, current_user, target_user):
+        """Check if current user can delete target user"""
+        return self.can_edit_user(current_user, target_user)
 
 # Global user controller instance
 user_controller = UserController()

@@ -274,8 +274,6 @@ def create_app():
         """Customer management page"""
         return render_template('customers.html')
     
-
-    
     @app.route('/api/customers', methods=['POST'])
     @login_required
     @role_required('vendor_superadmin')
@@ -294,8 +292,6 @@ def create_app():
     def api_customer_statistics(customer_id):
         """API: Get customer statistics"""
         return jsonify(customer_controller.get_customer_statistics(customer_id))
-    
-    
 
     @app.route('/api/customers/<customer_id>', methods=['DELETE'])
     @login_required
@@ -303,9 +299,6 @@ def create_app():
     def api_delete_customer_endpoint(customer_id):
         """API: Delete customer and all associated data"""
         return jsonify(customer_controller.delete_customer(customer_id))
-
-    
-    
 
     # Routes for differential pricing per customer
     
@@ -1290,6 +1283,56 @@ def create_app():
         """API: Assign department head"""
         return jsonify(department_controller.assign_department_head(department_id))
     
+    @app.route('/api/departments-by-branch/<branch_id>')
+    @login_required
+    def api_departments_by_branch(branch_id):
+        """API: Get departments filtered by branch ID"""
+        try:
+            current_user = auth_controller.get_current_user()
+            if not current_user:
+                return jsonify({'success': False, 'message': 'Authentication required'})
+            
+            if not branch_id:
+                return jsonify({'success': True, 'departments': []})
+            
+            # Get departments for the specified branch
+            from models import Department
+            departments = Department.get_by_branch_id(branch_id)
+            
+            # Filter only active departments and check permissions
+            active_departments = []
+            for dept in departments:
+                if dept.is_active:
+                    # Check if user has permission to see this department
+                    if current_user.role.startswith('customer_'):
+                        if dept.customer_id == current_user.customer_id:
+                            active_departments.append(dept)
+                    elif current_user.role.startswith('vendor_'):
+                        active_departments.append(dept)
+            
+            dept_list = []
+            for dept in active_departments:
+                dept_list.append({
+                    'department_id': dept.department_id,
+                    'name': dept.name,
+                    'description': dept.description or '',
+                    'branch_id': dept.branch_id,
+                    'customer_id': dept.customer_id
+                })
+            
+            return jsonify({
+                'success': True,
+                'departments': dept_list,
+                'branch_id': branch_id,
+                'total_departments': len(dept_list)
+            })
+            
+        except Exception as e:
+            print(f"Get departments by branch error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'success': False, 'message': 'Failed to retrieve departments'})
+    
     # ================== BRANCH ROUTES ==================
 
     @app.route('/branches')
@@ -1432,9 +1475,105 @@ def create_app():
     
     @app.route('/api/users', methods=['POST'])
     @login_required
-    def api_create_user():
-        """API: Create new user"""
-        return jsonify(user_controller.create_user())
+    def api_create_user_enhanced():
+        """API: Create new user with enhanced branch-department validation"""
+        try:
+            current_user = auth_controller.get_current_user()
+            if not current_user:
+                return jsonify({'success': False, 'message': 'Authentication required'})
+            
+            data = request.get_json()
+            
+            # Validate required fields
+            required_fields = ['first_name', 'last_name', 'username', 'email', 'role', 'password']
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    return jsonify({'success': False, 'message': f'{field} is required'})
+            
+            # Check permissions
+            if not user_controller.can_create_user_with_role(current_user, data['role']):
+                return jsonify({'success': False, 'message': 'Insufficient permissions to create user with this role'})
+            
+            # Check if username already exists
+            existing_user = User.get_by_username(data['username'])
+            if existing_user:
+                return jsonify({'success': False, 'message': 'Username already exists'})
+            
+            # Check if email already exists
+            existing_email = User.get_by_email(data['email'])
+            if existing_email:
+                return jsonify({'success': False, 'message': 'Email already exists'})
+            
+            # Enhanced validation for customer roles
+            role = data['role']
+            if role.startswith('customer_'):
+                # Validate department requirement
+                if role in ['customer_employee', 'customer_dept_head']:
+                    if not data.get('department_id'):
+                        return jsonify({'success': False, 'message': 'Department is required for employees and department heads'})
+                
+                # Validate branch-department relationship if both are provided
+                if data.get('branch_id') and data.get('department_id'):
+                    # Import Department model here to avoid import error
+                    from models import Department
+                    department = Department.get_by_id(data['department_id'])
+                    if department and department.branch_id != data['branch_id']:
+                        return jsonify({'success': False, 'message': 'Selected department does not belong to the selected branch'})
+            
+            # Create user
+            user = User(
+                username=data['username'],
+                email=data['email'],
+                password_hash=User.hash_password(data['password']),
+                role=data['role']
+            )
+            
+            # Set name fields
+            user.first_name = data['first_name']
+            user.last_name = data['last_name']
+            user.full_name = data.get('full_name', f"{data['first_name']} {data['last_name']}")
+            
+            # Set user as immediately usable
+            user.is_first_login = False
+            user.password_reset_required = False
+            user.is_active = True
+            
+            # Set customer_id based on role and current user
+            if role.startswith('customer_'):
+                if current_user.role == 'customer_hr_admin':
+                    user.customer_id = current_user.customer_id
+                elif current_user.role.startswith('vendor_') and 'customer_id' in data:
+                    user.customer_id = data['customer_id']
+                else:
+                    return jsonify({'success': False, 'message': 'Customer ID required for customer users'})
+            
+            # Set department_id
+            if 'department_id' in data and data['department_id']:
+                user.department_id = data['department_id']
+            
+            # Set branch_id
+            if 'branch_id' in data and data['branch_id']:
+                user.branch_id = data['branch_id']
+            
+            if user.save():
+                # Send welcome email if requested
+                send_email = data.get('send_email', False)
+                if send_email:
+                    user_controller.send_welcome_email_without_password(user)
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'User created successfully',
+                    'user_id': user.user_id
+                })
+            else:
+                return jsonify({'success': False, 'message': 'Failed to create user'})
+                
+        except Exception as e:
+            print(f"Create user error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'success': False, 'message': 'Failed to create user'})
     
     @app.route('/api/users/<user_id>', methods=['PUT'])
     @login_required
@@ -2061,7 +2200,7 @@ def create_app():
     @app.route('/api/users-with-branches')
     @login_required
     def api_users_with_branches():
-        """API: Get users list with branch information - FIXED VERSION"""
+        """API: Get users list with branch information - Enhanced for role population"""
         try:
             result = user_controller.get_users()
             
@@ -2074,18 +2213,105 @@ def create_app():
                         if branch:
                             user['branch_name'] = branch.name
                             user['branch_address'] = branch.address
+                            user['branch_pincode'] = getattr(branch, 'pincode', None)
                         else:
                             user['branch_name'] = 'Unknown Branch'
                             user['branch_address'] = None
+                            user['branch_pincode'] = None
                     else:
                         user['branch_name'] = None
                         user['branch_address'] = None
+                        user['branch_pincode'] = None
+            
+            # Get available roles for current user
+            current_user = auth_controller.get_current_user()
+            available_roles = user_controller.get_available_roles(current_user)
+            
+            result['available_roles'] = available_roles
             
             return jsonify(result)
             
         except Exception as e:
             print(f"Get users with branches error: {e}")
             return jsonify({'success': False, 'message': 'Failed to retrieve users'})
+        
+    @app.route('/api/user-controller/branches-for-customer/<customer_id>')
+    @login_required
+    def api_branches_for_customer_vendor(customer_id):
+        """API: Get branches for a specific customer (for vendor users)"""
+        try:
+            current_user = auth_controller.get_current_user()
+            if not current_user:
+                return jsonify({'success': False, 'message': 'Authentication required'})
+            
+            # Check permissions
+            if current_user.role.startswith('customer_'):
+                if current_user.customer_id != customer_id:
+                    return jsonify({'success': False, 'message': 'Access denied'})
+            elif not current_user.role.startswith('vendor_'):
+                return jsonify({'success': False, 'message': 'Access denied'})
+            
+            from models import Branch
+            branches = Branch.get_by_customer_id(customer_id)
+            
+            branch_list = []
+            for branch in branches:
+                if branch.is_active:
+                    branch_list.append({
+                        'branch_id': branch.branch_id,
+                        'name': branch.name,
+                        'address': branch.address,
+                        'pincode': getattr(branch, 'pincode', ''),
+                        'customer_id': branch.customer_id
+                    })
+            
+            return jsonify({
+                'success': True,
+                'branches': branch_list,
+                'customer_id': customer_id,
+                'total_branches': len(branch_list)
+            })
+            
+        except Exception as e:
+            print(f"Get branches for customer error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve branches'})
+        
+    @app.route('/api/departments-by-customer/<customer_id>')
+    @login_required
+    def api_departments_by_customer(customer_id):
+        """API: Get departments for a specific customer"""
+        try:
+            current_user = auth_controller.get_current_user()
+            if not current_user:
+                return jsonify({'success': False, 'message': 'Authentication required'})
+            
+            # Check permissions
+            if current_user.role.startswith('customer_'):
+                if current_user.customer_id != customer_id:
+                    return jsonify({'success': False, 'message': 'Access denied'})
+            elif not current_user.role.startswith('vendor_'):
+                return jsonify({'success': False, 'message': 'Access denied'})
+            
+            departments = Department.get_by_customer_id(customer_id)
+            
+            dept_list = []
+            for dept in departments:
+                if dept.is_active:
+                    dept_list.append({
+                        'department_id': dept.department_id,
+                        'name': dept.name,
+                        'description': dept.description or '',
+                        'branch_id': dept.branch_id
+                    })
+            
+            return jsonify({
+                'success': True,
+                'departments': dept_list
+            })
+            
+        except Exception as e:
+            print(f"Get departments by customer error: {e}")
+            return jsonify({'success': False, 'message': 'Failed to retrieve departments'})
 
     @app.route('/api/branches-dropdown')
     @login_required
@@ -2095,46 +2321,55 @@ def create_app():
             current_user = auth_controller.get_current_user()
             
             # Get branches based on user role
+            branches = []
+            
             if current_user.role.startswith('customer_'):
+                # Customer users can only see branches from their organization
                 from models import Branch
-                branches = Branch.get_by_customer_id(current_user.customer_id)
+                customer_branches = Branch.get_by_customer_id(current_user.customer_id)
+                for branch in customer_branches:
+                    if branch.is_active:
+                        branches.append({
+                            'branch_id': branch.branch_id,
+                            'name': branch.name,
+                            'address': branch.address,
+                            'display_name': branch.name,
+                            'customer_id': branch.customer_id
+                        })
+                        
             elif current_user.role.startswith('vendor_'):
                 # Vendor users can see branches from all customers
                 from models import Branch, Customer
-                branches = []
+                
+                # Get all active customers
                 customers = Customer.get_all_active()
                 for customer in customers:
                     customer_branches = Branch.get_by_customer_id(customer.customer_id)
                     for branch in customer_branches:
                         if branch.is_active:
-                            branch.customer_name = customer.company_name  # Add customer context
-                            branches.append(branch)
-            else:
-                branches = []
+                            branches.append({
+                                'branch_id': branch.branch_id,
+                                'name': branch.name,
+                                'address': branch.address,
+                                'display_name': f"{branch.name} ({customer.company_name})",
+                                'customer_id': branch.customer_id,
+                                'customer_name': customer.company_name
+                            })
             
-            branch_list = []
-            for branch in branches:
-                branch_data = {
-                    'branch_id': branch.branch_id,
-                    'name': branch.name,
-                    'address': branch.address
-                }
-                
-                # Add customer context for vendor users
-                if current_user.role.startswith('vendor_') and hasattr(branch, 'customer_name'):
-                    branch_data['display_name'] = f"{branch.name} ({branch.customer_name})"
-                else:
-                    branch_data['display_name'] = branch.name
-                
-                branch_list.append(branch_data)
+            print(f"DEBUG: Found {len(branches)} branches for user role {current_user.role}")
+            for branch in branches[:3]:  # Show first 3 for debugging
+                print(f"  - {branch['display_name']} (ID: {branch['branch_id']})")
             
             return jsonify({
                 'success': True,
-                'branches': branch_list
+                'branches': branches,
+                'total_branches': len(branches)
             })
             
         except Exception as e:
             print(f"Get branches dropdown error: {e}")
+            import traceback
+            traceback.print_exc()
             return jsonify({'success': False, 'message': 'Failed to retrieve branches'})
         
 

@@ -491,15 +491,27 @@ class User(BaseModel):
         return self.password_hash == self.hash_password(password)
     
     def save(self):
-        """Save user to Firebase"""
+        """Save user to Firebase - ENHANCED VERSION"""
         try:
             self.updated_at = datetime.now()
+            
+            # Debug logging
+            print(f"DEBUG: Saving user {self.username}")
+            print(f"DEBUG: User data being saved:")
+            user_data = self.to_dict()
+            for key, value in user_data.items():
+                print(f"  {key}: {value}")
+            
             db = config.get_db()
             doc_ref = db.collection('users').document(self.user_id)
-            doc_ref.set(self.to_dict())
+            doc_ref.set(user_data)
+            
+            print(f"DEBUG: User {self.username} saved to database successfully")
             return True
         except Exception as e:
-            print(f"Error saving user: {e}")
+            print(f"Error saving user {getattr(self, 'username', 'unknown')}: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     @classmethod
@@ -637,6 +649,29 @@ class User(BaseModel):
         self.is_first_login = False
         self.password_reset_required = False
         return self.save()
+    
+    def to_dict(self):
+        """Convert user to dictionary - ENHANCED VERSION"""
+        try:
+            result = {}
+            for key, value in self.__dict__.items():
+                if isinstance(value, datetime):
+                    result[key] = value
+                else:
+                    result[key] = value
+            
+            # Ensure branch_id is included even if None
+            if not hasattr(self, 'branch_id'):
+                result['branch_id'] = None
+            
+            # Ensure department_id is included even if None  
+            if not hasattr(self, 'department_id'):
+                result['department_id'] = None
+                
+            return result
+        except Exception as e:
+            print(f"Error converting user to dict: {e}")
+            return super().to_dict()
 
 class Customer(BaseModel):
     """Customer model for company information"""
@@ -1370,8 +1405,11 @@ class Department(BaseModel):
     def get_by_branch_id(cls, branch_id):
         """Get departments by branch ID"""
         try:
+            if not branch_id:
+                return []
+                
             db = config.get_db()
-            docs = db.collection('departments').where('branch_id', '==', branch_id).get()
+            docs = db.collection('departments').where('branch_id', '==', branch_id).where('is_active', '==', True).get()
             departments = []
             for doc in docs:
                 departments.append(cls.from_dict(doc.to_dict()))
@@ -1395,10 +1433,11 @@ class Department(BaseModel):
 
     @classmethod
     def get_by_customer_id(cls, customer_id):
-        """Get departments by customer ID"""
+        """Get departments by customer ID - fixed version"""
         try:
             db = config.get_db()
-            docs = db.collection('departments').where('customer_id', '==', customer_id).where('is_active', '==', True).get()
+            # Get all departments for the customer (both active and inactive for admin purposes)
+            docs = db.collection('departments').where('customer_id', '==', customer_id).get()
             departments = []
             for doc in docs:
                 departments.append(cls.from_dict(doc.to_dict()))

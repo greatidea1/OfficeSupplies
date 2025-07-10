@@ -305,7 +305,6 @@
                 </div>
                 {% endif %}
                 
-                <!-- New Branch Filter -->
                 <div class="filter-group">
                     <label class="filter-label">Branch</label>
                     <select class="form-control" id="branchFilter">
@@ -409,26 +408,25 @@
                         <span class="form-error"></span>
                     </div>
                     
+                    <!-- CHANGED: Branch comes before Department -->
                     <div class="form-group">
-                        <label class="form-label">Department</label>
-                        <select class="form-control" name="department_id" id="userDepartment" required>
-                            <option value="">Select Department</option>
+                        <label class="form-label">Branch</label>
+                        <select class="form-control" name="branch_id" id="userBranch">
+                            <option value="">Select Branch</option>
                         </select>
-                        <span class="form-help">Required for employees and department heads</span>
+                        <span class="form-help">Select branch first to filter departments</span>
                         <span class="form-error"></span>
                     </div>
                 </div>
 
-                {% if current_user.role == 'customer_hr_admin' %}
                 <div class="form-group">
-                    <label class="form-label">Branch</label>
-                    <select class="form-control" name="branch_id" id="userBranch">
-                        <option value="">Select Branch</option>
+                    <label class="form-label">Department</label>
+                    <select class="form-control" name="department_id" id="userDepartment" required>
+                        <option value="">Select Department</option>
                     </select>
-                    <span class="form-help">Optional for all roles</span>
+                    <span class="form-help">Required for employees and department heads</span>
                     <span class="form-error"></span>
                 </div>
-                {% endif %}
                 
                 <!-- Customer Selection (for vendor users) -->
                 <div class="form-group" id="customerSelectionGroup" style="display: none;">
@@ -487,17 +485,6 @@
                         </select>
                         <span class="form-error"></span>
                     </div>
-
-                    {% if current_user.role == 'customer_hr_admin' %}
-                    <!-- Branch Selection for editing -->
-                    <div class="form-group" id="editBranchGroup">
-                        <label class="form-label">Branch</label>
-                        <select class="form-control" name="branch_id" id="editBranch">
-                            <option value="">Select Branch</option>
-                        </select>
-                        <span class="form-error"></span>
-                    </div>
-                    {% endif %}
                     
                     <div class="form-group">
                         <label class="form-label">Status</label>
@@ -508,14 +495,25 @@
                         <span class="form-error"></span>
                     </div>
                 </div>
-                
-                <!-- Department Selection for editing -->
-                <div class="form-group" id="editDepartmentGroup" style="display: none;">
-                    <label class="form-label">Department</label>
-                    <select class="form-control" name="department_id" id="editDepartment">
-                        <option value="">Select Department</option>
-                    </select>
-                    <span class="form-error"></span>
+
+                <!-- CHANGED: Branch comes before Department in Edit form too -->
+                <div class="form-row">
+                    <div class="form-group" id="editBranchGroup">
+                        <label class="form-label">Branch</label>
+                        <select class="form-control" name="branch_id" id="editBranch">
+                            <option value="">Select Branch</option>
+                        </select>
+                        <span class="form-help">Select branch first to filter departments</span>
+                        <span class="form-error"></span>
+                    </div>
+                    
+                    <div class="form-group" id="editDepartmentGroup">
+                        <label class="form-label">Department</label>
+                        <select class="form-control" name="department_id" id="editDepartment">
+                            <option value="">Select Department</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
                 </div>
             </form>
         </div>
@@ -537,23 +535,30 @@
         <div class="modal-body" id="userDetailsBody">
             <!-- User details will be loaded here -->
         </div>
-
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeUserDetailsModal()">Close</button>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+
+// Add this updated JavaScript section to replace the existing one in users.html
+
 <script>
 let currentUsers = [];
 let filteredUsers = [];
 let availableRoles = [];
 let customers = [];
 let departments = [];
+let branches = [];
 
 document.addEventListener('DOMContentLoaded', function() {
     loadUsers();
     loadAvailableRoles();
     loadCustomers();
+    loadBranches(); // Add this line
     setupEventListeners();
 });
 
@@ -589,6 +594,22 @@ function setupEventListeners() {
         });
     }
     
+    // Branch change handler for add user form
+    const userBranchElement = document.getElementById('userBranch');
+    if (userBranchElement) {
+        userBranchElement.addEventListener('change', function() {
+            loadDepartmentsByBranch(this.value, 'userDepartment');
+        });
+    }
+    
+    // Branch change handler for edit user form
+    const editBranchElement = document.getElementById('editBranch');
+    if (editBranchElement) {
+        editBranchElement.addEventListener('change', function() {
+            loadDepartmentsByBranch(this.value, 'editDepartment');
+        });
+    }
+    
     // Department selection handler to clear requirement message
     const userDepartmentElement = document.getElementById('userDepartment');
     if (userDepartmentElement) {
@@ -608,6 +629,11 @@ function setupEventListeners() {
             if (customerId && ['customer_employee', 'customer_dept_head'].includes(roleSelect.value)) {
                 loadDepartments(customerId, 'userDepartment');
             }
+            
+            // Load branches for the selected customer
+            if (customerId) {
+                loadBranchesForCustomer(customerId, 'userBranch');
+            }
         });
     }
     
@@ -619,53 +645,115 @@ function setupEventListeners() {
         firstNameField.addEventListener('input', generateUsername);
         lastNameField.addEventListener('input', generateUsername);
     }
-
-    {% if current_user.role == 'customer_hr_admin' %}
-    loadBranchesForForm();
-    {% endif %}
 }
 
-{% if current_user.role == 'customer_hr_admin' %}
-async function loadBranchesForForm() {
-    try {
-        const response = await apiCall('/user-controller/branches?customer_id={{ current_user.customer_id }}');
-        const branchSelect = document.getElementById('userBranch');
-        const editBranchSelect = document.getElementById('editBranch');
-        
-        if (response.success && response.branches) {
-            const branchOptions = '<option value="">Select Branch</option>' +
-                response.branches.map(branch => 
-                    `<option value="${branch.branch_id}">${branch.name}</option>`
-                ).join('');
-            
-            if (branchSelect) {
-                branchSelect.innerHTML = branchOptions;
-            }
-            if (editBranchSelect) {
-                editBranchSelect.innerHTML = branchOptions;
-            }
-        }
-    } catch (error) {
-        console.error('Error loading branches for form:', error);
-    }
-}
-{% endif %}
-
-// Add this function to load branches for filtering
+// Load branches for current customer (HR Admin) or all customers (Vendor)
 async function loadBranches() {
     try {
+        console.log('Loading branches for filter dropdown...');
         const response = await apiCall('/branches-dropdown');
+        console.log('Branches API response:', response);
+        
         if (response.success && response.branches) {
+            branches = response.branches;
+            console.log(`Loaded ${branches.length} branches for filtering`);
+            
+            // Populate the filter dropdown
             const branchFilter = document.getElementById('branchFilter');
             if (branchFilter) {
-                branchFilter.innerHTML = '<option value="">All Branches</option>' +
-                    response.branches.map(branch => 
-                        `<option value="${branch.branch_id}">${branch.display_name}</option>`
-                    ).join('');
+                const branchOptions = branches.map(branch => 
+                    `<option value="${branch.branch_id}">${branch.display_name}</option>`
+                ).join('');
+                
+                branchFilter.innerHTML = '<option value="">All Branches</option>' + branchOptions;
+                console.log('Branch filter dropdown populated');
+            } else {
+                console.warn('Branch filter dropdown element not found');
             }
+            
+            // Also populate form dropdowns if they exist
+            populateBranchSelectors();
+        } else {
+            console.error('Failed to load branches:', response.message || 'Unknown error');
         }
     } catch (error) {
         console.error('Error loading branches for filter:', error);
+    }
+}
+
+// Load branches for a specific customer (for vendor users)
+async function loadBranchesForCustomer(customerId, selectId) {
+    try {
+        if (!customerId) {
+            const selectElement = document.getElementById(selectId);
+            if (selectElement) {
+                selectElement.innerHTML = '<option value="">Select Branch</option>';
+            }
+            return;
+        }
+        
+        const response = await apiCall(`/user-controller/branches-for-customer/${customerId}`);
+        const select = document.getElementById(selectId);
+        
+        if (response.success && response.branches && select) {
+            select.innerHTML = '<option value="">Select Branch</option>' +
+                response.branches.map(branch => 
+                    `<option value="${branch.branch_id}">${branch.name}</option>`
+                ).join('');
+        }
+    } catch (error) {
+        console.error('Error loading branches for customer:', error);
+    }
+}
+
+// Load departments filtered by branch
+async function loadDepartmentsByBranch(branchId, selectId) {
+    try {
+        const selectElement = document.getElementById(selectId);
+        if (!selectElement) return;
+        
+        if (!branchId) {
+            selectElement.innerHTML = '<option value="">Select Department</option>';
+            return;
+        }
+        
+        const response = await apiCall(`/departments-by-branch/${branchId}`);
+        
+        if (response.success && response.departments) {
+            selectElement.innerHTML = '<option value="">Select Department</option>' +
+                response.departments.map(dept => 
+                    `<option value="${dept.department_id}">${dept.name}</option>`
+                ).join('');
+        } else {
+            selectElement.innerHTML = '<option value="">No departments in this branch</option>';
+        }
+    } catch (error) {
+        console.error('Error loading departments by branch:', error);
+        const selectElement = document.getElementById(selectId);
+        if (selectElement) {
+            selectElement.innerHTML = '<option value="">Error loading departments</option>';
+        }
+    }
+}
+
+// Populate branch selectors
+function populateBranchSelectors() {
+    const userBranchSelect = document.getElementById('userBranch');
+    const editBranchSelect = document.getElementById('editBranch');
+    
+    if (branches && branches.length > 0) {
+        const branchOptions = branches.map(branch => 
+            `<option value="${branch.branch_id}">${branch.display_name}</option>`
+        ).join('');
+        
+        if (userBranchSelect) {
+            userBranchSelect.innerHTML = '<option value="">Select Branch</option>' + branchOptions;
+            console.log('User branch selector populated');
+        }
+        if (editBranchSelect) {
+            editBranchSelect.innerHTML = '<option value="">Select Branch</option>' + branchOptions;
+            console.log('Edit branch selector populated');
+        }
     }
 }
 
@@ -706,16 +794,13 @@ function updateDepartmentRequirementMessage() {
     
     if (needsDepartment) {
         if (departmentField.value) {
-            // Department selected - show success message
             helpText.style.color = 'var(--secondary-green)';
             helpText.textContent = 'Department assigned';
         } else {
-            // No department selected - show requirement
             helpText.style.color = 'var(--secondary-red)';
             helpText.textContent = 'Department is required for this role';
         }
     } else {
-        // Department not required for this role
         helpText.style.color = 'var(--gray-500)';
         helpText.textContent = 'Optional for this role';
     }
@@ -728,6 +813,7 @@ function handleRoleChange(role, formType) {
     if (formType === 'add') {
         const customerGroup = document.getElementById('customerSelectionGroup');
         const departmentField = document.getElementById('userDepartment');
+        const branchField = document.getElementById('userBranch');
         
         // Show customer selection for customer roles (if user is vendor)
         {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
@@ -754,17 +840,33 @@ function handleRoleChange(role, formType) {
             }
         }
         
+        // Show/hide branch field for customer roles
+        if (branchField && branchField.parentNode) {
+            if (isCustomerRole) {
+                branchField.parentNode.style.display = 'block';
+            } else {
+                branchField.parentNode.style.display = 'none';
+                branchField.value = '';
+            }
+        }
+        
     } else if (formType === 'edit') {
         const editDepartmentGroup = document.getElementById('editDepartmentGroup');
+        const editBranchGroup = document.getElementById('editBranchGroup');
         
         if (editDepartmentGroup) {
             if (needsDepartment) {
                 editDepartmentGroup.style.display = 'block';
-                {% if current_user.role == 'customer_hr_admin' %}
-                loadDepartments('{{ current_user.customer_id }}', 'editDepartment');
-                {% endif %}
             } else {
                 editDepartmentGroup.style.display = 'none';
+            }
+        }
+        
+        if (editBranchGroup) {
+            if (isCustomerRole) {
+                editBranchGroup.style.display = 'block';
+            } else {
+                editBranchGroup.style.display = 'none';
             }
         }
     }
@@ -772,12 +874,12 @@ function handleRoleChange(role, formType) {
 
 async function loadUsers() {
     try {
-        // Use the enhanced API endpoint that includes branch information
         const response = await apiCall('/users-with-branches');
         const container = document.getElementById('usersContainer');
         
         if (response.success && response.users) {
             currentUsers = response.users;
+            availableRoles = response.available_roles || [];
             
             // Enhance users with approver information for customer users
             {% if current_user.role.startswith('customer_') %}
@@ -789,6 +891,7 @@ async function loadUsers() {
             displayUsers();
             updateUsersInfo();
             populateRoleFilter();
+            populateRoleSelectors(); // Add this line
             loadBranches(); // Load branches for filtering
         } else {
             showEmptyState('No users found');
@@ -872,14 +975,58 @@ function getApproverForUser(user) {
 
 async function loadAvailableRoles() {
     try {
+        console.log('Loading available roles...');
+        
+        // Get available roles based on current user's permissions
         const response = await apiCall('/users');
+        console.log('Users API response:', response);
+        
         if (response.success && response.available_roles) {
             availableRoles = response.available_roles;
+            console.log('Available roles loaded:', availableRoles);
             populateRoleSelectors();
+        } else {
+            console.error('Failed to load available roles:', response.message || 'Unknown error');
+            // Fallback: Set default roles based on current user
+            setFallbackRoles();
         }
     } catch (error) {
         console.error('Error loading available roles:', error);
+        // Fallback: Set default roles based on current user
+        setFallbackRoles();
     }
+}
+
+function setFallbackRoles() {
+    console.log('Setting fallback roles for current user role: {{ current_user.role }}');
+    
+    // Set default roles based on current user's role
+    {% if current_user.role == 'vendor_superadmin' %}
+    availableRoles = [
+        {value: 'vendor_admin', label: 'Vendor Admin'},
+        {value: 'vendor_normal', label: 'Vendor User'},
+        {value: 'customer_hr_admin', label: 'Customer HR Admin'},
+        {value: 'customer_dept_head', label: 'Customer Department Head'},
+        {value: 'customer_employee', label: 'Customer Employee'}
+    ];
+    {% elif current_user.role == 'vendor_admin' %}
+    availableRoles = [
+        {value: 'vendor_normal', label: 'Vendor User'},
+        {value: 'customer_hr_admin', label: 'Customer HR Admin'},
+        {value: 'customer_dept_head', label: 'Customer Department Head'},
+        {value: 'customer_employee', label: 'Customer Employee'}
+    ];
+    {% elif current_user.role == 'customer_hr_admin' %}
+    availableRoles = [
+        {value: 'customer_dept_head', label: 'Department Head'},
+        {value: 'customer_employee', label: 'Employee'}
+    ];
+    {% else %}
+    availableRoles = [];
+    {% endif %}
+    
+    console.log('Fallback roles set:', availableRoles);
+    populateRoleSelectors();
 }
 
 async function loadCustomers() {
@@ -1097,10 +1244,15 @@ function populateRoleFilter() {
 }
 
 function populateRoleSelectors() {
+    console.log('Populating role selectors with roles:', availableRoles);
+    
     const addRoleSelect = document.getElementById('userRole');
     const editRoleSelect = document.getElementById('editRole');
     
-    if (!availableRoles.length) return;
+    if (!availableRoles || !availableRoles.length) {
+        console.warn('No available roles to populate');
+        return;
+    }
     
     const roleOptions = availableRoles.map(role => 
         `<option value="${role.value}">${role.label}</option>`
@@ -1108,9 +1260,16 @@ function populateRoleSelectors() {
     
     if (addRoleSelect) {
         addRoleSelect.innerHTML = '<option value="">Select Role</option>' + roleOptions;
+        console.log('Populated add role select');
+    } else {
+        console.warn('Add role select element not found');
     }
+    
     if (editRoleSelect) {
         editRoleSelect.innerHTML = '<option value="">Select Role</option>' + roleOptions;
+        console.log('Populated edit role select');
+    } else {
+        console.warn('Edit role select element not found');
     }
 }
 
@@ -1161,6 +1320,11 @@ async function showAddUserModal() {
         if (modal) {
             modal.classList.add('show');
             
+            // Ensure role selectors are populated
+            if (!availableRoles || availableRoles.length === 0) {
+                await loadAvailableRoles();
+            }
+            
             // Focus first field
             setTimeout(() => {
                 const firstNameField = document.querySelector('[name="first_name"]');
@@ -1168,11 +1332,6 @@ async function showAddUserModal() {
                     firstNameField.focus();
                 }
             }, 100);
-            
-            // Load departments immediately for HR Admin
-            {% if current_user.role == 'customer_hr_admin' %}
-            loadDepartmentsForForm();
-            {% endif %}
         }
     } catch (error) {
         console.error('Error opening add user modal:', error);
@@ -1209,28 +1368,6 @@ function closeAddUserModal() {
     }
 }
 
-async function loadDepartmentsForForm() {
-    try {
-        const response = await apiCall('/user-controller/departments?customer_id={{ current_user.customer_id }}');
-        const departmentSelect = document.getElementById('userDepartment');
-        
-        if (response.success && response.departments) {
-            departmentSelect.innerHTML = '<option value="">Select Department</option>' +
-                response.departments.map(dept => 
-                    `<option value="${dept.department_id}">${dept.name}</option>`
-                ).join('');
-        } else {
-            departmentSelect.innerHTML = '<option value="">No departments available</option>';
-        }
-    } catch (error) {
-        console.error('Error loading departments for form:', error);
-        const departmentSelect = document.getElementById('userDepartment');
-        if (departmentSelect) {
-            departmentSelect.innerHTML = '<option value="">Error loading departments</option>';
-        }
-    }
-}
-
 async function submitAddUser() {
     const firstNameField = document.querySelector('#addUserModal [name="first_name"]');
     const lastNameField = document.querySelector('#addUserModal [name="last_name"]');
@@ -1238,6 +1375,7 @@ async function submitAddUser() {
     const roleField = document.querySelector('#addUserModal [name="role"]');
     const passwordField = document.querySelector('#addUserModal [name="password"]');
     const departmentField = document.querySelector('#addUserModal [name="department_id"]');
+    const branchField = document.querySelector('#addUserModal [name="branch_id"]');
     const usernameField = document.getElementById('generatedUsername');
     const sendEmailField = document.querySelector('#addUserModal [name="send_email"]');
     
@@ -1277,12 +1415,9 @@ async function submitAddUser() {
         }
 
         // Add branch_id if selected
-        {% if current_user.role == 'customer_hr_admin' %}
-        const branchField = document.querySelector('#addUserModal [name="branch_id"]');
         if (branchField?.value) {
             userData.branch_id = branchField.value;
         }
-        {% endif %}
         
         // Add customer_id if selected (for vendor users)
         {% if current_user.role in ['vendor_superadmin', 'vendor_admin'] %}
@@ -1323,6 +1458,11 @@ async function editUser(userId) {
         if (response.success) {
             const user = response.user;
             
+            // Ensure role selectors are populated
+            if (!availableRoles || availableRoles.length === 0) {
+                await loadAvailableRoles();
+            }
+            
             // Populate edit form
             document.getElementById('editUserId').value = user.user_id;
             document.getElementById('editFullName').value = user.full_name || '';
@@ -1331,17 +1471,21 @@ async function editUser(userId) {
             document.getElementById('editStatus').value = user.is_active.toString();
 
             // Handle branch selection
-            {% if current_user.role == 'customer_hr_admin' %}
             const editBranchSelect = document.getElementById('editBranch');
             if (editBranchSelect && user.branch_id) {
                 editBranchSelect.value = user.branch_id;
+                // Load departments for the selected branch
+                await loadDepartmentsByBranch(user.branch_id, 'editDepartment');
             }
-            {% endif %}
             
             // Handle department selection for employees
-            if (user.role === 'customer_employee' && user.department_id) {
-                await loadDepartments(user.customer_id, 'editDepartment');
-                document.getElementById('editDepartment').value = user.department_id;
+            if (user.role === 'customer_employee' || user.role === 'customer_dept_head') {
+                if (user.department_id) {
+                    const editDepartmentSelect = document.getElementById('editDepartment');
+                    if (editDepartmentSelect) {
+                        editDepartmentSelect.value = user.department_id;
+                    }
+                }
             }
             
             handleRoleChange(user.role, 'edit');
@@ -1367,6 +1511,10 @@ function closeEditUserModal() {
         const editDepartmentGroup = document.getElementById('editDepartmentGroup');
         if (editDepartmentGroup) {
             editDepartmentGroup.style.display = 'none';
+        }
+        const editBranchGroup = document.getElementById('editBranchGroup');
+        if (editBranchGroup) {
+            editBranchGroup.style.display = 'none';
         }
     }
 }
@@ -1394,11 +1542,9 @@ async function submitEditUser() {
         }
 
         // Add branch_id if selected
-        {% if current_user.role == 'customer_hr_admin' %}
         if (formData.get('branch_id')) {
             userData.branch_id = formData.get('branch_id');
         }
-        {% endif %}
         
         const response = await apiCall(`/users/${userId}`, {
             method: 'PUT',
@@ -1457,115 +1603,6 @@ async function resetUserPassword() {
 }
 
 // FIXED: viewUser function with proper implementation
-async function viewUser(userId) {
-    try {
-        const response = await apiCall(`/users/${userId}`);
-        
-        if (response.success) {
-            const user = response.user;
-            
-            // Get approver information
-            let approverInfo = 'Not available';
-            if (user.role === 'customer_employee' && user.department_id) {
-                const deptHead = await getDepartmentHeadForUser(user.department_id);
-                approverInfo = deptHead ? deptHead.name : 'Department Head (Not assigned)';
-            } else if (user.role === 'customer_dept_head' && user.customer_id) {
-                const hrAdmin = await getHRAdminForUser(user.customer_id);
-                approverInfo = hrAdmin ? hrAdmin.name : 'HR Admin (Not assigned)';
-            } else if (user.role === 'customer_hr_admin') {
-                approverInfo = 'Self (HR Admin)';
-            } else if (user.role === 'vendor_normal') {
-                approverInfo = 'Vendor Admin';
-            } else if (user.role === 'vendor_admin') {
-                approverInfo = 'Vendor SuperAdmin';
-            } else if (user.role === 'vendor_superadmin') {
-                approverInfo = 'Self (SuperAdmin)';
-            }
-            
-            document.getElementById('userDetailsTitle').textContent = `${user.full_name || user.username} - Details`;
-            document.getElementById('userDetailsBody').innerHTML = `
-                <div style="margin-bottom: 20px;">
-                    <h4 style="margin-bottom: 16px;">Timestamps</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div><strong>Created:</strong> ${formatDateTime(user.created_at)}</div>
-                        <div><strong>Last Updated:</strong> ${formatDateTime(user.updated_at)}</div>
-                    </div>
-                </div>
-                
-                <div style="display: flex; gap: 12px; justify-content: center;">
-                    ${user.can_edit ? `
-                        <button class="btn btn-primary" onclick="closeUserDetailsModal(); editUser('${user.user_id}')">
-                            <i class="fas fa-edit"></i>
-                            Edit User
-                        </button>
-                    ` : ''}
-                    <button class="btn btn-secondary" onclick="closeUserDetailsModal()">
-                        <i class="fas fa-times"></i>
-                        Close
-                    </button>
-                </div>
-            `;
-            
-            document.getElementById('userDetailsModal').classList.add('show');
-        } else {
-            showNotification(response.message || 'Failed to load user details', 'error');
-        }
-    } catch (error) {
-        console.error('Error loading user details:', error);
-        showNotification('Failed to load user details', 'error');
-    }
-}
-
-async function getDepartmentHeadForUser(departmentId) {
-    try {
-        const response = await apiCall(`/users?role=customer_dept_head&department_id=${departmentId}`);
-        if (response.success && response.users && response.users.length > 0) {
-            const deptHead = response.users.find(user => 
-                user.role === 'customer_dept_head' && 
-                user.department_id === departmentId && 
-                user.is_active
-            );
-            
-            if (deptHead) {
-                return {
-                    user_id: deptHead.user_id,
-                    name: deptHead.full_name || deptHead.username,
-                    email: deptHead.email
-                };
-            }
-        }
-        return null;
-    } catch (error) {
-        console.error('Error getting department head for user:', error);
-        return null;
-    }
-}
-
-async function getHRAdminForUser(customerId) {
-    try {
-        const response = await apiCall(`/users?role=customer_hr_admin&customer_id=${customerId}`);
-        if (response.success && response.users && response.users.length > 0) {
-            const hrAdmin = response.users.find(user => 
-                user.role === 'customer_hr_admin' && 
-                user.customer_id === customerId && 
-                user.is_active
-            );
-            
-            if (hrAdmin) {
-                return {
-                    user_id: hrAdmin.user_id,
-                    name: hrAdmin.full_name || hrAdmin.username,
-                    email: hrAdmin.email
-                };
-            }
-        }
-        return null;
-    } catch (error) {
-        console.error('Error getting HR admin for user:', error);
-        return null;
-    }
-}
-
 async function viewUser(userId) {
     try {
         const response = await apiCall(`/users/${userId}`);
@@ -1665,7 +1702,55 @@ async function viewUser(userId) {
     }
 }
 
+async function getDepartmentHeadForUser(departmentId) {
+    try {
+        const response = await apiCall(`/users?role=customer_dept_head&department_id=${departmentId}`);
+        if (response.success && response.users && response.users.length > 0) {
+            const deptHead = response.users.find(user => 
+                user.role === 'customer_dept_head' && 
+                user.department_id === departmentId && 
+                user.is_active
+            );
+            
+            if (deptHead) {
+                return {
+                    user_id: deptHead.user_id,
+                    name: deptHead.full_name || deptHead.username,
+                    email: deptHead.email
+                };
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('Error getting department head for user:', error);
+        return null;
+    }
+}
 
+async function getHRAdminForUser(customerId) {
+    try {
+        const response = await apiCall(`/users?role=customer_hr_admin&customer_id=${customerId}`);
+        if (response.success && response.users && response.users.length > 0) {
+            const hrAdmin = response.users.find(user => 
+                user.role === 'customer_hr_admin' && 
+                user.customer_id === customerId && 
+                user.is_active
+            );
+            
+            if (hrAdmin) {
+                return {
+                    user_id: hrAdmin.user_id,
+                    name: hrAdmin.full_name || hrAdmin.username,
+                    email: hrAdmin.email
+                };
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('Error getting HR admin for user:', error);
+        return null;
+    }
+}
 
 function closeUserDetailsModal() {
     const modal = document.getElementById('userDetailsModal');
@@ -1713,4 +1798,5 @@ function formatDateTime(dateString) {
     });
 }
 </script>
+
 {% endblock %}
