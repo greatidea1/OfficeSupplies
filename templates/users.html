@@ -544,7 +544,7 @@
 
 {% block extra_js %}
 <script>
-    let currentUsers = [];
+let currentUsers = [];
 let filteredUsers = [];
 let availableRoles = [];
 let customers = [];
@@ -778,6 +778,12 @@ async function loadUsers() {
         
         if (response.success && response.users) {
             currentUsers = response.users;
+            
+            // Enhance users with approver information for customer users
+            {% if current_user.role.startswith('customer_') %}
+            await enhanceUsersWithApprovers();
+            {% endif %}
+            
             filteredUsers = [...currentUsers];
             
             displayUsers();
@@ -791,6 +797,77 @@ async function loadUsers() {
         console.error('Error loading users:', error);
         showEmptyState('Error loading users');
     }
+}
+
+// Function to enhance users with approver information
+async function enhanceUsersWithApprovers() {
+    try {
+        const customerUsers = currentUsers.filter(user => user.role && user.role.startsWith('customer_'));
+        
+        // Get all department heads and HR admins for reference
+        const deptHeads = customerUsers.filter(user => user.role === 'customer_dept_head');
+        const hrAdmins = customerUsers.filter(user => user.role === 'customer_hr_admin');
+        
+        // Enhance each user with approver information
+        for (let user of currentUsers) {
+            user.approver_name = getApproverNameForUser(user, deptHeads, hrAdmins);
+        }
+        
+    } catch (error) {
+        console.error('Error enhancing users with approvers:', error);
+    }
+}
+
+// Helper function to get approver name for a user
+function getApproverNameForUser(user, deptHeads, hrAdmins) {
+    if (!user.role) return '-';
+    
+    if (user.role === 'customer_employee') {
+        // Find department head for this user's department
+        if (user.department_id) {
+            const deptHead = deptHeads.find(head => 
+                head.department_id === user.department_id && 
+                head.is_active
+            );
+            if (deptHead) {
+                return deptHead.full_name || deptHead.username;
+            } else {
+                return '<span style="color: var(--secondary-orange); font-style: italic;">Dept Head (Not assigned)</span>';
+            }
+        } else {
+            return '<span style="color: var(--gray-500); font-style: italic;">No department</span>';
+        }
+    } else if (user.role === 'customer_dept_head') {
+        // Find HR admin for this user's customer
+        if (user.customer_id) {
+            const hrAdmin = hrAdmins.find(admin => 
+                admin.customer_id === user.customer_id && 
+                admin.is_active
+            );
+            if (hrAdmin) {
+                return hrAdmin.full_name || hrAdmin.username;
+            } else {
+                return '<span style="color: var(--secondary-orange); font-style: italic;">HR Admin (Not assigned)</span>';
+            }
+        } else {
+            return '<span style="color: var(--gray-500); font-style: italic;">No organization</span>';
+        }
+    } else if (user.role === 'customer_hr_admin') {
+        return '<span style="color: var(--secondary-green);">Self (HR Admin)</span>';
+    } else if (user.role === 'vendor_normal') {
+        return 'Vendor Admin';
+    } else if (user.role === 'vendor_admin') {
+        return 'Vendor SuperAdmin';
+    } else if (user.role === 'vendor_superadmin') {
+        return '<span style="color: var(--secondary-green);">Self (SuperAdmin)</span>';
+    } else {
+        return '-';
+    }
+}
+
+// Helper function to get approver for display (used in template)
+function getApproverForUser(user) {
+    return user.approver_name || '-';
 }
 
 async function loadAvailableRoles() {
@@ -851,8 +928,9 @@ function displayUsers() {
         return;
     }
     
-    // Check if current user is vendor to show Customer ID column
+    // Check if current user is vendor to show Customer ID column, or customer to show Approver
     const isVendorUser = {{ 'true' if current_user.role in ['vendor_superadmin', 'vendor_admin'] else 'false' }};
+    const isCustomerUser = {{ 'true' if current_user.role.startswith('customer_') else 'false' }};
     
     container.innerHTML = `
         <table class="users-table">
@@ -861,8 +939,9 @@ function displayUsers() {
                     <th>User</th>
                     <th>Role</th>
                     <th>Status</th>
-                    <th>Organization</th>
+                    ${isVendorUser ? '<th>Organization</th>' : ''}
                     ${isVendorUser ? '<th>Cust-ID</th>' : ''}
+                    ${isCustomerUser ? '<th>Approver</th>' : '<th>Organization</th>'}
                     <th>Branch</th>
                     <th>Department</th>
                     <th>Actions</th>
@@ -892,8 +971,9 @@ function displayUsers() {
                                 ${user.is_active ? 'Active' : 'Inactive'}
                             </span>
                         </td>
-                        <td>${user.customer_name || 'Vendor'}</td>
+                        ${isVendorUser ? `<td>${user.customer_name || 'Vendor'}</td>` : ''}
                         ${isVendorUser ? `<td><code>${user.customer_id || '-'}</code></td>` : ''}
+                        ${isCustomerUser ? `<td>${getApproverForUser(user)}</td>` : `<td>${user.customer_name || 'Vendor'}</td>`}
                         <td>${user.branch_name || '-'}</td>
                         <td>${user.department_name || '-'}</td>
                         <td>
@@ -1384,6 +1464,133 @@ async function viewUser(userId) {
         if (response.success) {
             const user = response.user;
             
+            // Get approver information
+            let approverInfo = 'Not available';
+            if (user.role === 'customer_employee' && user.department_id) {
+                const deptHead = await getDepartmentHeadForUser(user.department_id);
+                approverInfo = deptHead ? deptHead.name : 'Department Head (Not assigned)';
+            } else if (user.role === 'customer_dept_head' && user.customer_id) {
+                const hrAdmin = await getHRAdminForUser(user.customer_id);
+                approverInfo = hrAdmin ? hrAdmin.name : 'HR Admin (Not assigned)';
+            } else if (user.role === 'customer_hr_admin') {
+                approverInfo = 'Self (HR Admin)';
+            } else if (user.role === 'vendor_normal') {
+                approverInfo = 'Vendor Admin';
+            } else if (user.role === 'vendor_admin') {
+                approverInfo = 'Vendor SuperAdmin';
+            } else if (user.role === 'vendor_superadmin') {
+                approverInfo = 'Self (SuperAdmin)';
+            }
+            
+            document.getElementById('userDetailsTitle').textContent = `${user.full_name || user.username} - Details`;
+            document.getElementById('userDetailsBody').innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 16px;">Timestamps</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div><strong>Created:</strong> ${formatDateTime(user.created_at)}</div>
+                        <div><strong>Last Updated:</strong> ${formatDateTime(user.updated_at)}</div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    ${user.can_edit ? `
+                        <button class="btn btn-primary" onclick="closeUserDetailsModal(); editUser('${user.user_id}')">
+                            <i class="fas fa-edit"></i>
+                            Edit User
+                        </button>
+                    ` : ''}
+                    <button class="btn btn-secondary" onclick="closeUserDetailsModal()">
+                        <i class="fas fa-times"></i>
+                        Close
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('userDetailsModal').classList.add('show');
+        } else {
+            showNotification(response.message || 'Failed to load user details', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading user details:', error);
+        showNotification('Failed to load user details', 'error');
+    }
+}
+
+async function getDepartmentHeadForUser(departmentId) {
+    try {
+        const response = await apiCall(`/users?role=customer_dept_head&department_id=${departmentId}`);
+        if (response.success && response.users && response.users.length > 0) {
+            const deptHead = response.users.find(user => 
+                user.role === 'customer_dept_head' && 
+                user.department_id === departmentId && 
+                user.is_active
+            );
+            
+            if (deptHead) {
+                return {
+                    user_id: deptHead.user_id,
+                    name: deptHead.full_name || deptHead.username,
+                    email: deptHead.email
+                };
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('Error getting department head for user:', error);
+        return null;
+    }
+}
+
+async function getHRAdminForUser(customerId) {
+    try {
+        const response = await apiCall(`/users?role=customer_hr_admin&customer_id=${customerId}`);
+        if (response.success && response.users && response.users.length > 0) {
+            const hrAdmin = response.users.find(user => 
+                user.role === 'customer_hr_admin' && 
+                user.customer_id === customerId && 
+                user.is_active
+            );
+            
+            if (hrAdmin) {
+                return {
+                    user_id: hrAdmin.user_id,
+                    name: hrAdmin.full_name || hrAdmin.username,
+                    email: hrAdmin.email
+                };
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('Error getting HR admin for user:', error);
+        return null;
+    }
+}
+
+async function viewUser(userId) {
+    try {
+        const response = await apiCall(`/users/${userId}`);
+        
+        if (response.success) {
+            const user = response.user;
+            
+            // Get approver information
+            let approverInfo = 'Not available';
+            if (user.role === 'customer_employee' && user.department_id) {
+                const deptHead = await getDepartmentHeadForUser(user.department_id);
+                approverInfo = deptHead ? deptHead.name : 'Department Head (Not assigned)';
+            } else if (user.role === 'customer_dept_head' && user.customer_id) {
+                const hrAdmin = await getHRAdminForUser(user.customer_id);
+                approverInfo = hrAdmin ? hrAdmin.name : 'HR Admin (Not assigned)';
+            } else if (user.role === 'customer_hr_admin') {
+                approverInfo = 'Self (HR Admin)';
+            } else if (user.role === 'vendor_normal') {
+                approverInfo = 'Vendor Admin';
+            } else if (user.role === 'vendor_admin') {
+                approverInfo = 'Vendor SuperAdmin';
+            } else if (user.role === 'vendor_superadmin') {
+                approverInfo = 'Self (SuperAdmin)';
+            }
+            
             document.getElementById('userDetailsTitle').textContent = `${user.full_name || user.username} - Details`;
             document.getElementById('userDetailsBody').innerHTML = `
                 <div style="margin-bottom: 20px;">
@@ -1401,6 +1608,7 @@ async function viewUser(userId) {
                             </span>
                         </div>
                         <div><strong>Organization:</strong> ${user.customer_name || 'Vendor'}</div>
+                        <div><strong>Approver:</strong> ${approverInfo}</div>
                         <div><strong>Branch:</strong> ${user.branch_name || 'Not assigned'}</div>
                         <div><strong>Department:</strong> ${user.department_name || 'Not assigned'}</div>
                         <div><strong>Last Login:</strong> ${user.last_login ? formatDateTime(user.last_login) : 'Never'}</div>
@@ -1411,18 +1619,16 @@ async function viewUser(userId) {
                     <h4 style="margin-bottom: 16px;">Account Status</h4>
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
                         <div style="text-align: center; padding: 12px; background: var(--gray-50); border-radius: 8px;">
-                        <div style="font-size: 0.9rem; color: var(--gray-600);">Login Status</div>
+                            <div style="font-size: 0.9rem; color: var(--gray-600);">Login Status</div>
                             <div style="font-size: 1rem; font-weight: 300; color: ${user.is_first_login ? 'var(--secondary-orange)' : 'var(--secondary-green)'};">
                                 ${user.is_first_login ? 'First Login' : 'Logged In Before'}
                             </div>
-                            
                         </div>
                         <div style="text-align: center; padding: 12px; background: var(--gray-50); border-radius: 8px;">
-                        <div style="font-size: 0.9rem; color: var(--gray-600);">Password Reset</div>
+                            <div style="font-size: 0.9rem; color: var(--gray-600);">Password Reset</div>
                             <div style="font-size: 1rem; font-weight: 300; color: ${user.password_reset_required ? 'var(--secondary-red)' : 'var(--secondary-green)'};">
                                 ${user.password_reset_required ? 'Required' : 'Not Required'}
                             </div>
-                            
                         </div>
                     </div>
                 </div>
@@ -1447,7 +1653,6 @@ async function viewUser(userId) {
                         Close
                     </button>
                 </div>
-
             `;
             
             document.getElementById('userDetailsModal').classList.add('show');
@@ -1459,6 +1664,8 @@ async function viewUser(userId) {
         showNotification('Failed to load user details', 'error');
     }
 }
+
+
 
 function closeUserDetailsModal() {
     const modal = document.getElementById('userDetailsModal');

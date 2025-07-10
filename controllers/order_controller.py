@@ -167,8 +167,145 @@ class OrderController:
             print(f"Error getting order with user details: {e}")
             return order.to_dict()
         
+    def find_approval_comment(self, comments, role, action):
+        """Find approval comment by role and action"""
+        try:
+            for comment in comments:
+                if comment.get('role') == role and comment.get('action') == action:
+                    return comment
+            return None
+        except:
+            return None
+    
+    def get_department_head(self, customer_id, department_id):
+        """Get department head for approval workflow"""
+        try:
+            users = User.get_by_customer_id(customer_id)
+            for user in users:
+                if (user.role == 'customer_dept_head' and 
+                    user.department_id == department_id and 
+                    user.is_active):
+                    return {
+                        'user_id': user.user_id,
+                        'name': user.full_name or user.username,
+                        'email': user.email
+                    }
+            return None
+        except:
+            return None
+        
+    def get_hr_admin(self, customer_id):
+        """Get HR admin for approval workflow"""
+        try:
+            users = User.get_by_customer_id(customer_id)
+            for user in users:
+                if user.role == 'customer_hr_admin' and user.is_active:
+                    return {
+                        'user_id': user.user_id,
+                        'name': user.full_name or user.username,
+                        'email': user.email
+                    }
+            return None
+        except:
+            return None
+    
+    def get_approval_workflow_with_approvers(self, order, current_user):
+        """Get approval workflow with approver names"""
+        try:
+            workflow = {
+                'steps': [],
+                'current_step': None
+            }
+            
+            # Define workflow steps
+            steps = [
+                {'key': 'created', 'label': 'Order Created', 'icon': 'plus'},
+                {'key': 'pending_dept_approval', 'label': 'Department Approval', 'icon': 'user-check'},
+                {'key': 'pending_hr_approval', 'label': 'HR Approval', 'icon': 'user-tie'},
+                {'key': 'approved', 'label': 'Processing', 'icon': 'cogs'},
+                {'key': 'dispatched', 'label': 'Dispatched', 'icon': 'truck'}
+            ]
+            
+            for step in steps:
+                step_info = {
+                    'key': step['key'],
+                    'label': step['label'],
+                    'icon': step['icon'],
+                    'status': 'pending',
+                    'approver_name': None,
+                    'approved_at': None
+                }
+                
+                # Determine step status and approver
+                if step['key'] == 'created':
+                    step_info['status'] = 'completed'
+                    order_creator = User.get_by_id(order.user_id)
+                    step_info['approver_name'] = order_creator.full_name or order_creator.username if order_creator else 'Unknown'
+                    step_info['approved_at'] = order.created_at
+                    
+                elif step['key'] == 'pending_dept_approval':
+                    if order.status in ['pending_dept_approval']:
+                        step_info['status'] = 'current'
+                        workflow['current_step'] = step['key']
+                        # Get department head name
+                        if order.department_id:
+                            dept_head = self.get_department_head(order.customer_id, order.department_id)
+                            step_info['approver_name'] = dept_head['name'] if dept_head else 'Department Head'
+                    elif order.status not in ['draft', 'pending_dept_approval']:
+                        step_info['status'] = 'completed'
+                        # Look for approval comment
+                        approval_comment = self.find_approval_comment(order.comments, 'customer_dept_head', 'approved')
+                        if approval_comment:
+                            approver = User.get_by_id(approval_comment['user_id'])
+                            step_info['approver_name'] = approver.full_name or approver.username if approver else 'Department Head'
+                            step_info['approved_at'] = approval_comment['timestamp']
+                    
+                elif step['key'] == 'pending_hr_approval':
+                    if order.status == 'pending_hr_approval':
+                        step_info['status'] = 'current'
+                        workflow['current_step'] = step['key']
+                        # Get HR admin name
+                        hr_admin = self.get_hr_admin(order.customer_id)
+                        step_info['approver_name'] = hr_admin['name'] if hr_admin else 'HR Admin'
+                    elif order.status in ['approved', 'packed', 'ready_for_dispatch', 'dispatched']:
+                        step_info['status'] = 'completed'
+                        # Look for approval comment
+                        approval_comment = self.find_approval_comment(order.comments, 'customer_hr_admin', 'approved')
+                        if approval_comment:
+                            approver = User.get_by_id(approval_comment['user_id'])
+                            step_info['approver_name'] = approver.full_name or approver.username if approver else 'HR Admin'
+                            step_info['approved_at'] = approval_comment['timestamp']
+                    
+                elif step['key'] == 'approved':
+                    if order.status in ['approved', 'packed', 'ready_for_dispatch']:
+                        step_info['status'] = 'current' if order.status == 'approved' else 'completed'
+                        if order.status == 'approved':
+                            workflow['current_step'] = step['key']
+                        step_info['approver_name'] = 'Vendor Team'
+                    elif order.status == 'dispatched':
+                        step_info['status'] = 'completed'
+                        step_info['approver_name'] = 'Vendor Team'
+                    
+                elif step['key'] == 'dispatched':
+                    if order.status == 'dispatched':
+                        step_info['status'] = 'completed'
+                        if order.dispatched_by:
+                            dispatcher = User.get_by_id(order.dispatched_by)
+                            step_info['approver_name'] = dispatcher.full_name or dispatcher.username if dispatcher else 'Vendor Team'
+                            step_info['approved_at'] = order.dispatch_date
+                        else:
+                            step_info['approver_name'] = 'Vendor Team'
+                
+                workflow['steps'].append(step_info)
+            
+            return workflow
+            
+        except Exception as e:
+            print(f"Error getting approval workflow: {e}")
+            return {'steps': [], 'current_step': None}
+        
     def get_order(self, order_id):
-        """Get single order details - Enhanced with user details"""
+        """Get single order details - Enhanced with user details and product images"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -194,7 +331,7 @@ class OrderController:
             order_dict['can_edit'] = self.can_user_edit_order(current_user, order)
             order_dict['customer_name'] = self.get_customer_name(order.customer_id)
             
-            # Add detailed product information with pricing details
+            # Add detailed product information with pricing details and images
             order_dict['items_with_details'] = []
             for item in order.items:
                 product = Product.get_by_id(item['product_id'])
@@ -206,6 +343,10 @@ class OrderController:
                     item_detail['category'] = product.category
                     item_detail['hsn_code'] = product.hsn_code
                     item_detail['gst_rate'] = product.gst_rate
+                    
+                    # Add product images
+                    item_detail['image_urls'] = getattr(product, 'image_urls', [])
+                    item_detail['primary_image'] = item_detail['image_urls'][0] if item_detail['image_urls'] else None
                     
                     # Add pricing information
                     item_detail['base_price'] = product.price
@@ -220,12 +361,15 @@ class OrderController:
             total_savings = sum(item.get('total_savings', 0) for item in order_dict['items_with_details'])
             order_dict['total_savings'] = total_savings
             
-            # Add user information for comments
+            # Add user information for comments with approver details
             for comment in order_dict.get('comments', []):
                 user = User.get_by_id(comment['user_id'])
                 if user:
                     comment['user_name'] = user.full_name or user.username
                     comment['user_role'] = user.role
+            
+            # Add approval workflow with approver names
+            order_dict['approval_workflow'] = self.get_approval_workflow_with_approvers(order, current_user)
             
             return {
                 'success': True,
@@ -237,7 +381,7 @@ class OrderController:
             return {'success': False, 'message': 'Failed to retrieve order'}
         
     def get_orders(self):
-        """Get orders list based on user role and filters - Enhanced with user details"""
+        """Get orders list based on user role and filters - Enhanced with user details and product images"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -290,7 +434,7 @@ class OrderController:
                 order_dict['can_edit'] = self.can_user_edit_order(current_user, order)
                 order_dict['customer_name'] = self.get_customer_name(order.customer_id)
                 
-                # Add product details for items with pricing information
+                # Add product details for items with pricing information and images
                 order_dict['items_with_details'] = []
                 for item in order.items:
                     product = Product.get_by_id(item['product_id'])
@@ -299,6 +443,10 @@ class OrderController:
                         item_detail['product_name'] = product.product_name
                         item_detail['product_make'] = product.product_make
                         item_detail['category'] = product.category
+                        
+                        # Add product images
+                        item_detail['image_urls'] = getattr(product, 'image_urls', [])
+                        item_detail['primary_image'] = item_detail['image_urls'][0] if item_detail['image_urls'] else None
                         
                         # Add pricing information
                         item_detail['base_price'] = product.price

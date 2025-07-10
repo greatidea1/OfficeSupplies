@@ -365,6 +365,13 @@
                         <span class="stat-label">Status</span>
                         <span class="stat-value" style="color: var(--secondary-green);">Active</span>
                     </div>
+                    
+                    <!-- NEW: Approver Information -->
+                    <div class="profile-stat" id="approverStat">
+                        <span class="stat-label">Approver</span>
+                        <span class="stat-value" id="approverName">Loading...</span>
+                    </div>
+                    
                     <div class="profile-stat">
                         <span class="stat-label">Last Login</span>
                         <span class="stat-value" id="lastLoginTime">{{ current_user.last_login.strftime('%b %d, %Y') if current_user.last_login else 'Never' }}</span>
@@ -542,6 +549,9 @@
                 }
             }
             
+            // Load approver information
+            await loadApproverInfo();
+            
             // Load activity statistics
             await loadActivityStats();
             
@@ -550,26 +560,152 @@
             
             // Set fallback values for customer users
             {% if current_user.role.startswith('customer_') %}
-            const companyNameElement = document.getElementById('companyName');
-            if (companyNameElement) {
-                companyNameElement.textContent = 'Unable to load';
-                companyNameElement.style.color = 'var(--gray-500)';
-            }
-            
-            const branchNameElement = document.getElementById('branchName');
-            if (branchNameElement) {
-                branchNameElement.textContent = 'Unable to load';
-                branchNameElement.style.color = 'var(--gray-500)';
-            }
-            
-            const departmentNameElement = document.getElementById('departmentName');
-            if (departmentNameElement) {
-                departmentNameElement.textContent = 'Unable to load';
-                departmentNameElement.style.color = 'var(--gray-500)';
-            }
+            setFallbackValues();
             {% endif %}
         }
     }
+
+    async function getDepartmentHead(departmentId) {
+        try {
+            const response = await apiCall(`/users?role=customer_dept_head&department_id=${departmentId}`);
+            if (response.success && response.users && response.users.length > 0) {
+                const deptHead = response.users.find(user => 
+                    user.role === 'customer_dept_head' && 
+                    user.department_id === departmentId && 
+                    user.is_active
+                );
+                
+                if (deptHead) {
+                    return {
+                        user_id: deptHead.user_id,
+                        name: deptHead.full_name || deptHead.username,
+                        email: deptHead.email
+                    };
+                }
+            }
+            return null;
+        } catch (error) {
+            console.error('Error getting department head:', error);
+            return null;
+        }
+    }
+
+    async function getHRAdmin(customerId) {
+        try {
+            const response = await apiCall(`/users?role=customer_hr_admin&customer_id=${customerId}`);
+            if (response.success && response.users && response.users.length > 0) {
+                const hrAdmin = response.users.find(user => 
+                    user.role === 'customer_hr_admin' && 
+                    user.customer_id === customerId && 
+                    user.is_active
+                );
+                
+                if (hrAdmin) {
+                    return {
+                        user_id: hrAdmin.user_id,
+                        name: hrAdmin.full_name || hrAdmin.username,
+                        email: hrAdmin.email
+                    };
+                }
+            }
+            return null;
+        } catch (error) {
+            console.error('Error getting HR admin:', error);
+            return null;
+        }
+    }
+    
+    function setFallbackValues() {
+        const elements = ['companyName', 'branchName', 'departmentName'];
+        elements.forEach(elementId => {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = 'Unable to load';
+                element.style.color = 'var(--gray-500)';
+            }
+        });
+    }
+
+    async function loadApproverInfo() {
+        try {
+            const approverNameElement = document.getElementById('approverName');
+            const approverStatElement = document.getElementById('approverStat');
+            
+            if (!approverNameElement || !approverStatElement) {
+                return;
+            }
+            
+            const currentUserRole = '{{ current_user.role }}';
+            
+            // Determine approver based on user role
+            if (currentUserRole === 'customer_employee') {
+                // Employee's approver is their department head
+                const departmentId = '{{ current_user.department_id or "" }}';
+                if (departmentId) {
+                    const approver = await getDepartmentHead(departmentId);
+                    if (approver) {
+                        approverNameElement.textContent = approver.name;
+                        approverNameElement.style.color = 'var(--primary-blue)';
+                    } else {
+                        approverNameElement.textContent = 'Department Head (Not assigned)';
+                        approverNameElement.style.color = 'var(--gray-500)';
+                        approverNameElement.style.fontStyle = 'italic';
+                    }
+                } else {
+                    approverNameElement.textContent = 'No department assigned';
+                    approverNameElement.style.color = 'var(--secondary-orange)';
+                    approverNameElement.style.fontStyle = 'italic';
+                }
+            } else if (currentUserRole === 'customer_dept_head') {
+                // Department head's approver is HR admin
+                const customerId = '{{ current_user.customer_id or "" }}';
+                if (customerId) {
+                    const approver = await getHRAdmin(customerId);
+                    if (approver) {
+                        approverNameElement.textContent = approver.name;
+                        approverNameElement.style.color = 'var(--primary-blue)';
+                    } else {
+                        approverNameElement.textContent = 'HR Admin (Not assigned)';
+                        approverNameElement.style.color = 'var(--gray-500)';
+                        approverNameElement.style.fontStyle = 'italic';
+                    }
+                } else {
+                    approverNameElement.textContent = 'No organization assigned';
+                    approverNameElement.style.color = 'var(--secondary-orange)';
+                    approverNameElement.style.fontStyle = 'italic';
+                }
+            } else if (currentUserRole === 'customer_hr_admin') {
+                // HR admin has self-approval or no approver
+                approverNameElement.textContent = 'Self (HR Admin)';
+                approverNameElement.style.color = 'var(--secondary-green)';
+            } else if (currentUserRole.startsWith('vendor_')) {
+                // Vendor users - show hierarchy based on role
+                if (currentUserRole === 'vendor_normal') {
+                    approverNameElement.textContent = 'Vendor Admin';
+                    approverNameElement.style.color = 'var(--primary-blue)';
+                } else if (currentUserRole === 'vendor_admin') {
+                    approverNameElement.textContent = 'Vendor SuperAdmin';
+                    approverNameElement.style.color = 'var(--primary-blue)';
+                } else if (currentUserRole === 'vendor_superadmin') {
+                    approverNameElement.textContent = 'Self (SuperAdmin)';
+                    approverNameElement.style.color = 'var(--secondary-green)';
+                }
+            } else {
+                // Unknown role
+                approverStatElement.style.display = 'none';
+            }
+            
+        } catch (error) {
+            console.error('Error loading approver info:', error);
+            const approverNameElement = document.getElementById('approverName');
+            if (approverNameElement) {
+                approverNameElement.textContent = 'Unable to load';
+                approverNameElement.style.color = 'var(--gray-500)';
+            }
+        }
+    }
+
+
     
     async function loadActivityStats() {
         try {
