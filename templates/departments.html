@@ -1268,29 +1268,82 @@
     }
     
     async function loadUsersAssignmentGrid(departmentId) {
-        const grid = document.getElementById('usersAssignmentGrid');
-        
-        // Get current department users
-        const dept = departments.find(d => d.department_id === departmentId);
-        const departmentUserIds = (dept.users || []).map(u => u.user_id);
-        
-        grid.innerHTML = organizationUsers.map(user => `
-            <div class="user-checkbox">
-                <input type="checkbox" 
-                       id="user_${user.user_id}" 
-                       value="${user.user_id}"
-                       ${departmentUserIds.includes(user.user_id) ? 'checked' : ''}>
-                <label for="user_${user.user_id}" style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                    <div class="user-avatar-small">
-                        ${(user.full_name || user.username).charAt(0).toUpperCase()}
+        try {
+            console.log('Loading users assignment grid for department:', departmentId);
+            
+            // Load organization users directly from API
+            const response = await apiCall('/users');
+            if (!response.success) {
+                console.error('Failed to load users for assignment');
+                return;
+            }
+            
+            console.log('API response for users:', response);
+            
+            // Filter for customer users only (employees and department heads)
+            const orgUsers = response.users.filter(user => 
+                (user.role === 'customer_employee' || user.role === 'customer_dept_head') && 
+                user.is_active
+            );
+            
+            console.log('Filtered organization users:', orgUsers.length);
+            
+            // Get current department users
+            const dept = departments.find(d => d.department_id === departmentId);
+            const departmentUserIds = (dept.users || []).map(u => u.user_id);
+            
+            console.log('Current department users:', departmentUserIds);
+            
+            const grid = document.getElementById('usersAssignmentGrid');
+            
+            if (orgUsers.length === 0) {
+                grid.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: var(--gray-500);">
+                        <i class="fas fa-users" style="font-size: 32px; margin-bottom: 12px; opacity: 0.3;"></i>
+                        <div>No users found to assign</div>
+                        <div style="font-size: 0.875rem; margin-top: 8px;">Create employee or department head users first</div>
                     </div>
-                    <div>
-                        <div style="font-weight: 500; font-size: 0.875rem;">${user.full_name || user.username}</div>
-                        <div style="font-size: 0.75rem; color: var(--gray-600);">${formatRole(user.role)}</div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = orgUsers.map(user => `
+                <div class="user-checkbox">
+                    <input type="checkbox" 
+                           id="user_${user.user_id}" 
+                           value="${user.user_id}"
+                           ${departmentUserIds.includes(user.user_id) ? 'checked' : ''}>
+                    <label for="user_${user.user_id}" style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <div class="user-avatar-small">
+                            ${(user.full_name || user.username).charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <div style="font-weight: 500; font-size: 0.875rem;">${user.full_name || user.username}</div>
+                            <div style="font-size: 0.75rem; color: var(--gray-600);">${formatRole(user.role)}</div>
+                            ${user.department_name && user.department_id !== departmentId ? 
+                                `<div style="font-size: 0.7rem; color: var(--secondary-orange);">Currently in: ${user.department_name}</div>` : 
+                                ''
+                            }
+                        </div>
+                    </label>
+                </div>
+            `).join('');
+            
+            console.log('Users assignment grid populated with', orgUsers.length, 'users');
+            
+        } catch (error) {
+            console.error('Error loading users assignment grid:', error);
+            const grid = document.getElementById('usersAssignmentGrid');
+            if (grid) {
+                grid.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: var(--secondary-red);">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 12px;"></i>
+                        <div>Error loading users</div>
+                        <div style="font-size: 0.875rem; margin-top: 8px;">Please try again</div>
                     </div>
-                </label>
-            </div>
-        `).join('');
+                `;
+            }
+        }
     }
     
     function closeEditDepartmentModal() {
@@ -1484,12 +1537,25 @@
         document.getElementById('departmentDetailsModal').classList.remove('show');
     }
     
+    // Replace these two functions in departments.html JavaScript section:
+
     async function editDepartmentHead(departmentId) {
         try {
             document.getElementById('deptHeadDepartmentId').value = departmentId;
             
-            // Load department head candidates (users with customer_dept_head role)
-            const deptHeadCandidates = organizationUsers.filter(user => user.role === 'customer_dept_head');
+            // Load department head candidates directly from API
+            const response = await apiCall('/users');
+            if (!response.success || !response.users) {
+                showNotification('Failed to load department head candidates', 'error');
+                return;
+            }
+            
+            // Filter for department head role users
+            const deptHeadCandidates = response.users.filter(user => 
+                user.role === 'customer_dept_head' && user.is_active
+            );
+            
+            console.log('Department head candidates found:', deptHeadCandidates.length);
             
             if (deptHeadCandidates.length === 0) {
                 showNotification('No users with Department Head role found. Please create a Department Head user first.', 'warning');
@@ -1512,11 +1578,11 @@
                 return `
                     <div class="user-checkbox">
                         <input type="radio" 
-                               name="deptHead" 
-                               id="deptHead_${user.user_id}" 
-                               value="${user.user_id}"
-                               ${isCurrentHead ? 'checked' : ''}
-                               ${isAssignedElsewhere ? 'disabled' : ''}>
+                            name="deptHead" 
+                            id="deptHead_${user.user_id}" 
+                            value="${user.user_id}"
+                            ${isCurrentHead ? 'checked' : ''}
+                            ${isAssignedElsewhere ? 'disabled' : ''}>
                         <label for="deptHead_${user.user_id}" style="cursor: pointer; display: flex; align-items: center; gap: 8px; ${isAssignedElsewhere ? 'opacity: 0.5;' : ''}">
                             <div class="user-avatar-small">
                                 ${(user.full_name || user.username).charAt(0).toUpperCase()}
@@ -1536,6 +1602,7 @@
             
         } catch (error) {
             console.error('Error loading department head candidates:', error);
+            showNotification('Failed to load department head candidates', 'error');
         }
     }
     
