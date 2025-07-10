@@ -704,13 +704,22 @@
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">Department</label>
-                        <select class="form-control" name="department_id" id="userDepartmentDept" required>
-                            <option value="">Select Department</option>
+                        <label class="form-label">Branch</label>
+                        <select class="form-control" name="branch_id" id="userBranchDept">
+                            <option value="">Select Branch</option>
                         </select>
-                        <span class="form-help">Required for employees and department heads</span>
+                        <span class="form-help">Select branch first to filter departments</span>
                         <span class="form-error"></span>
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Department</label>
+                    <select class="form-control" name="department_id" id="userDepartmentDept" required>
+                        <option value="">Select Department</option>
+                    </select>
+                    <span class="form-help">Required for employees and department heads</span>
+                    <span class="form-error"></span>
                 </div>
                 
                 <div class="form-group">
@@ -751,54 +760,109 @@
             lastNameField.addEventListener('input', generateUsernameDept);
         }
         
-        // Load branches for department form
+        // Branch change handler for departments form
+        const userBranchDeptElement = document.getElementById('userBranchDept');
+        if (userBranchDeptElement) {
+            userBranchDeptElement.addEventListener('change', function() {
+                loadDepartmentsByBranchForUser(this.value, 'userDepartmentDept');
+            });
+        }
+        
+        // Role change handler
+        const userRoleDeptElement = document.getElementById('userRoleDept');
+        if (userRoleDeptElement) {
+            userRoleDeptElement.addEventListener('change', function() {
+                handleRoleChangeDept(this.value);
+            });
+        }
+        
+        // Load branches for departments
         loadBranchesForDepartments();
     }
 
     async function loadBranchesForDepartments() {
         try {
             const response = await apiCall('/branches');
-            const branchSelect = document.getElementById('departmentBranch');
-            const editBranchSelect = document.getElementById('editDepartmentBranch');
+            const branchSelect = document.getElementById('userBranchDept');
             
             if (response.success && response.branches) {
                 // Filter only active branches
                 const activeBranches = response.branches.filter(branch => branch.is_active);
                 
-                const branchOptions = '<option value="">Select Branch</option>' +
-                    activeBranches.map(branch => 
-                        `<option value="${branch.branch_id}">${branch.name}</option>`
-                    ).join('');
+                const branchOptions = activeBranches.map(branch => 
+                    `<option value="${branch.branch_id}">${branch.name}</option>`
+                ).join('');
                 
                 if (branchSelect) {
-                    branchSelect.innerHTML = branchOptions;
-                }
-                if (editBranchSelect) {
-                    editBranchSelect.innerHTML = branchOptions;
+                    branchSelect.innerHTML = '<option value="">Select Branch</option>' + branchOptions;
                 }
             } else {
                 console.error('Failed to load branches:', response.message || 'Unknown error');
-                // Set default options if branches fail to load
-                const defaultOptions = '<option value="">No branches available</option>';
                 if (branchSelect) {
-                    branchSelect.innerHTML = defaultOptions;
-                }
-                if (editBranchSelect) {
-                    editBranchSelect.innerHTML = defaultOptions;
+                    branchSelect.innerHTML = '<option value="">No branches available</option>';
                 }
             }
         } catch (error) {
             console.error('Error loading branches for departments:', error);
-            // Set error options
-            const errorOptions = '<option value="">Error loading branches</option>';
-            const branchSelect = document.getElementById('departmentBranch');
-            const editBranchSelect = document.getElementById('editDepartmentBranch');
-            
+            const branchSelect = document.getElementById('userBranchDept');
             if (branchSelect) {
-                branchSelect.innerHTML = errorOptions;
+                branchSelect.innerHTML = '<option value="">Error loading branches</option>';
             }
-            if (editBranchSelect) {
-                editBranchSelect.innerHTML = errorOptions;
+        }
+    }
+
+    function handleRoleChangeDept(role) {
+        const departmentField = document.getElementById('userDepartmentDept');
+        const branchField = document.getElementById('userBranchDept');
+        
+        const needsDepartment = role === 'customer_employee' || role === 'customer_dept_head';
+        
+        if (departmentField) {
+            if (needsDepartment) {
+                departmentField.required = true;
+                const helpText = departmentField.parentNode.querySelector('.form-help');
+                if (helpText) {
+                    helpText.style.color = 'var(--secondary-red)';
+                    helpText.textContent = 'Department is required for this role';
+                }
+            } else {
+                departmentField.required = false;
+                departmentField.value = '';
+                const helpText = departmentField.parentNode.querySelector('.form-help');
+                if (helpText) {
+                    helpText.style.color = 'var(--gray-500)';
+                    helpText.textContent = 'Optional for this role';
+                }
+            }
+        }
+    }
+
+    async function loadDepartmentsByBranchForUser(branchId, selectId) {
+        try {
+            const selectElement = document.getElementById(selectId);
+            if (!selectElement) return;
+            
+            if (!branchId) {
+                // Load all departments if no branch selected
+                await loadDepartmentsForUserForm();
+                return;
+            }
+            
+            const response = await apiCall(`/departments-by-branch/${branchId}`);
+            
+            if (response.success && response.departments) {
+                selectElement.innerHTML = '<option value="">Select Department</option>' +
+                    response.departments.map(dept => 
+                        `<option value="${dept.department_id}">${dept.name}</option>`
+                    ).join('');
+            } else {
+                selectElement.innerHTML = '<option value="">No departments in this branch</option>';
+            }
+        } catch (error) {
+            console.error('Error loading departments by branch:', error);
+            const selectElement = document.getElementById(selectId);
+            if (selectElement) {
+                selectElement.innerHTML = '<option value="">Error loading departments</option>';
             }
         }
     }
@@ -1665,11 +1729,12 @@
     
     async function loadDepartmentsForUserForm() {
         try {
+            const response = await apiCall('/departments');
             const departmentSelect = document.getElementById('userDepartmentDept');
             
-            if (departments && departments.length > 0) {
+            if (response.success && response.departments) {
                 departmentSelect.innerHTML = '<option value="">Select Department</option>' +
-                    departments.map(dept => 
+                    response.departments.map(dept => 
                         `<option value="${dept.department_id}">${dept.name}</option>`
                     ).join('');
             } else {
@@ -1704,6 +1769,7 @@
         const roleField = document.querySelector('#addUserModalDept [name="role"]');
         const passwordField = document.querySelector('#addUserModalDept [name="password"]');
         const departmentField = document.querySelector('#addUserModalDept [name="department_id"]');
+        const branchField = document.querySelector('#addUserModalDept [name="branch_id"]');
         const usernameField = document.getElementById('generatedUsernameDept');
         const sendEmailField = document.querySelector('#addUserModalDept [name="send_email"]');
         
@@ -1729,6 +1795,17 @@
                 send_email: sendEmailField?.checked || false
             };
             
+            // Add branch_id if selected
+            if (branchField?.value) {
+                userData.branch_id = branchField.value;
+            }
+            
+            console.log('Submitting user data:', userData);
+            
+            // Close modal immediately - don't wait for email
+            closeAddUserModalDept();
+            showNotification('Creating user...', 'info');
+            
             const response = await apiCall('/users', {
                 method: 'POST',
                 headers: {
@@ -1739,8 +1816,7 @@
             
             if (response.success) {
                 showNotification('User created successfully!', 'success');
-                closeAddUserModalDept();
-                loadDepartments();
+                loadDepartments(); // Refresh departments to show new user
             } else {
                 showNotification(response.message || 'Failed to create user', 'error');
             }

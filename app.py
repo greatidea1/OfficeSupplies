@@ -1556,10 +1556,10 @@ def create_app():
                 user.branch_id = data['branch_id']
             
             if user.save():
-                # Send welcome email if requested
+            # Send welcome email with actual password if requested
                 send_email = data.get('send_email', False)
                 if send_email:
-                    user_controller.send_welcome_email_without_password(user)
+                    user_controller.send_welcome_email_with_password(user, data['password'])
                 
                 return jsonify({
                     'success': True,

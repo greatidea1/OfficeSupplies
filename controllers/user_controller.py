@@ -434,7 +434,7 @@ class UserController:
             return {'success': False, 'message': 'Failed to retrieve user'}
     
     def create_user(self):
-        """Create new user - FIXED VERSION"""
+        """Create new user - FIXED VERSION WITH PASSWORD EMAIL"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -467,11 +467,14 @@ class UserController:
                 if not data.get('department_id'):
                     return {'success': False, 'message': 'Department is required for employees and department heads'}
             
-            # Create user - THIS IS WHERE user VARIABLE IS CREATED
+            # Store the plain password for email before hashing
+            plain_password = data['password']
+            
+            # Create user
             user = User(
                 username=data['username'],
                 email=data['email'],
-                password_hash=User.hash_password(data['password']),
+                password_hash=User.hash_password(plain_password),  # Hash the password
                 role=data['role']
             )
             
@@ -498,15 +501,15 @@ class UserController:
             if 'department_id' in data and data['department_id']:
                 user.department_id = data['department_id']
             
-            # Set branch_id if provided - NOW user VARIABLE EXISTS
+            # Set branch_id if provided
             if 'branch_id' in data and data['branch_id']:
                 user.branch_id = data['branch_id']
             
             if user.save():
-                # Send welcome email if requested
+                # Send welcome email with actual password if requested
                 send_email = data.get('send_email', False)
                 if send_email:
-                    self.send_welcome_email_without_password(user)
+                    self.send_welcome_email_with_password(user, plain_password)
                 
                 return {
                     'success': True,
@@ -558,15 +561,116 @@ class UserController:
             print(f"Get branches error: {e}")
             return {'success': False, 'message': 'Failed to retrieve branches'}
         
-    def send_welcome_email_without_password(self, user):
-        """Send welcome email without exposing password"""
+    def send_welcome_email_with_password(self, user, password):
+        """Send welcome email with password - role-specific templates"""
         try:
             from controllers.auth_controller import auth_controller
             from models import VendorSettings
             
             settings = VendorSettings.get_settings()
             
-            subject = f"Welcome to {settings.company_name} - Office Supplies System"
+            if user.role.startswith('vendor_'):
+                return self._send_vendor_welcome_email(user, password, settings)
+            elif user.role.startswith('customer_'):
+                return self._send_customer_welcome_email(user, password, settings)
+            else:
+                return False
+                
+        except Exception as e:
+            print(f"Welcome email error: {e}")
+            return False
+        
+    def _send_customer_welcome_email(self, user, password, settings):
+        """Send welcome email for customer users"""
+        try:
+            from controllers.auth_controller import auth_controller
+            from models import Customer
+            
+            # Get customer information
+            customer = Customer.get_by_id(user.customer_id) if user.customer_id else None
+            company_name = customer.company_name if customer else "Your Organization"
+            
+            subject = f"Welcome to {settings.company_name} - Office Supplies Portal"
+            
+            html_body = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }}
+                    .container {{ max-width: 600px; margin: 0 auto; background-color: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+                    .header {{ text-align: center; margin-bottom: 30px; }}
+                    .logo {{ font-size: 24px; font-weight: bold; color: #059669; margin-bottom: 10px; }}
+                    .title {{ font-size: 20px; color: #1f2937; margin-bottom: 10px; }}
+                    .credentials {{ background-color: #f0fdf4; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #059669; }}
+                    .login-button {{ display: inline-block; background: linear-gradient(135deg, #059669, #047857); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }}
+                    .login-button:hover {{ background: linear-gradient(135deg, #047857, #065f46); }}
+                    .footer {{ margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <div class="logo">{settings.company_name}</div>
+                        <div class="title">Welcome to Office Supplies Portal</div>
+                    </div>
+                    
+                    <p>Hello {user.full_name or user.username},</p>
+                    
+                    <p>Your account has been created successfully for <strong>{company_name}</strong>. You can now access the Office Supplies Portal to browse products and place orders.</p>
+                    
+                    <div class="credentials">
+                        <strong>Login Credentials:</strong><br>
+                        <strong>Username:</strong> {user.username}<br>
+                        <strong>Email:</strong> {user.email}<br>
+                        <strong>Password:</strong> <code style="background: #dcfce7; padding: 2px 6px; border-radius: 4px; font-family: monospace;">{password}</code><br>
+                        <strong>Role:</strong> {self._format_role_display(user.role)}<br>
+                        <strong>Organization:</strong> {company_name}
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <a href="http://localhost:3000/login" class="login-button">
+                            🛒 Access Office Supplies Portal
+                        </a>
+                    </div>
+                    
+                    <div style="background: #fef3c7; padding: 16px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                        <strong>🔒 Security Note:</strong><br>
+                        Please change your password after first login for security purposes.
+                    </div>
+                    
+                    <p><strong>What you can do in the Portal:</strong></p>
+                    <ul>
+                        <li>Browse and search office supplies catalog</li>
+                        <li>Add items to cart and place orders</li>
+                        <li>Track your order status and history</li>
+                        <li>Manage your profile and preferences</li>
+                        {self._get_role_specific_features(user.role)}
+                    </ul>
+                    
+                    <p>If you have any questions or need assistance, please contact your HR administrator or our support team.</p>
+                    
+                    <div class="footer">
+                        <p>Best regards,<br>{settings.company_name} Team</p>
+                        <p>This is an automated message. Please do not reply to this email.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            return auth_controller.send_email_notification(user.email, subject, html_body, True)
+            
+        except Exception as e:
+            print(f"Customer welcome email error: {e}")
+            return False
+        
+    def _send_vendor_welcome_email(self, user, password, settings):
+        """Send welcome email for vendor users"""
+        try:
+            from controllers.auth_controller import auth_controller
+            
+            subject = f"Welcome to {settings.company_name} - Vendor Portal Access"
             
             html_body = f"""
             <!DOCTYPE html>
@@ -579,6 +683,8 @@ class UserController:
                     .logo {{ font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 10px; }}
                     .title {{ font-size: 20px; color: #1f2937; margin-bottom: 10px; }}
                     .credentials {{ background-color: #f8fafc; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #2563eb; }}
+                    .login-button {{ display: inline-block; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }}
+                    .login-button:hover {{ background: linear-gradient(135deg, #1d4ed8, #1e40af); }}
                     .footer {{ margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }}
                 </style>
             </head>
@@ -586,25 +692,39 @@ class UserController:
                 <div class="container">
                     <div class="header">
                         <div class="logo">{settings.company_name}</div>
-                        <div class="title">Welcome to Office Supplies System</div>
+                        <div class="title">Welcome to Vendor Portal</div>
                     </div>
                     
                     <p>Hello {user.full_name or user.username},</p>
                     
-                    <p>Your account has been created successfully. You can now access the Office Supplies System using your credentials.</p>
+                    <p>Your vendor account has been created successfully. You can now access the Vendor Portal to manage products, orders, and customers.</p>
                     
                     <div class="credentials">
-                        <strong>Login Information:</strong><br>
+                        <strong>Login Credentials:</strong><br>
                         <strong>Username:</strong> {user.username}<br>
                         <strong>Email:</strong> {user.email}<br>
-                        <strong>Role:</strong> {user.role.replace('_', ' ').title()}<br>
-                        <strong>Password:</strong> Use the password provided by your administrator
+                        <strong>Password:</strong> <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-family: monospace;">{password}</code><br>
+                        <strong>Role:</strong> {self._format_role_display(user.role)}
                     </div>
                     
-                    <p><strong>Login URLs:</strong></p>
+                    <div style="text-align: center;">
+                        <a href="http://localhost:3000/vendor-login" class="login-button">
+                            🚀 Access Vendor Portal
+                        </a>
+                    </div>
+                    
+                    <div style="background: #fef3c7; padding: 16px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                        <strong>🔒 Security Note:</strong><br>
+                        Please change your password after first login for security purposes.
+                    </div>
+                    
+                    <p><strong>What you can do in the Vendor Portal:</strong></p>
                     <ul>
-                        <li><strong>Customer Portal:</strong> <a href="http://localhost:3000/login">http://localhost:3000/login</a></li>
-                        <li><strong>Vendor Portal:</strong> <a href="http://localhost:3000/vendor-login">http://localhost:3000/vendor-login</a></li>
+                        <li>Manage product catalog and inventory</li>
+                        <li>Process and track customer orders</li>
+                        <li>Manage customer accounts and pricing</li>
+                        <li>View sales reports and analytics</li>
+                        <li>Configure system settings</li>
                     </ul>
                     
                     <p>If you have any questions or need assistance, please contact our support team.</p>
@@ -621,8 +741,49 @@ class UserController:
             return auth_controller.send_email_notification(user.email, subject, html_body, True)
             
         except Exception as e:
-            print(f"Welcome email error: {e}")
+            print(f"Vendor welcome email error: {e}")
             return False
+        
+    def _format_role_display(self, role):
+        """Format role for display in emails"""
+        role_map = {
+            'vendor_superadmin': 'Vendor Super Administrator',
+            'vendor_admin': 'Vendor Administrator', 
+            'vendor_normal': 'Vendor User',
+            'customer_hr_admin': 'HR Administrator',
+            'customer_dept_head': 'Department Head',
+            'customer_employee': 'Employee'
+        }
+        return role_map.get(role, role.replace('_', ' ').title())
+
+    def _get_role_specific_features(self, role):
+        """Get role-specific features for email"""
+        if role == 'customer_hr_admin':
+            return """
+                        <li>Manage company users and departments</li>
+                        <li>Approve department orders and budgets</li>
+                        <li>View organization-wide reports</li>
+                        <li>Configure company settings</li>
+            """
+        elif role == 'customer_dept_head':
+            return """
+                        <li>Approve department orders</li>
+                        <li>View department order history</li>
+                        <li>Manage department team members</li>
+            """
+        else:
+            return """
+                        <li>Submit orders for approval</li>
+                        <li>View order approval status</li>
+            """
+        
+    def send_welcome_email_without_password(self, user):
+        """Deprecated - use send_welcome_email_with_password instead"""
+        # This method is kept for backward compatibility
+        # Generate a temporary password for the email
+        import uuid
+        temp_password = f"temp_{uuid.uuid4().hex[:8]}"
+        return self.send_welcome_email_with_password(user, temp_password)
     
     def update_user(self, user_id):
         """Update user information - FIXED VERSION"""
@@ -765,7 +926,7 @@ class UserController:
             return {'success': False, 'message': 'Failed to deactivate user'}
     
     def reset_user_password(self, user_id):
-        """Reset user password (Admin only)"""
+        """Reset user password (Admin only) - UPDATED"""
         try:
             current_user = self.auth.get_current_user()
             if not current_user:
@@ -780,6 +941,7 @@ class UserController:
                 return {'success': False, 'message': 'Insufficient permissions'}
             
             # Generate new temporary password
+            import uuid
             temp_password = f"temp_{uuid.uuid4().hex[:8]}"
             
             # Reset password
@@ -788,10 +950,10 @@ class UserController:
             user.is_first_login = True
             
             if user.save():
-                # Send password reset email
+                # Send password reset email with new template
                 data = request.get_json() or {}
                 if data.get('send_email', False):
-                    self.auth.send_welcome_email(user, temp_password)
+                    self.send_welcome_email_with_password(user, temp_password)
                 
                 return {
                     'success': True,
